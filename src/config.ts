@@ -26,6 +26,9 @@ export interface Config {
   schemaDir: string;
   /** База без журнала миграций: номер последней применённой, CONTROLLER_SCHEMA_BASE. */
   schemaBase?: string;
+  /** Сборка: метки образа (CONTROLLER_VERSION/REVISION); dev/unknown без них. */
+  version: string;
+  revision: string;
   /** Потолок ciphertext одного объекта store. Страница отказа и PEM сюда влезают, GeoIP — нет. */
   storeMaxBytes: number;
   /**
@@ -98,6 +101,8 @@ export function load(env: NodeJS.ProcessEnv = process.env): Config {
     schemaDir: env.CONTROLLER_SCHEMA_DIR ?? join(process.cwd(), "schema"),
     /* База старше поставки 1.0: номер последней применённой миграции, см. migrate.ts. */
     schemaBase: env.CONTROLLER_SCHEMA_BASE,
+    version: env.CONTROLLER_VERSION ?? "dev",
+    revision: env.CONTROLLER_REVISION ?? "unknown",
     storeMaxBytes: Number(env.CONTROLLER_STORE_MAX_BYTES ?? 2 * 1024 * 1024),
     uxDir:
       uxDir !== undefined && existsSync(join(uxDir, "index.html"))

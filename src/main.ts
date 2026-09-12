@@ -352,6 +352,8 @@ const app = createApp(cfg, {
 const server = app.listen(cfg.port, () => {
   log("info", "listening", {
     port: cfg.port,
+    version: cfg.version,
+    revision: cfg.revision,
     name: cfg.name,
     cors: cfg.corsOrigin,
     ux: cfg.uxDir ?? "off",

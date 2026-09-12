@@ -140,6 +140,9 @@ export interface AgentPulse {
   id: string;
   node_id: string;
   hostname: string;
+  /** Сборка процесса: версия и ревизия образа, если бинарь их знает. */
+  version?: string;
+  revision?: string;
   config_hash?: string;
   rev?: number;
   apply?: string;
@@ -247,6 +250,9 @@ export interface InspectorPulse {
   subject: string;
   queue: string;
   hostname: string;
+  /** Сборка процесса: версия и ревизия образа, если бинарь их знает. */
+  version?: string;
+  revision?: string;
   ready: boolean;
   at: string;
   host?: HostSnapshot;
@@ -301,6 +307,9 @@ export interface RedisPulse {
   id: string;
   name: string;
   hostname: string;
+  /** Сборка процесса: версия и ревизия образа, если бинарь их знает. */
+  version?: string;
+  revision?: string;
   ready: boolean;
   at: string;
   host?: HostSnapshot;
@@ -340,6 +349,9 @@ export interface S3Pulse {
   id: string;
   name: string;
   hostname: string;
+  /** Сборка процесса: версия и ревизия образа, если бинарь их знает. */
+  version?: string;
+  revision?: string;
   ready: boolean;
   at: string;
   host?: HostSnapshot;
@@ -379,6 +391,9 @@ export interface ServicePulse {
   id: string;
   name: string;
   hostname: string;
+  /** Сборка процесса: версия и ревизия образа, если бинарь их знает. */
+  version?: string;
+  revision?: string;
   ready: boolean;
   at: string;
   host?: HostSnapshot;
@@ -587,6 +602,17 @@ function parseIO(input: unknown): FlowMap | undefined {
 }
 
 /** Секция темпа целиком: окно и каналы едут вместе, порознь смысла не имеют. */
+function fillBuild(pulse: { version?: string; revision?: string }, row: Record<string, unknown>): void {
+  const version = asString(row.version);
+  if (version !== null) {
+    pulse.version = version;
+  }
+  const revision = asString(row.revision);
+  if (revision !== null) {
+    pulse.revision = revision;
+  }
+}
+
 function fillFlow(
   pulse: { window_s?: number; io?: FlowMap },
   row: Record<string, unknown>,
@@ -715,6 +741,7 @@ export function parseAgentPulse(input: unknown): AgentPulse | null {
   if (waf !== undefined) {
     pulse.waf = waf;
   }
+  fillBuild(pulse, row);
   fillFlow(pulse, row);
   fillBus(pulse, row);
   fillErrors(pulse, row);
@@ -870,6 +897,7 @@ export function parseInspectorPulse(input: unknown): InspectorPulse | null {
   if (work !== undefined) {
     pulse.work = work;
   }
+  fillBuild(pulse, row);
   fillFlow(pulse, row);
   fillBus(pulse, row);
   fillErrors(pulse, row);
@@ -1002,6 +1030,7 @@ export function parseRedisPulse(input: unknown): RedisPulse | null {
   if (host !== null) {
     pulse.host = host;
   }
+  fillBuild(pulse, row);
   fillFlow(pulse, row);
   fillBus(pulse, row);
   fillErrors(pulse, row);
@@ -1071,6 +1100,7 @@ export function parseS3Pulse(input: unknown): S3Pulse | null {
   if (host !== null) {
     pulse.host = host;
   }
+  fillBuild(pulse, row);
   fillFlow(pulse, row);
   fillBus(pulse, row);
   fillErrors(pulse, row);
@@ -1151,6 +1181,7 @@ export function parseServicePulse(input: unknown): ServicePulse | null {
   if (conf !== undefined) {
     pulse.conf = conf;
   }
+  fillBuild(pulse, row);
   fillFlow(pulse, row);
   fillBus(pulse, row);
   fillErrors(pulse, row);
