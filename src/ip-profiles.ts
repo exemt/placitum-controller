@@ -6,7 +6,7 @@
  * действием закрывает решение; накопительные -- просьба соседу и запись в
  * живой набор -- совпадение не заканчивают.
  *
- * docs/ip-profiles.md
+ * docs/profiles.md репозитория ip
  */
 
 import type {
@@ -1290,7 +1290,7 @@ async function dumpListText(
   }));
 }
 
-/* Имена живых наборов: keeper адресует их именем (docs/keeper.md). */
+/* Имена живых наборов: keeper адресует их именем (docs/spec.md репозитория keeper). */
 async function namesOf(
   db: Queryable,
   ids: string[],

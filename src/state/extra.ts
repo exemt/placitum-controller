@@ -18,7 +18,7 @@ import { log } from "../log.ts";
  * закоммиченную строку. Сюда потом встанет публикация в шину; nginx `send`
  * отсюда не вызывают: сохранить черновик ≠ разослать поколение.
  */
-/** Ответ keeper на событие записи (docs/keeper.md). */
+/** Ответ keeper на событие записи (docs/spec.md репозитория keeper). */
 export interface KeeperReply {
   ok: boolean;
   error?: string;
@@ -31,7 +31,7 @@ export interface ModelBus {
   hydrated(): void;
   /**
    * Определение набора создано, изменено или снято. Докладывается keeper
-   * (docs/keeper.md): он перечитывает набор и раздаёт зеркалам новую эпоху.
+   * (docs/spec.md репозитория keeper): он перечитывает набор и раздаёт зеркалам новую эпоху.
    */
   datasetChanged(event: {
     op: "upsert" | "delete";

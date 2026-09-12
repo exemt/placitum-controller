@@ -16,7 +16,7 @@ create table if not exists auth_profiles (
     name            text not null,
     description     text not null default '',
     -- Документ профиля: mode, login, gate, session, ticket, list, upstream,
-    -- factors, providers, lockout, roster. Схема -- docs/inspectors/auth.
+    -- factors, providers, lockout, roster. Схема -- docs/README.md репозитория auth.
     doc             jsonb not null default '{}'::jsonb,
     created_at      timestamptz not null default now(),
     updated_at      timestamptz not null default now(),

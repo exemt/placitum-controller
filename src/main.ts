@@ -26,6 +26,7 @@ import { CryptoServiceClient } from "./crypto-service-client.ts";
 import { DatasetRepo } from "./datasets.ts";
 import { InspectorRepo } from "./inspectors.ts";
 import { createPool } from "./db.ts";
+import { migrate } from "./migrate.ts";
 import { currentLevel, log, setLevel } from "./log.ts";
 import { levelFor } from "./log-levels.ts";
 import { startLogShip } from "./log-ship.ts";
@@ -97,6 +98,24 @@ if (crypto !== undefined) {
 }
 
 const pool = createPool(cfg.databaseUrl);
+
+/*
+  Схема -- до всего остального: репозитории ниже читают таблицы, которых на
+  пустой базе ещё нет. Ошибка миграции -- отказ старта, а не работа на схеме,
+  которой код не соответствует (migrate.ts).
+*/
+try {
+  const schema = await migrate(pool, { schemaDir: cfg.schemaDir, base: cfg.schemaBase });
+  log("info", "schema ready", {
+    dir: cfg.schemaDir,
+    baseline: schema.baseline,
+    applied: schema.applied.length,
+  });
+} catch (err) {
+  log("error", "schema migration failed", { error: String(err) });
+  process.exit(1);
+}
+
 const store = new StoreRepo(pool);
 /* Состав активных наборов -- у keeper во внутреннем Redis; панель читает оттуда. */
 const datasets = new DatasetRepo(

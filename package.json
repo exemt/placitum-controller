@@ -11,6 +11,8 @@
     "start": "node src/main.ts",
     "dev": "node --watch src/main.ts",
     "typecheck": "tsc --noEmit",
+    "migrate": "node src/migrate.ts",
+    "migrate:check": "node src/migrate.ts --check",
     "test": "node --test --experimental-strip-types src/**/*.test.ts",
     "load-geo": "node src/load-geo.ts",
     "dump-geo": "node src/dump-geo.ts",

@@ -269,7 +269,7 @@ export class DatasetRepo {
 
   /*
    * Состав активных наборов живёт у keeper во внутреннем Redis, не в
-   * Postgres (docs/keeper.md): записи, размер и поиск по ним читаются оттуда.
+   * Postgres (docs/spec.md репозитория keeper): записи, размер и поиск по ним читаются оттуда.
    * null -- внутренний Redis не назван, и активные наборы читаются пустыми.
    */
   private readonly live: CompileRedis | null;

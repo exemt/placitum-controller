@@ -106,7 +106,7 @@ export class CompileRedis {
   }
 
   /*
-   * Состав активного набора у keeper (docs/keeper.md): ZSET значение → срок
+   * Состав активного набора у keeper (docs/spec.md репозитория keeper): ZSET значение → срок
    * (мс UTC, 0 -- вечная) и HASH значение → писатель ␟ повод. Панель читает
    * его отсюда, а не из Postgres: keeper в Postgres состав не пишет.
    */

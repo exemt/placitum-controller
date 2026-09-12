@@ -25,7 +25,7 @@ export const HAPROXY_CONF_SUBJECT = "waf.desired.haproxy";
 
 /**
  * Умолчания — поставочный конфиг стенда (bootstrap образа балансировщика,
- * haproxy/agent/entrypoint.sh): пустой
+ * agents/haproxy/entrypoint.sh): пустой
  * документ обязан компилироваться ровно в то поведение, с которого контур
  * начинал, иначе первая же рассылка меняла бы трафик молча.
  */
@@ -102,7 +102,7 @@ export function renderHaproxyCfg(settings: HaproxySettings): string {
     `    maxconn     ${maxconn}`,
     "    log         stdout format raw local0",
     // Копия журнала агенту haproxy: он кладёт строки в waf.log, как агент
-    // ноды -- строки nginx (haproxy/agent/internal/syslogin). Промах сокета
+    // ноды -- строки nginx (agents/haproxy/internal/syslogin). Промах сокета
     // haproxy не держит: датаграмма уходит без ожидания.
     "    log         /var/run/waf/log.sock len 8192 local0",
     `    tune.bufsize ${bufsize}`,

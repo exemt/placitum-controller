@@ -34,7 +34,7 @@ export type CaptchaAccept = CaptchaVerb | "*";
  * Что профиль принимает от соседа. Единственное место, где чужое высказывание
  * что-то значит: без правила действие не применяется вовсе. Потолков и фильтра
  * осей больше нет: границы держат загрузчик отправителя и ёмкость корзины
- * (docs/inspectors/captcha/buckets.md).
+ * (docs/buckets.md репозитория captcha).
  */
 export interface CaptchaPriorRule {
   /** Имя отправителя; `*` -- любой (тогда только challenge). */
@@ -61,7 +61,7 @@ export interface CaptchaBucketTier {
 }
 
 /**
- * Корзины (docs/inspectors/captcha/buckets.md): общий счёт субъектов на
+ * Корзины (docs/buckets.md репозитория captcha): общий счёт субъектов на
  * контурном Redis. Наполняют соседи просьбами note, проценты — от ёмкости;
  * пороги у каждой корзины свои.
  */
@@ -96,7 +96,7 @@ export type CaptchaNext = "" | "allow" | "challenge";
  * тот же, по которому считаются корзины; `net_all` -- хард: все анонсы,
  * накрывающие адрес, включая широкие чужие; `asn` -- состав системы
  * эффективного анонса целиком, все её анонсы. Анонсы и состав капча берёт у
- * кодера в момент записи (docs/inspectors/captcha/README.md, «Запись в
+ * кодера в момент записи (docs/README.md репозитория captcha, «Запись в
  * набор: кого именно»).
  */
 export type CaptchaWrite = "addr" | "net" | "net_all" | "asn" | "cid";

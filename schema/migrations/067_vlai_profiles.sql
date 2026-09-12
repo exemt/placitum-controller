@@ -17,7 +17,7 @@ create table if not exists vlai_profiles (
     name            text not null,
     description     text not null default '',
     -- Документ профиля: mode, overload, trigger.prior[], outcomes[].
-    -- Схема -- docs/inspectors/vlai/README.md.
+    -- Схема -- docs/README.md репозитория vlai.
     doc             jsonb not null default '{}'::jsonb,
     created_at      timestamptz not null default now(),
     updated_at      timestamptz not null default now(),

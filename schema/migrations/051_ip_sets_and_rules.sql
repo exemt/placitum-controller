@@ -8,7 +8,7 @@
 -- про каждый, что тот значит. "Белый" и "чёрный" остались двумя из пяти
 -- значений колонки action.
 --
--- docs/ip-profiles.md
+-- docs/profiles.md репозитория ip
 
 create table if not exists ip_sets (
     id                   uuid primary key default gen_random_uuid(),

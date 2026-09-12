@@ -3775,7 +3775,7 @@ export type CaptchaAccept = CaptchaVerb | "*";
 /**
  * Что профиль принимает от соседа. Три поля: осей и потолков больше нет --
  * куда падает заряд, называет сама просьба, границы держат отправитель и
- * ёмкость корзины (docs/inspectors/captcha/buckets.md).
+ * ёмкость корзины (docs/buckets.md репозитория captcha).
  */
 export interface CaptchaPriorRule {
   /** Имя отправителя; `*` -- любой (тогда только challenge). */
@@ -4050,7 +4050,7 @@ export interface JsonResponsePhase {
 /*
  * Кадры WebSocket: третья независимая проверка профиля. Схема сообщения
  * выбирается по направлению и по дискриминатору в теле; политики свои у
- * каждого направления (docs/inspectors/json/README.md, «Кадры WebSocket»).
+ * каждого направления (docs/README.md репозитория json, «Кадры WebSocket»).
  */
 export type JsonDirection = "c2s" | "s2c" | "any";
 

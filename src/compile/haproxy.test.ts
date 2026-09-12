@@ -20,7 +20,7 @@ test("fmtMs: круглые сроки печатаются крупной ед�
 test("renderHaproxyCfg: пустой документ -- поставочный конфиг стенда", () => {
   const cfg = renderHaproxyCfg({});
 
-  // Ключевые строки поставочного конфига (bootstrap в haproxy/agent/entrypoint.sh).
+  // Ключевые строки поставочного конфига (bootstrap в agents/haproxy/entrypoint.sh).
   assert.match(cfg, /maxconn {5}4096/);
   assert.match(cfg, /tune\.bufsize 1048576/);
   assert.match(cfg, /resolvers docker/);
