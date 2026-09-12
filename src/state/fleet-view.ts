@@ -76,6 +76,9 @@ export interface FleetMemberView extends MarksView {
   health: {
     node_id: string;
     hostname?: string;
+    /** Сборка агента: версия и ревизия образа, если он их знает. */
+    version?: string;
+    revision?: string;
     config_hash?: string;
     /**
      * Только у агента: отпечаток боевого nginx.conf, который он положил на
@@ -110,6 +113,9 @@ export interface InspectorView extends MarksView {
   queue: string;
   hostname: string;
   ready: boolean;
+  /** Сборка процесса: версия и ревизия образа, если бинарь их знает. */
+  version?: string;
+  revision?: string;
   host?: AgentRecord["host"];
   work?: InspectorRecord["work"];
   window_s?: number;
@@ -134,6 +140,9 @@ export interface RedisView extends MarksView {
   name: string;
   hostname: string;
   ready: boolean;
+  /** Сборка процесса: версия и ревизия образа, если бинарь их знает. */
+  version?: string;
+  revision?: string;
   host?: AgentRecord["host"];
   window_s?: number;
   io?: FlowMap;
@@ -153,6 +162,9 @@ export interface S3View extends MarksView {
   name: string;
   hostname: string;
   ready: boolean;
+  /** Сборка процесса: версия и ревизия образа, если бинарь их знает. */
+  version?: string;
+  revision?: string;
   host?: AgentRecord["host"];
   window_s?: number;
   io?: FlowMap;
@@ -172,6 +184,9 @@ export interface ServiceView extends MarksView {
   name: string;
   hostname: string;
   ready: boolean;
+  /** Сборка процесса: версия и ревизия образа, если бинарь их знает. */
+  version?: string;
+  revision?: string;
   host?: AgentRecord["host"];
   work?: ServiceRecord["work"];
   /** Поколение своего канала (агент haproxy); у logger и geo секции нет. */
@@ -345,6 +360,8 @@ function jsonInspector(
     queue: row.queue,
     hostname: row.hostname,
     ready: row.ready,
+    version: row.version,
+    revision: row.revision,
     host: row.host,
     work: row.work,
     window_s: row.window_s,
@@ -370,6 +387,8 @@ function jsonStore(row: StoreRecord, now: number): StoreView {
     name: row.name,
     hostname: row.hostname,
     ready: row.ready,
+    version: row.version,
+    revision: row.revision,
     host: row.host,
     window_s: row.window_s,
     io: row.io,
@@ -405,6 +424,8 @@ function jsonService(row: ServiceRecord, now: number): ServiceView {
     name: row.name,
     hostname: row.hostname,
     ready: row.ready,
+    version: row.version,
+    revision: row.revision,
     host: row.host,
     work: row.work,
     conf: row.conf,
@@ -449,6 +470,8 @@ export function snapshotFleet(state: RootState, now = Date.now()): FleetSnapshot
       health: {
         node_id: agent.node_id,
         hostname: agent.hostname,
+        version: agent.version,
+        revision: agent.revision,
         config_hash: agent.config_hash,
         conf_fingerprint: agent.conf_fingerprint,
       },

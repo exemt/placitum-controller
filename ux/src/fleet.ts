@@ -75,6 +75,8 @@ export interface FleetMemberView extends MarksView {
   health: {
     node_id: string;
     hostname?: string;
+    version?: string;
+    revision?: string;
     config_hash?: string;
     /**
      * Только у агента: отпечаток боевого nginx.conf, который он положил на
@@ -133,6 +135,8 @@ export interface InspectorView extends MarksView {
   queue: string;
   hostname: string;
   ready: boolean;
+  version?: string;
+  revision?: string;
   host?: FleetMemberView["host"];
   work?: {
     workers?: number;
@@ -177,6 +181,8 @@ export interface ServiceView extends MarksView {
   name: string;
   hostname: string;
   ready: boolean;
+  version?: string;
+  revision?: string;
   host?: FleetMemberView["host"];
   work?: ServiceWork;
   /** Поколение своего канала (агент haproxy); у logger и geo секции нет. */
@@ -200,6 +206,8 @@ export interface RedisView extends MarksView {
   name: string;
   hostname: string;
   ready: boolean;
+  version?: string;
+  revision?: string;
   host?: FleetMemberView["host"];
   window_s?: number;
   io?: FlowMap;
@@ -237,6 +245,8 @@ export interface S3View extends MarksView {
   name: string;
   hostname: string;
   ready: boolean;
+  version?: string;
+  revision?: string;
   host?: FleetMemberView["host"];
   window_s?: number;
   io?: FlowMap;

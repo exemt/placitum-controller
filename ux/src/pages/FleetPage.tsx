@@ -356,7 +356,7 @@ function RedisStoreBlock({
           title={t("fleetPage.store")}
           // Redis в контуре два -- обменник и внутренний; различает их имя
           // из WAF_REDIS_NAME, hostname у сайдкаров почти одинаковый.
-          label={`${store.name} · ${store.hostname} · ${seenAge(store.seen_at)}`}
+          label={`${store.name} · ${store.hostname}${build(store.version)} · ${seenAge(store.seen_at)}`}
           flags={flags}
           errorCount={store.errors?.length ?? 0}
           skewMs={store.skew_ms}
@@ -461,7 +461,7 @@ function S3StoreBlock({
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
         <SummaryRow
           title={t("fleetPage.storeS3")}
-          label={`${store.hostname} · ${seenAge(store.seen_at)}`}
+          label={`${store.hostname}${build(store.version)} · ${seenAge(store.seen_at)}`}
           flags={flags}
           errorCount={store.errors?.length ?? 0}
           skewMs={store.skew_ms}
@@ -565,7 +565,7 @@ const AgentBlock = memo(function AgentBlock({ id }: { id: string }) {
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
         <SummaryRow
           title={agent.health.node_id}
-          label={`${t("fleetPage.agent")} · ${agent.workers.length} wrk · ${seenAge(agent.seen_at)}`}
+          label={`${t("fleetPage.agent")}${build(agent.health.version)} · ${agent.workers.length} wrk · ${seenAge(agent.seen_at)}`}
           flags={flags}
           errorCount={agent.errors?.length ?? 0}
           skewMs={agent.skew_ms}
@@ -756,7 +756,7 @@ const ServiceBlock = memo(function ServiceBlock({ name }: { name: string }) {
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
         <SummaryRow
           title={serviceName(name, t)}
-          label={`${head.hostname} · ${up}/${rows.length}`}
+          label={`${head.hostname}${build(head.version)} · ${up}/${rows.length}`}
           flags={flags}
           errorCount={errors.length}
           skewMs={single ? head.skew_ms : undefined}
@@ -897,7 +897,7 @@ function ServiceInstances({ rows }: { rows: ServiceView[] }) {
 
   const columns: FleetColumn<ServiceView>[] = memberColumns(t, {
     nameLabel: t("fleetPage.instance"),
-    name: (row) => ({ title: row.hostname, sub: shortId(row.uuid) }),
+    name: (row) => ({ title: row.hostname, sub: `${shortId(row.uuid)}${build(row.version)}` }),
     status: (row) => row.status,
     middle: [
       ...hostColumns<ServiceView>(t, (row) => row.host),
@@ -1257,6 +1257,11 @@ function orphanNodeIds(rows: FleetMemberView[]): string[] {
     }
   }
   return ids;
+}
+
+// Сборка процесса в подписи: « · v1.2.3»; у сборки без версии — ничего.
+function build(version?: string): string {
+  return version ? ` · ${version}` : "";
 }
 
 function seenAge(seenAt: string): string {
