@@ -1,0 +1,272 @@
+/* Подсказка у отметки переменной или метки. Палитра — как у KeywordTooltip. */
+
+.mark-tip {
+  box-sizing: border-box;
+  /* Шире карточек с адресом: `RESPONSE-980-CORRELATION.conf` рядом с номером
+     и строкой иначе режется раньше, чем читается. Мера — как у компактного
+     мини-редактора. */
+  width: min(560px, 80vw);
+  max-height: min(420px, 55vh);
+  /* Полоса у края всей панели, а не у внутренней колонки: иначе подвал
+     «прилипал» снизу, а крутился только список между шапкой и им. */
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 10px 12px;
+  background: #252526;
+  color: #d4d4d4;
+  border: 1px solid #3c3c3c;
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  font-family: system-ui, sans-serif;
+  font-size: 12.5px;
+  line-height: 1.45;
+  /* Firefox — те же тонкие тёмные полосы, что у мини-редактора. */
+  scrollbar-width: thin;
+  scrollbar-color: #4a4a4a transparent;
+}
+
+/* Тонкие тёмные полосы вместо системных «белых» — как у .mini-editor__body. */
+.mark-tip::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.mark-tip::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mark-tip::-webkit-scrollbar-thumb {
+  background: #4a4a4a;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.mark-tip::-webkit-scrollbar-thumb:hover {
+  background: #5a5a5a;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.mark-tip::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.mark-tip__name {
+  font-family: 'Fira Code', 'Cascadia Code', Menlo, Consolas, monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: #9cdcfe;
+  overflow-wrap: anywhere;
+}
+
+.mark-tip__note {
+  margin-top: 4px;
+  color: #cccccc;
+}
+
+.mark-tip__section {
+  margin-top: 10px;
+}
+
+.mark-tip__section + .mark-tip__section {
+  padding-top: 10px;
+  border-top: 1px solid #3c3c3c;
+}
+
+.mark-tip__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.mark-tip__title {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8b8b8b;
+}
+
+.mark-tip__count {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: #6e7681;
+}
+
+.mark-tip__empty {
+  color: #8b8b8b;
+}
+
+.mark-tip__sites {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mark-tip__site {
+  padding: 6px 8px;
+  border: 1px solid #333333;
+  border-radius: 3px;
+  background: #1e1e1e;
+}
+
+.mark-tip__where {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mark-tip__addr {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.mark-tip__file {
+  font-weight: 600;
+  color: #9cdcfe;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mark-tip__line {
+  flex-shrink: 0;
+  color: #6e7681;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Имя файла и строки — отдельные переходы: в начало файла и на строку. */
+.mark-tip__link {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mark-tip__link:hover {
+  text-decoration: underline;
+  color: #d4d4d4;
+}
+
+.mark-tip__file.mark-tip__link:hover {
+  color: #b8e0ff;
+}
+
+/* Чип номера на тёмной карточке — чуть плотнее, как в шапке мини-редактора. */
+.mark-tip__where .MuiChip-root {
+  height: 22px;
+  background: #3c3c3c;
+  color: #d4d4d4;
+  flex-shrink: 0;
+}
+
+.mark-tip__where .MuiChip-label {
+  padding-left: 8px;
+  padding-right: 8px;
+  font-size: 12px;
+}
+
+.mark-tip__code {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'Fira Code', 'Cascadia Code', Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.4;
+  letter-spacing: normal;
+  font-variant-ligatures: none;
+}
+
+.mark-tip__more {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  margin: 4px 0 0;
+  padding: 4px 2px;
+  border: none;
+  background: transparent;
+  color: #9cdcfe;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.mark-tip__more:hover {
+  color: #cce7ff;
+}
+
+.mark-tip__more-count {
+  font-weight: 600;
+}
+
+.mark-tip__more-hint {
+  font-size: 11px;
+  color: #6e7681;
+}
+
+.mark-tip__more:hover .mark-tip__more-hint {
+  color: #8b8b8b;
+}
+
+.mark-tip__warn {
+  margin-top: 10px;
+  padding: 6px 8px;
+  border: 1px solid #5a4a20;
+  border-radius: 3px;
+  background: #2a2416;
+  color: #d7ba7d;
+  font-size: 12px;
+}
+
+.mark-tip__footer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #3c3c3c;
+}
+
+/* Чип «посмотреть все» на тёмной панели, а не в теме конструктора. */
+.mark-tip__footer .MuiChip-root {
+  height: 22px;
+  background: #37373d;
+  color: #cccccc;
+  border: 1px solid #3c3c3c;
+}
+
+.mark-tip__footer .MuiChip-root:hover {
+  background: #424242;
+}
+
+.mark-tip__footer-hint {
+  font-size: 11px;
+  color: #6e7681;
+}

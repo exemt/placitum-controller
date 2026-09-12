@@ -1,0 +1,1326 @@
+import type { KeywordCategory } from '../components/syntax/modsecKeywords';
+import type { DiagnosticCode, DiagnosticSlot, DiagnosticTopic } from '../modsec/diagnostics';
+import type { FixKind } from '../modsec/fixes';
+
+export const LOCALES = ['en', 'ru'] as const;
+export type Locale = (typeof LOCALES)[number];
+
+export const LOCALE_LABELS: Record<Locale, string> = {
+  en: 'EN',
+  ru: 'RU',
+};
+
+/**
+ * Плоский словарь UI-строк.
+ *
+ * Описания ключевых слов ModSecurity живут рядом с самими ключевыми словами
+ * (`modsecKeywords.ts`), человекочитаемые названия переменных, операторов и
+ * трансформаций — в `modsec/semantics.ts`. Здесь только «обвязка» интерфейса
+ * и тексты диагностик компилятора.
+ *
+ * В значениях допустимы подстановки вида `{name}` — их раскрывает `t()`.
+ */
+const en = {
+  'app.title': 'ModSecurity Rule Editor',
+  'app.close': 'Close',
+  'app.cancel': 'Cancel',
+  'app.apply': 'Apply',
+  'app.details': 'Details',
+  'app.hideDetails': 'Hide',
+  'app.showFull': 'Show the whole value',
+  'app.language': 'Language',
+
+  'tab.text': 'Text',
+  'tab.visual': 'Visual',
+  'tab.visualBlocked': 'Fix the errors in the text to switch to the visual editor',
+
+  'editor.ariaLabel': 'ModSecurity rules editor',
+
+  'debug.title': 'Debug',
+  'debug.tab.diagnostics': 'Diagnostics',
+  'debug.tab.model': 'Builder model',
+  'debug.tab.parsed': 'Parsed document',
+  'debug.empty': 'Nothing parsed yet.',
+  'debug.clean': 'No problems found.',
+  'debug.summary': '{errors} errors, {warnings} warnings',
+  'debug.advice': '{advice} advice',
+  'debug.adviceHide': 'Hide advice',
+  'debug.adviceShow': 'Show advice',
+  'debug.collapse': 'Collapse the panel',
+  'debug.expand': 'Expand the panel',
+  'debug.inspecting': 'checking\u2026',
+  'debug.shownOf': 'showing {shown} of {total} — the rest is in the text tab',
+  'debug.line': 'line {line}',
+  'debug.inBuilder': 'in the builder',
+  'debug.condition': 'condition {index}',
+  'debug.inFile': 'in {file}',
+  'debug.blocked': 'Visual editor is blocked until the errors are fixed.',
+
+  'builder.empty': 'No rules yet.',
+  'builder.add': 'Add',
+  'builder.addRule': 'Add rule',
+  'builder.addAction': 'Add unconditional action',
+  'builder.addMarker': 'Add marker',
+  'builder.addDirective': 'Add directive',
+  'builder.addDirectiveHint':
+    'The name is chosen once: a standing line no longer changes it, since every name has an argument of its own kind. The value is filled in here as well — ModSecurity would not load a directive without it, and one such error blocks the whole builder.',
+  'builder.addDirectivePick': 'Pick a directive',
+  'builder.addDirectiveIncomplete': 'Not filled in yet: such a line would not load.',
+  'builder.addDirectiveLine': 'Goes into the file:',
+  'builder.addDirectiveAction': 'Add',
+  'builder.deleteRule': 'Delete rule',
+  'builder.rule': 'Rule',
+  'builder.ruleId': 'Rule ID',
+  'builder.description': 'Description',
+  'builder.descriptionPlaceholder': 'What this rule does',
+
+  // Счётчики блоков: голое число у правого края полосы ничего не обещает,
+  // и подсказка обязана сказать, что именно посчитано, а не сколько.
+  'builder.countConditions': 'Conditions in the chain: {count} — they fire only together',
+  'builder.countConditionNotes': 'Notes about these conditions: {count}',
+  'builder.countActions':
+    'Actions of the rule: {count} — the ID is not among them, it stands in the card header',
+  'builder.countRuleNotes':
+    'Notes about the rule as a whole: {count} — what is said about a condition stands by it',
+  'builder.countAllNotes': 'Notes about this rule: {count}, conditions included',
+
+  'builder.conditions': 'Conditions',
+  'builder.and': 'AND',
+  'builder.or': 'OR',
+  'builder.addCondition': 'Add condition',
+  'builder.deleteCondition': 'Delete condition',
+  'builder.addOr': 'Add',
+  'builder.deleteTarget': 'Remove check area',
+
+  'builder.scope': 'Check area',
+  'builder.parameters': 'Parameters',
+  'builder.anyParameter': 'Any',
+  'builder.paramsAll': 'ALL',
+  'builder.paramsOnly': 'ONLY',
+  'builder.paramsExcept': 'ALL EXCEPT',
+  // Цель без положительной части: список только вычитает из соседних.
+  'builder.except': 'EXCEPT',
+  'builder.paramsAllHint': 'No parameters listed — the whole collection is checked',
+  'builder.paramsModeHint': 'Switch: the whole collection, only the listed parameters, or the collection without them',
+  'builder.paramsModeTwoHint': 'Switch: the whole collection or only the listed parameters',
+  'builder.paramsAllBlocked': 'Clear the list to check the whole collection',
+  'builder.paramsRequired': 'Add at least one value — the whole collection is checked so far',
+  'builder.addParam': 'Add parameter',
+  'builder.exclusions': 'Exclusions',
+  'builder.addExcept': 'Add exclusion',
+  'builder.listHint': 'One value per line.',
+  'builder.listHintComma': 'A comma separates values too.',
+  'builder.count': 'Count',
+  'builder.countHint': 'Compare the number of elements instead of their values',
+  'builder.countUnavailable': 'Counting works only for collections',
+
+  'builder.transform': 'Transformation',
+  'builder.transformNone': 'None',
+  'builder.addTransform': 'Add transformation',
+  'builder.transformRequired': 'Choose a transformation',
+  'builder.transformsBlocked': 'Counting replaces the value with a number, so transformations do not apply',
+  'builder.dragTransform': 'Drag to reorder',
+
+  'builder.previewOpen': 'Try a sample value',
+  'builder.previewClose': 'Close the sample check',
+  'builder.previewNoTransforms':
+    'No transformations left — there is nothing to run the sample through',
+  'builder.previewSample': 'Sample value',
+  'builder.previewHint': 'What arrives at this check — the pipeline shows what it turns into',
+  'builder.previewInput': 'input',
+  'builder.previewUnchanged': 'unchanged',
+  'builder.previewEmptyValue': 'nothing left',
+  'builder.previewOpaque': 'result not reproduced here',
+  'builder.previewMatch': 'matches',
+  'builder.previewNoMatch': 'does not match',
+  'builder.previewUnknown': 'not evaluated here',
+
+  'builder.choiceAll': 'Show every option — {count} more',
+  'builder.choiceCommon': 'Show the common ones only',
+  'builder.choiceOften': 'often used',
+
+  'builder.operator': 'Operator',
+  'builder.value': 'Value',
+  'builder.addValue': 'Add value',
+  'builder.ipInvalid': 'Not an IPv4/IPv6 address or CIDR network (e.g. 192.168.1.0/24 or 2001:db8::/32).',
+  'builder.negate': 'Invert the result of this check',
+  'builder.noArgument': 'This operator takes no value',
+  'builder.editInWindow': 'Edit in a window',
+  'builder.regexHint': 'Regular expression: checked as you type.',
+  'builder.regexInvalid': 'The pattern does not compile: {reason}',
+  'builder.regexPcre':
+    'The pattern uses PCRE syntax that JavaScript has no equivalent for — "(?i)" and the like. The check translates it, so the rule is fine.',
+  'builder.regexUnsupported':
+    'PCRE has no JavaScript equivalent for "{what}". The rule itself is fine, but the editor cannot check this pattern.',
+
+  'builder.actions': 'Actions',
+  'builder.id': 'ID',
+  'builder.phase': 'Phase',
+  'builder.disruptive': 'Reaction',
+  'builder.status': 'HTTP status',
+  'builder.message': 'Message',
+  'builder.logdata': 'Log data',
+  'builder.severity': 'Severity',
+  'builder.ver': 'Rule set version',
+  'builder.rev': 'Revision',
+  'builder.maturity': 'Maturity',
+  'builder.accuracy': 'Accuracy',
+  'builder.tags': 'Tags',
+  'builder.addTag': 'Add tag',
+  'builder.tagInfo': 'What the set knows about the tag',
+  'builder.tagNote':
+    'A label rules share so exclusions can pick them as a group — SecRuleRemoveByTag and ctl:ruleRemoveByTag select by this name',
+  'builder.tagUsedBy': 'On rules',
+  'builder.tagNeverUsed': 'nowhere — no rule in the loaded files carries this tag',
+  'builder.tagExcludedBy': 'Selected by',
+  'builder.tagNeverExcluded': 'nowhere — no exclusion picks rules by this tag',
+  'builder.tagIconHint': 'Click the tag to browse all rules with this name',
+  'builder.capture': 'Capture matches',
+  'builder.log': 'Log',
+  'builder.auditlog': 'Audit log',
+  'builder.setvar': 'Set variables',
+  'builder.setvarCollection': 'Collection',
+  'builder.setvarName': 'Variable',
+  'builder.setvarOp': 'Record',
+  'builder.setvarValue': 'Value',
+  'builder.addSetvar': 'Set a variable',
+  'builder.deleteSetvar': 'Remove the assignment',
+  'builder.setvarNameRequired': 'Without a name the assignment writes nowhere',
+  'builder.setvarNoValue':
+    'Removal takes no value: it takes the variable out of the collection instead of writing something into it',
+  'builder.setvarRaw':
+    'No form for this one: a macro in the name, a collection the engine fills itself or a record with no value — edited as a whole line',
+
+  'builder.variableInfo': 'What the set knows about the variable',
+  'builder.variableSetIn': 'Set in',
+  'builder.variableReadIn': 'Read in',
+  'builder.variableNeverSet': 'nowhere — a rule reading it gets an empty value',
+  'builder.variableNeverRead': 'nowhere — what this record accumulates is never checked',
+  'builder.variableEarlyRead':
+    'The first read runs before the first write: phase comes first in the execution order, and what is read before the write is always empty',
+  'builder.variableNoStorage':
+    'The collection is not opened: without initcol and SecDataDir the record does not survive the request',
+  'builder.variableRule': 'rule {id}, {where}',
+  'builder.variableLine': 'line {line}',
+  'builder.variableLineIn': '{file}, line {line}',
+  'builder.variableSitesTitle': '{name} · matching rules · {count}',
+  'builder.variableMore': '+{count} more',
+  'builder.variableBrowseHint': 'Click to open the source list',
+  'builder.variableIconHint': 'Click the icon to browse all related rules',
+  'builder.variableUse.set': 'Sets the variable',
+  'builder.variableUse.add': 'Increments the variable',
+  'builder.variableUse.sub': 'Decrements the variable',
+  'builder.variableUse.delete': 'Deletes the variable',
+  'builder.variableUse.expire': 'Sets the lifetime',
+  'builder.variableUse.read': 'Reads the variable',
+
+  'builder.otherActions': 'Other actions',
+  'builder.unset': 'not set',
+
+  'builder.notes': 'Notes',
+
+  'builder.secAction': 'Unconditional action',
+  'builder.marker': 'Marker',
+  'builder.saveMarker': 'Save marker',
+  'builder.markerInfo': 'What the set knows about the marker',
+  'builder.markerNote':
+    'A named landing point for skipAfter: rules jump here and skip everything written between the jump and the marker',
+  'builder.markerReferencedBy': 'Referenced by',
+  'builder.markerNeverReferenced': 'nowhere — no skipAfter in the loaded files jumps here',
+  'builder.markerIconHint': 'Click the icon to browse all referring rules',
+  'builder.directive': 'Directive',
+  'builder.readOnly': 'Editable in the text tab only',
+  'builder.deleteBlock': 'Delete the block',
+  'builder.duplicateLine': 'Duplicate the line',
+  'builder.deleteLine': 'Delete the line',
+
+  'builder.exclusionOpRemove': 'removes the rule',
+  'builder.exclusionOpRemoveTarget': 'removes one target',
+  'builder.exclusionOpUpdateTarget': 'changes the targets',
+  'builder.exclusionOpUpdateAction': 'changes the actions',
+  'builder.exclusionInactive': 'does not apply',
+  'builder.exclusionInactiveHint':
+    'It stands above the rules it names, and ModSecurity has not read them yet at that point',
+  'builder.exclusionLateHint':
+    'It runs after the rules it names — a ctl exclusion has to fire earlier, and the phase decides that before the line does',
+  'builder.exclusionNoMatch': 'no rule found',
+  'builder.exclusionNoMatchHint':
+    'No rule of the loaded files matches — it may come from a set that is not open here',
+  'builder.exclusionReveal': 'Show rule {id}',
+  'builder.exclusionRevealIn': 'Show rule {id} in {file}',
+  'builder.rulePreviewText': 'Show rule {id} in the text editor',
+  'builder.rulePreviewTextIn': 'Show rule {id} in the text editor («{file}»)',
+  'builder.rulePreviewPeek': 'Preview rule {id}',
+  'builder.rulePreviewPeekIn': 'Preview rule {id} («{file}»)',
+  'builder.rulePreviewExpand': 'Open a larger preview',
+  'builder.rulePreviewViewAll': 'View all · {count}',
+  'builder.rulePreviewListTitle': 'Matching rules · {count}',
+  'builder.rulePreviewFilterId': 'Filter by id',
+  'builder.rulePreviewFilterFile': 'File',
+  'builder.rulePreviewFilterAllFiles': 'All files',
+  'builder.rulePreviewFilterEmpty': 'Nothing matches the filter',
+  'builder.rulePreviewExpandRow': 'Show the rule source',
+  'builder.rulePreviewCollapse': 'Hide the rule source',
+  'builder.rulePreviewMissing': 'The rule is no longer in the loaded files',
+  'builder.rulePreviewOpenFile': 'Show the start of {file}',
+  'builder.rulePreviewOpenLines': 'Show line {line}',
+  'builder.rulePreviewOpenLinesRange': 'Show lines {from}–{to}',
+  'builder.markerPreviewReveal': 'Show marker {label}',
+  'builder.markerPreviewRevealIn': 'Show marker {label} in {file}',
+  'builder.markerPreviewPeek': 'Preview marker {label}',
+  'builder.markerPreviewPeekIn': 'Preview marker {label} («{file}»)',
+  'builder.markerPreviewText': 'Show marker {label} in the text editor',
+  'builder.markerPreviewTextIn': 'Show marker {label} in the text editor («{file}»)',
+  'builder.markerPreviewMissing': 'No marker «{label}» in the loaded files',
+  'builder.directivePreviewReveal': 'Show «{name}» in the builder',
+  'builder.directivePreviewRevealIn': 'Show «{name}» in {file}',
+  'builder.directivePreviewPeek': 'Preview «{name}»',
+  'builder.directivePreviewPeekIn': 'Preview «{name}» («{file}»)',
+  'builder.directivePreviewText': 'Show «{name}» in the text editor',
+  'builder.directivePreviewTextIn': 'Show «{name}» in the text editor («{file}»)',
+  'builder.markFile': 'in {file}',
+  'builder.exclusionRule': 'rule:',
+  'builder.exclusionRules': 'rules:',
+  'builder.effectRemoved': 'off',
+  'builder.effectRemovedHint': 'Removed by "{name}" on line {line}',
+  'builder.effectRemovedRuntime': 'off per request',
+  'builder.effectRemovedRuntimeHint':
+    '"{name}" on line {line} removes it for one transaction — those requests where the rule carrying that action fired',
+  'builder.effectChanged': 'changed',
+  'builder.effectChangedHint': 'Changed by "{name}" on line {line}',
+  'builder.effectChangedRuntime': 'changed per request',
+  'builder.effectChangedRuntimeHint':
+    '"{name}" on line {line} changes it for one transaction — those requests where the rule carrying that action fired',
+
+  'builder.setsExclusions': 'Sets exclusions',
+  'builder.exclusionsNone': 'the rule neither excludes nor is excluded',
+  'builder.countExclusionsInbound': 'Exclusions that remove or change this rule: {count}',
+  'builder.countExclusionsOutbound': 'Exclusions this rule sets itself: {count}',
+  'builder.exclusionAtLine': 'line {line}',
+  'builder.exclusionAtLineIn': '{file}, line {line}',
+  'builder.exclusionRevealLine': 'Show line {line}',
+  'builder.exclusionRevealBlock': 'Show the exclusion in the builder',
+  'builder.excludeTargetTitle': 'A target exclusion for rule {id}',
+  'builder.excludeRule': 'Turn the rule off',
+  'builder.excludeRuleHint':
+    'Append "SecRuleRemoveById {id}" below the rule — it stops working, on every request',
+  'builder.excludeRuleDone': 'Already removed by the directive on line {line}',
+  'builder.exclusionTargetScope': 'Target',
+  'builder.excludeTargetAllHint':
+    'No parameters listed — the rule stops looking into the whole collection',
+  'builder.excludeTargetParamRequired':
+    'Name a parameter — an empty list takes the whole collection away from the rule',
+  'builder.excludeTargetNoExcept':
+    'There is no "ALL EXCEPT" here: the exclusion appends its target to the rule, and a term without "!" does not narrow the rule down — it gives it one more place to look',
+  'builder.excludeTarget': 'Exclude the target',
+  'builder.excludeTargetHint':
+    'Append "SecRuleUpdateTargetById {id}" below the rule — the rule keeps working and only stops looking into the target you name',
+  'builder.excludeNeedsId': 'An exclusion names the rule by number — give the rule an id first',
+
+  'builder.exclusionsInbound': 'The rule is excluded by',
+  'builder.exclusionsOutbound': 'The rule excludes',
+  'builder.exclusionsOutboundHint':
+    'Only on those requests where the rule itself fires — unlike a directive, which removes the rule from the whole configuration',
+  'builder.ctlRemoveById': 'remove rule {pick}',
+  'builder.ctlRemoveByMsg': 'remove rules whose message matches "{pick}"',
+  'builder.ctlRemoveByTag': 'remove rules tagged "{pick}"',
+  'builder.ctlRemoveTargetById': 'stop checking {target} in rule {pick}',
+  'builder.ctlRemoveTargetByMsg': 'stop checking {target} in rules whose message matches "{pick}"',
+  'builder.ctlRemoveTargetByTag': 'stop checking {target} in rules tagged "{pick}"',
+  'builder.ctlIncomplete': 'the exclusion is unfinished — name the rules it removes',
+  'builder.ctlIncompleteTarget': 'the exclusion is unfinished — name the target it removes',
+  'builder.ctlOption': 'What to remove',
+  'builder.ctlPickId': 'Rule number',
+  'builder.ctlPickMsg': 'Message pattern',
+  'builder.ctlPickTag': 'Tag',
+  'builder.ctlPickRequired': 'Without a selection the exclusion reaches nobody',
+  'builder.ctlTargetRequired': 'Name the target to remove',
+  'builder.ctlTargetNoCount':
+    'A removed target is never counted: ModSecurity matches it against the rule targets by name and parameter, and "&ARGS" matches none of them',
+  'builder.ctlTargetNoExcept':
+    'There is no "ALL EXCEPT" here: a subtracting term in a ctl target matches nothing and stays silent. Targets are subtracted for good — by the SecRuleUpdateTargetById directive',
+  'builder.addCtlTarget': 'Add',
+  'builder.addCtlTargetHint':
+    'Remove one more target. A ctl record holds exactly one target, so every next one goes into the file as a record of its own',
+  'builder.directiveValue': 'Value',
+  'builder.directiveNoArgument': 'takes no argument',
+  'builder.directiveValueMissing': 'The value is not set',
+  'builder.directiveBadValue': 'This directive has no such value',
+  'builder.directiveNotNumber': 'A whole number is expected here',
+  'builder.directiveUnknownFlag': 'An audit log entry has no part "{value}"',
+  'builder.directiveUnknownFlagHint': 'Not one of the parts an audit log entry is made of',
+  'builder.directiveParts': 'Entry parts',
+  'builder.directivePhaseRequired': 'Defaults without a phase reach no rule',
+  'builder.exclusionPickId': 'Rule numbers',
+  'builder.exclusionPickMsg': 'Message pattern',
+  'builder.exclusionPickTag': 'Tag pattern',
+  'builder.exclusionPickRequired': 'Without a selection the exclusion reaches nobody',
+  'builder.exclusionBadIdHint': 'Expected a number or a range like 942100-942200',
+  'builder.exclusionActions': 'Actions to append',
+  'builder.exclusionReplaced': 'Target being replaced',
+  'builder.exclusionReplacedHint':
+    'Filled in only when the new target replaces an old one rather than being added to it',
+  'builder.exclusionReplacedBlocked':
+    'Nothing to replace: every target here is being removed, and a removal takes no one place',
+
+  'builder.exclusionWhoId': 'rules {pick}',
+  'builder.exclusionWhoMsg': 'rules whose message matches "{pick}"',
+  'builder.exclusionWhoTag': 'rules whose tag matches "{pick}"',
+  'builder.exclusionSaysRemove': 'remove {who}',
+  'builder.exclusionSaysTarget': '{who} — {what}',
+  'builder.exclusionSaysActions': '{who} — append the actions {actions}',
+  'builder.exclusionClauseDrop': 'stop checking {targets}',
+  'builder.exclusionClauseAdd': 'check {targets} on top of what they check now',
+  'builder.exclusionClauseReplace': 'check {targets} in place of {replaced}',
+  'builder.exclusionIncompletePick':
+    'the exclusion is unfinished — name the rules it reaches',
+  'builder.exclusionIncompleteTarget': 'the exclusion is unfinished — name the target it changes',
+  'builder.exclusionIncompleteActions':
+    'the exclusion is unfinished — name the actions it appends',
+
+  'builder.exclusionSign': 'Remove the target',
+  'builder.exclusionSignOnHint':
+    'Removing: "!" goes into the file, and the rule stops looking into this target. Press to add the target instead',
+  'builder.exclusionSignOffHint':
+    'Adding: without "!" the rule gets one more place to look and loses nothing. Press to remove the target instead',
+  'builder.exclusionTargetRequired': 'Name the target',
+  'builder.exclusionTargetNoCount':
+    'A removed target is never counted: ModSecurity matches it against the rule targets by name and parameter, and "&ARGS" matches none of them',
+  'builder.exclusionTargetNoExcept':
+    'There is no "ALL EXCEPT" here: subtraction is the "!" of the target itself, so the collection and the parameters taken out of it are two targets, not one',
+  'builder.exclusionDropAllHint':
+    'No parameters listed — the rule stops looking into the whole collection',
+  'builder.exclusionAddAllHint': 'No parameters listed — the rule gets the whole collection',
+  'builder.exclusionParamRequired':
+    'Name a parameter — an empty list means the whole collection',
+  'builder.addExclusionTarget': 'Add',
+  'builder.addExclusionTargetHint':
+    'Change one more target of the selected rules. Targets go into the file as one argument, separated by "|"',
+
+  'builder.ctlPhraseLink': '{phrase}, as soon as link {n} matches',
+  'builder.ctlPhraseWholeChain': '{phrase}, once the whole chain has matched',
+  'builder.addCtlExclusion': 'Add exclusion',
+  'builder.addCtlExclusionHint':
+    'Add a ctl exclusion to the rule: it removes the named rules only on those requests where this rule fires',
+  'builder.deleteExclusion': 'Remove the exclusion',
+
+  'toolbar.undo': 'Undo',
+  'toolbar.redo': 'Redo',
+  'toolbar.format': 'Format',
+  'toolbar.formatHint': 'Lay the rule out line by line — one action per line (Shift+Alt+F)',
+  'toolbar.formatDone': 'The text is already laid out',
+
+  'diag.notParsed': 'The rule text has not been parsed yet.',
+  'diag.unbalancedQuotes': 'Unbalanced double quotes.',
+  'diag.unknownDirective': 'Unknown directive "{name}".',
+  'diag.directiveArgCount': '"{name}" does not take {count} arguments.',
+  'diag.directiveValueMissing': '"{name}" is missing its value.',
+  'diag.directiveBadValue': '"{name}" has no value "{value}".',
+  'diag.directiveNotNumber': '"{name}" expects a whole number, and "{value}" is not one.',
+  'diag.directiveUnknownFlag': 'An audit log entry has no part "{value}".',
+  'diag.emptyTargets': 'The rule has no check areas.',
+  'diag.unknownOperator': 'Unknown operator "@{name}".',
+  'diag.operatorArgumentRequired': 'Operator "@{name}" requires a value.',
+  'diag.danglingChain': 'The chain is broken: "chain" is set but there is no next rule.',
+  'diag.missingId': 'The rule has no "id" — ModSecurity will refuse to load it.',
+  'diag.duplicateId': 'Duplicate rule id "{id}".',
+  'diag.duplicateIdCrossFile':
+    'Rule id "{id}" is already taken in "{file}", line {line}: ModSecurity refuses to load a configuration where one id is used twice.',
+  'diag.chainLinkHeadAction': 'Action "{name}" is only allowed on the first rule of a chain.',
+
+  'diag.unknownVariable': 'Unknown variable "{name}".',
+  'diag.selectorNeedsQuotes':
+    'Parameter "{value}" has to be quoted, and ModSecurity 3 does not read that form. Portable equivalent: {pattern}',
+  'diag.selectorNotPortable':
+    'Parameter "{value}" cannot be written so that ModSecurity 2 and 3 read it the same way.',
+  'diag.unknownTransform': 'Unknown transformation "{name}".',
+  'diag.unknownAction': 'Unknown action "{name}".',
+  'diag.actionNotEditable': 'Action "{name}" is not editable in the visual builder.',
+  'diag.countWithTransforms': 'Counting (&) ignores transformations.',
+  'diag.countOnScalar': '"{name}" is not a collection, counting always yields 0 or 1.',
+  'diag.selectorNotSupported': '"{name}" does not take a parameter.',
+  'diag.selectorRequired': '"{name}" requires a parameter.',
+  'diag.excludeWithoutSelector': 'Exclusion of "{name}" without a parameter removes the whole collection.',
+  'diag.excludeWithoutBase': 'Exclusion of "{name}" has nothing to subtract from.',
+  'diag.operatorArgumentUnexpected': 'Operator "@{name}" takes no value.',
+  'diag.operatorInputMismatch': 'Operator "@{name}" does not fit the value type of this check.',
+  'diag.nonNumericArgument': 'Operator "@{name}" expects a number.',
+  'diag.invalidIpEntry': 'Not an IPv4/IPv6 address or CIDR network: {value}.',
+  'diag.invalidRegex': 'The regular expression of "@{name}" is invalid.',
+  'diag.transformNoneNotFirst': '"none" resets the pipeline and should come first.',
+  'diag.duplicateTransform': 'Transformation "{name}" is applied twice.',
+  'diag.missingPhase': 'The processing phase is not set.',
+  'diag.phaseTooEarly': 'Phase {phase} is too early: the check areas are filled in from phase {required}.',
+  'diag.noDisruptive': 'The rule has no reaction (deny / pass / …).',
+  'diag.statusWithoutBlock': '"status" only matters together with deny or redirect.',
+
+  'diag.caseNeverMatches': '"t:{name}" leaves the value in one case — "{value}" will never match.',
+  'diag.whitespaceNeverMatches': '"t:{name}" changes the spaces in the value — "{value}" will never match as written.',
+  'diag.hashWithoutHexEncode': 'After "t:{name}" the value is raw bytes: add "t:hexEncode" to compare it with text.',
+  'diag.conflictingCaseTransforms': '"t:lowercase" and "t:uppercase" in one pipeline: only the last one has any effect.',
+  'diag.impossibleNumericRange': 'The chain can never match: no value satisfies both "{first}" and "{second}".',
+  'diag.literalWithRegexSyntax': 'Operator "@{name}" compares text literally — "{value}" is searched as written, not as a pattern.',
+  'diag.negationMatchesNothing': 'The pattern matches any value, so the negated check never fires.',
+  'diag.neverTrueComparison': 'This value is never negative — the condition can never be true.',
+  'diag.matchesEverything': 'The pattern matches any value — the check filters nothing out.',
+  'diag.alwaysTrueComparison': 'This value is never negative — the condition is always true.',
+
+  'diag.decodeAfterNormalise': 'Decoding "t:{decode}" runs after "t:{normalise}": encoded sequences are still hidden when the value is normalised.',
+  'diag.noNormalisation': 'The check depends on case and encoding: "t:lowercase" and "t:urlDecodeUni" usually go before it.',
+  'diag.unescapedDot': 'The dot in "{value}" matches any character — write "\\." if a literal dot was meant.',
+  'diag.overlappingTargets': '"{inner}" is already part of "{outer}" — the second area adds nothing.',
+
+  'diag.requestBodyAccessOff':
+    '"SecRequestBodyAccess Off" in the loaded files: "{name}" is always empty.',
+  'diag.responseBodyAccessOff':
+    '"SecResponseBodyAccess Off" in the loaded files: "{name}" is always empty.',
+  'diag.disruptiveInLoggingPhase': 'In phase 5 the response has already been sent — "{name}" is ignored.',
+  'diag.missingMarker':
+    'There is no "SecMarker {name}" in the loaded files — the jump leads nowhere.',
+  'diag.skipBeyondEnd': '"skip:{count}" skips more rules than the {rest} left after it.',
+  'diag.engineNotEnforcing': 'SecRuleEngine is "{mode}": blocking actions are logged but not applied.',
+  'diag.xmlWithoutProcessor': '"XML" is only filled in after "ctl:requestBodyProcessor=XML", which none of the loaded files sets.',
+  'diag.txNeverSet': 'Nothing in the loaded files sets "tx.{name}".',
+
+  'diag.captureWithoutRegex': 'Nothing to capture: no check of this rule uses a regular expression.',
+  'diag.captureMissing': '"%{TX.{index}}" is empty: the rule has no "capture" action.',
+  'diag.blockWithoutLog': 'The rule blocks the request with "nolog": nothing will explain the refusal afterwards.',
+  'diag.logdataWithoutLog': '"logdata" is set but logging is off — the data goes nowhere.',
+  'diag.captureUnused': '"capture" is on, but "%{TX.1}" is never used in this rule.',
+  'diag.blockWithoutMsg': 'A blocking rule without "msg" leaves only its id in the log.',
+
+  'diag.possibleRedos': 'Nested quantifiers: on a crafted value this pattern can take a very long time to match.',
+  'diag.regexIsPlainText': 'The pattern has no special characters — "@contains {value}" does the same and costs less.',
+  'diag.anchoredLiteralRegex': 'The pattern is anchored on both sides and has no special characters — this is "@streq {value}".',
+  'diag.redundantLeadingWildcard': 'A leading ".*" changes nothing: the pattern is searched anywhere in the value.',
+  'diag.capturingGroupUnused': 'A capturing group without the "capture" action only slows matching down — use "(?:…)".',
+  'diag.rblOnHotPath': 'Every "@rbl" check is a DNS request; on a busy path that is noticeable.',
+
+  'diag.duplicateTarget': 'Check area "{name}" is listed twice.',
+  'diag.duplicateCondition': 'Two links of the chain check exactly the same thing.',
+  'diag.duplicateRule': 'The rule repeats the check of rule {id}.',
+  'diag.redundantTransform': 'After "t:{previous}" the transformation "t:{name}" changes nothing.',
+  'diag.transformsWithoutCheck': 'Operator "@{name}" never looks at the value — the transformations have no effect.',
+  'diag.singlePhraseList': 'A list of a single phrase — "@contains {value}" says the same more plainly.',
+  'diag.idInReservedRange': 'Id {id} falls into the 900000–999999 range reserved by CRS.',
+
+  'diag.exclusionNoTarget': '"{name}" is missing its required argument and changes nothing.',
+  'diag.exclusionBadId': '"{value}" is neither a rule id nor a range like 942190-942200.',
+  'diag.exclusionUpdateActionMetadata':
+    '"{name}" cannot change "{action}": id and phase stay as the rule set defined them.',
+  'diag.exclusionUpdateTargetNotExclusion':
+    '"{name}" has no "!": "{targets}" replaces the targets of the rule instead of excluding one of them.',
+  'diag.exclusionRemovedThenUpdated':
+    'The rule is already removed on line {line} — there is nothing left to change in it.',
+  'diag.exclusionEmptyRange': 'Range "{target}" is inverted: no rule falls into it.',
+  'diag.exclusionBeforeRule':
+    '"{name}" stands above rule {id}: exclusions apply as the configuration is read, so this one does nothing.',
+  'diag.exclusionInEarlierFile':
+    '"{name}" sits in a file read before "{file}", where rule {id} is: exclusions apply as the configuration is read, so this one does nothing. Move the file below that one.',
+  'diag.exclusionNoMatch':
+    'No rule of the loaded files matches "{target}" — check that it comes from a file included earlier.',
+  'diag.exclusionTooBroad':
+    '"{name}" removes {count} rules — a targeted exclusion keeps the protection everywhere else.',
+  'diag.exclusionDuplicate': 'The same exclusion is already on line {line}.',
+  'diag.exclusionByMsgFragile':
+    '"{name}" selects by message text, and that is not a stable interface — a tag or an id survives an update of the rule set.',
+  'diag.exclusionCtlAfterRule':
+    '"{name}" runs in phase {phase}, later than rule {id}: a ctl exclusion applies from the moment it runs, and by then the rule has already been checked. Move it to an earlier phase, or above the rule inside the same one.',
+  'diag.exclusionCtlBadId':
+    '"{name}" takes a single rule id or a range like 942190-942200; "{value}" is read whole and matches nothing. Repeat the ctl action for every id.',
+  'diag.exclusionCtlNoTarget':
+    '"{name}" removes one target of a rule, but no target follows the ";" — so nothing is removed.',
+  'diag.exclusionCtlTargetList':
+    'Only one target follows the ";" of "{name}", but several are written — "{targets}". Everything after the semicolon is read as one name with a parameter, so none of them is removed: every target needs a ctl record of its own.',
+  'diag.exclusionCtlDeadTarget':
+    'Target "{target}" matches none of the rule targets: "{name}" compares it by name and parameter, and neither "!" nor "&" takes part in that comparison. Targets are subtracted by the SecRuleUpdateTargetById directive.',
+  'diag.exclusionCtlCarrierStops':
+    'The rule carrying this exclusion answers with "{action}", so the rules it lifts are never reached anyway.',
+  'diag.exclusionCtlAlreadyRemoved':
+    'The rule is already removed for good on line {line} — a per-request exclusion adds nothing to that.',
+
+  'toolbar.copy': 'Copy',
+  'toolbar.copied': 'Copied to the clipboard',
+  'toolbar.copyFailed': 'The browser did not allow access to the clipboard',
+
+  'menu.file': 'File',
+  'menu.fileHint': 'The text of the open file: where it comes from and where it goes',
+  'menu.replaceText': 'Replace the text with a file from disk…',
+  'menu.saveFile': 'Download "{name}"',
+  'menu.saveArchive': 'Download every file as an archive',
+  'menu.copy': 'Copy the text to the clipboard',
+
+  'document.replaceTitle': 'Replace the text of the file?',
+  'document.replaceBody':
+    '"{name}" has been edited and not saved. Replacing its text discards those edits.',
+  'document.replace': 'Replace',
+  'document.section': 'File',
+  'document.sectionHint':
+    'Which file of the profile you are editing — type part of a name to narrow the list',
+  'document.search': 'Part of a name',
+  'document.noMatch': 'No name matches',
+
+  'files.manage': 'Files',
+  'files.manageHint': 'Files of the profile: reading order, downloading, dropping one',
+  'files.title': 'Files of the profile',
+  'files.order':
+    'ModSecurity reads the files in this order. Move a file below another one and its exclusions start reaching that one: a directive only applies to rules read before it.',
+  'files.list': 'Files of the profile',
+  'files.current': 'editing',
+  'files.readFailed': 'That file could not be read',
+  'files.download': 'Download "{name}" as it is',
+  'files.up': 'Move up — read earlier',
+  'files.down': 'Move down — read later',
+  'files.drag': 'Drag to reorder',
+  'files.remove': 'Drop "{name}" from the profile',
+  'files.removeTitle': 'Drop the set from the profile?',
+  'files.removeBody':
+    '"{name}" has been edited and not saved. Dropping it discards those edits. The set itself stays in the catalog.',
+  'files.removeConfirm': 'Drop',
+  'files.lastFile': 'The only file stays: a profile cannot be left without rules',
+  'files.edited': 'edited',
+  'files.lines': '{count} lines',
+  'files.empty': 'empty',
+
+  'builder.destination': 'Destination',
+  'builder.collapse': 'Collapse the rule',
+  'builder.expand': 'Expand the rule',
+  'builder.collapseBlock': 'Collapse the block',
+  'builder.expandBlock': 'Expand the block',
+  'builder.collapseSection': 'Collapse "{name}"',
+  'builder.expandSection': 'Expand "{name}"',
+  'builder.collapseAll': 'Collapse everything',
+  'builder.expandAll': 'Expand everything',
+  'builder.expandAllSlow': 'Expand everything — on a file this large it takes a while',
+  'builder.expandedOf': '{expanded} of {total} expanded',
+  'builder.duplicateRule': 'Duplicate the rule',
+  'builder.moveUp': 'Move up',
+  'builder.moveDown': 'Move down',
+  'builder.andMore': 'more',
+  'diag.destinationMissing':
+    '"{name}" needs an address — without it ModSecurity will not load the rule.',
+  'diag.destinationUnexpected':
+    '"{name}" takes no address: the value next to it will be rejected on load.',
+
+  'topic.structure': 'Form',
+  'topic.logic': 'Logic',
+  'topic.coverage': 'Coverage',
+  'topic.environment': 'Environment',
+  'topic.logging': 'Logging',
+  'topic.performance': 'Cost',
+  'topic.style': 'Redundancy',
+
+  'fix.title': 'Fix',
+  'fix.lowercaseValue': 'Lower-case the value',
+  'fix.uppercaseValue': 'Upper-case the value',
+  'fix.useContains': 'Switch to @contains',
+  'fix.useStreq': 'Switch to @streq',
+  'fix.dropLeadingWildcard': 'Drop the leading ".*"',
+  'fix.escapeDots': 'Escape the dots',
+  'fix.moveNoneFirst': 'Move "none" first',
+  'fix.removeTransform': 'Remove "t:{name}"',
+  'fix.reorderPipeline': 'Decode first',
+  'fix.clearTransforms': 'Clear the pipeline',
+  'fix.addHexEncode': 'Add "t:hexEncode"',
+  'fix.addNormalisation': 'Normalise before the check',
+  'fix.removeTarget': 'Remove "{name}"',
+  'fix.usePatternSelector': 'Match the name with a pattern',
+  'fix.setPhase': 'Set the required phase',
+  'fix.clearStatus': 'Clear "status"',
+  'fix.restoreLog': 'Turn logging back on',
+  'fix.enableCapture': 'Add "capture"',
+  'fix.disableCapture': 'Remove "capture"',
+
+  'tooltip.noDescription': 'No description available yet.',
+  'tooltip.expandHint': 'Alt — details',
+  'tooltip.collapseHint': 'Release Alt to collapse',
+  'tooltip.syntax': 'Syntax',
+  'tooltip.tech': 'Under the hood',
+  'tooltip.tech.argument': 'Argument',
+  'tooltip.tech.fallback': 'If omitted',
+  'tooltip.tech.scope': 'Where it applies',
+  'tooltip.tech.cost': 'Cost',
+  'tooltip.tech.availability': 'Availability',
+  'tooltip.gotchas': 'Watch out',
+  'tooltip.example': 'Example',
+  'tooltip.seeAlso': 'See also',
+  'category.directive': 'Directive',
+  'category.action': 'Action',
+  'category.transform': 'Transformation',
+  'category.operator': 'Operator',
+  'category.variable': 'Variable',
+} as const;
+
+export type TranslationKey = keyof typeof en;
+
+/**
+ * Ключ текста диагностики.
+ *
+ * Возврат типизирован, поэтому забытый перевод — ошибка сборки, а не сырой
+ * `diag.captureUnused`, замеченный в интерфейсе через полгода.
+ */
+export function diagnosticKey(code: DiagnosticCode): TranslationKey {
+  return `diag.${code}`;
+}
+
+/** Ключ названия темы диагностики. */
+export function topicKey(topic: DiagnosticTopic): TranslationKey {
+  return `topic.${topic}`;
+}
+
+/** Ключ подписи кнопки быстрой правки. */
+export function fixKey(kind: FixKind): TranslationKey {
+  return `fix.${kind}`;
+}
+
+/** Ключ подписи для той части правила, к которой относится диагностика. */
+export function slotKey(slot: DiagnosticSlot): TranslationKey {
+  switch (slot) {
+    case 'targets':
+      return 'builder.scope';
+    case 'transforms':
+      return 'builder.transform';
+    case 'operator':
+      return 'builder.operator';
+    case 'actions':
+      return 'builder.actions';
+  }
+}
+
+const ru: Record<TranslationKey, string> = {
+  'app.title': 'Редактор правил ModSecurity',
+  'app.close': 'Закрыть',
+  'app.cancel': 'Отмена',
+  'app.apply': 'Применить',
+  'app.details': 'Подробности',
+  'app.hideDetails': 'Скрыть',
+  'app.showFull': 'Показать значение целиком',
+  'app.language': 'Язык',
+
+  'tab.text': 'Текстовый',
+  'tab.visual': 'Визуальный',
+  'tab.visualBlocked': 'Исправьте ошибки в тексте, чтобы перейти в визуальный редактор',
+
+  'editor.ariaLabel': 'Редактор правил ModSecurity',
+
+  'debug.title': 'Отладка',
+  'debug.tab.diagnostics': 'Диагностика',
+  'debug.tab.model': 'Модель конструктора',
+  'debug.tab.parsed': 'Разобранный документ',
+  'debug.empty': 'Пока ничего не разобрано.',
+  'debug.clean': 'Проблем не найдено.',
+  'debug.summary': 'ошибок: {errors}, предупреждений: {warnings}',
+  'debug.advice': 'подсказок: {advice}',
+  'debug.adviceHide': 'Скрыть подсказки',
+  'debug.adviceShow': 'Показать подсказки',
+  'debug.collapse': 'Свернуть панель',
+  'debug.expand': 'Развернуть панель',
+  'debug.inspecting': 'проверяем\u2026',
+  'debug.shownOf': 'показано {shown} из {total} — остальное в текстовой вкладке',
+  'debug.line': 'строка {line}',
+  'debug.inBuilder': 'в конструкторе',
+  'debug.condition': 'условие {index}',
+  'debug.inFile': 'в {file}',
+  'debug.blocked': 'Визуальный редактор заблокирован, пока есть ошибки.',
+
+  'builder.empty': 'Правил пока нет.',
+  'builder.add': 'Добавить',
+  'builder.addRule': 'Добавить правило',
+  'builder.addAction': 'Добавить безусловное действие',
+  'builder.addMarker': 'Добавить метку',
+  'builder.addDirective': 'Добавить директиву',
+  'builder.addDirectiveHint':
+    'Имя выбирают один раз: у стоящей строки оно уже не меняется — вид аргумента у каждого имени свой. Значение заполняется здесь же: без него ModSecurity директиву не загрузит, а одна такая ошибка блокирует конструктор целиком.',
+  'builder.addDirectivePick': 'Выберите директиву',
+  'builder.addDirectiveIncomplete': 'Ещё не заполнена: такая строка не загрузится.',
+  'builder.addDirectiveLine': 'В файл уйдёт:',
+  'builder.addDirectiveAction': 'Добавить',
+  'builder.deleteRule': 'Удалить правило',
+  'builder.rule': 'Правило',
+  'builder.ruleId': 'ID правила',
+  'builder.description': 'Описание',
+  'builder.descriptionPlaceholder': 'Что делает это правило',
+
+  'builder.countConditions': 'Условий в цепочке: {count} — сработают только вместе',
+  'builder.countConditionNotes': 'Замечаний об этих условиях: {count}',
+  'builder.countActions':
+    'Действий у правила: {count} — номер сюда не входит, он в шапке карточки',
+  'builder.countRuleNotes':
+    'Замечаний о правиле целиком: {count} — сказанное об условии стоит рядом с ним',
+  'builder.countAllNotes': 'Замечаний об этом правиле: {count}, включая условия',
+
+  'builder.conditions': 'Условия',
+  'builder.and': 'И',
+  'builder.or': 'ИЛИ',
+  'builder.addCondition': 'Добавить условие',
+  'builder.deleteCondition': 'Удалить условие',
+  'builder.addOr': 'Добавить',
+  'builder.deleteTarget': 'Убрать область проверки',
+
+  'builder.scope': 'Область проверки',
+  'builder.parameters': 'Параметры',
+  'builder.anyParameter': 'Любой',
+  'builder.paramsAll': 'ВСЕ',
+  'builder.paramsOnly': 'ТОЛЬКО',
+  'builder.paramsExcept': 'ВСЕ, КРОМЕ',
+  'builder.except': 'КРОМЕ',
+  'builder.paramsAllHint': 'Параметры не указаны — проверяется вся коллекция',
+  'builder.paramsModeHint': 'Переключить: вся коллекция, только перечисленные параметры или коллекция без них',
+  'builder.paramsModeTwoHint': 'Переключить: вся коллекция или только перечисленные параметры',
+  'builder.paramsAllBlocked': 'Чтобы вернуть «ВСЕ», очистите список',
+  'builder.paramsRequired': 'Добавьте хотя бы одно значение — пока проверяется вся коллекция',
+  'builder.addParam': 'Добавить параметр',
+  'builder.exclusions': 'Исключения',
+  'builder.addExcept': 'Добавить исключение',
+  'builder.listHint': 'По одному значению в строке.',
+  'builder.listHintComma': 'Запятая тоже разделяет.',
+  'builder.count': 'Подсчёт',
+  'builder.countHint': 'Сравнивать количество элементов, а не их значения',
+  'builder.countUnavailable': 'Подсчёт работает только для коллекций',
+
+  'builder.transform': 'Преобразование',
+  'builder.transformNone': 'Нет',
+  'builder.addTransform': 'Добавить преобразование',
+  'builder.transformRequired': 'Выберите преобразование',
+  'builder.transformsBlocked': 'Подсчёт заменяет значение числом, поэтому преобразования не применяются',
+  'builder.dragTransform': 'Перетащите, чтобы изменить порядок',
+
+  'builder.previewOpen': 'Проверить на примере',
+  'builder.previewClose': 'Закрыть проверку',
+  'builder.previewNoTransforms':
+    'Преобразований не осталось — прогонять пример не через что',
+  'builder.previewSample': 'Пример значения',
+  'builder.previewHint': 'Что придёт в эту проверку — конвейер покажет, во что оно превратится',
+  'builder.previewInput': 'вход',
+  'builder.previewUnchanged': 'без изменений',
+  'builder.previewEmptyValue': 'ничего не осталось',
+  'builder.previewOpaque': 'результат здесь не воспроизводим',
+  'builder.previewMatch': 'совпадает',
+  'builder.previewNoMatch': 'не совпадает',
+  'builder.previewUnknown': 'здесь не проверяется',
+
+  'builder.choiceAll': 'Показать все варианты — ещё {count}',
+  'builder.choiceCommon': 'Оставить только частые',
+  'builder.choiceOften': 'часто',
+
+  'builder.operator': 'Оператор',
+  'builder.value': 'Значение',
+  'builder.addValue': 'Добавить значение',
+  'builder.ipInvalid': 'Не похоже на IPv4/IPv6-адрес или сеть CIDR (например, 192.168.1.0/24 или 2001:db8::/32).',
+  'builder.negate': 'Инвертировать результат проверки',
+  'builder.noArgument': 'Оператор не принимает значение',
+  'builder.editInWindow': 'Редактировать в окне',
+  'builder.regexHint': 'Регулярное выражение: проверяется по ходу ввода.',
+  'builder.regexInvalid': 'Шаблон не собирается: {reason}',
+  'builder.regexPcre':
+    'В шаблоне есть записи PCRE, которых нет в JavaScript, — «(?i)» и подобные. Проверка их переводит, с правилом всё в порядке.',
+  'builder.regexUnsupported':
+    'Записи PCRE «{what}» в JavaScript нет. С правилом всё в порядке, но проверить такой шаблон редактор не может.',
+
+  'builder.actions': 'Действия',
+  'builder.id': 'ID',
+  'builder.phase': 'Фаза',
+  'builder.disruptive': 'Реакция',
+  'builder.status': 'HTTP-статус',
+  'builder.message': 'Сообщение',
+  'builder.logdata': 'Данные в лог',
+  'builder.severity': 'Критичность',
+  'builder.ver': 'Версия набора',
+  'builder.rev': 'Ревизия',
+  'builder.maturity': 'Зрелость',
+  'builder.accuracy': 'Точность',
+  'builder.tags': 'Теги',
+  'builder.addTag': 'Добавить тег',
+  'builder.tagInfo': 'Что набор знает о теге',
+  'builder.tagNote':
+    'Ярлык, который правила носят вместе, чтобы исключение могло выбрать их группой — SecRuleRemoveByTag и ctl:ruleRemoveByTag отбирают по этому имени',
+  'builder.tagUsedBy': 'На правилах',
+  'builder.tagNeverUsed': 'нигде — ни одно правило в загруженных файлах этот тег не несёт',
+  'builder.tagExcludedBy': 'Выбирают',
+  'builder.tagNeverExcluded': 'нигде — ни одно исключение не отбирает правила по этому тегу',
+  'builder.tagIconHint': 'Клик по тегу — полный список правил с этим именем',
+  'builder.capture': 'Захватывать совпадения',
+  'builder.log': 'Логировать',
+  'builder.auditlog': 'Журнал аудита',
+  'builder.setvar': 'Установка переменных',
+  'builder.setvarCollection': 'Коллекция',
+  'builder.setvarName': 'Переменная',
+  'builder.setvarOp': 'Запись',
+  'builder.setvarValue': 'Значение',
+  'builder.addSetvar': 'Выставить переменную',
+  'builder.deleteSetvar': 'Убрать присваивание',
+  'builder.setvarNameRequired': 'Без имени присваивание не пишет никуда',
+  'builder.setvarNoValue':
+    'Удаление значения не принимает: оно убирает переменную из коллекции, а не пишет в неё',
+  'builder.setvarRaw':
+    'Формы для этой записи нет: макрос в имени, коллекция, которую заполняет сам движок, или запись без значения — правится строкой целиком',
+
+  'builder.variableInfo': 'Что набор знает о переменной',
+  'builder.variableSetIn': 'Выставляется',
+  'builder.variableReadIn': 'Читается',
+  'builder.variableNeverSet': 'нигде — читающее правило получит пустое значение',
+  'builder.variableNeverRead': 'нигде — накопленное этой записью никто не проверяет',
+  'builder.variableEarlyRead':
+    'Первое чтение выполняется раньше первой записи: порядок задаёт сначала фаза, а прочитанное до записи всегда пусто',
+  'builder.variableNoStorage':
+    'Коллекция не открыта: без initcol и SecDataDir запись не переживёт запрос',
+  'builder.variableRule': 'правило {id}, {where}',
+  'builder.variableLine': 'строка {line}',
+  'builder.variableLineIn': '{file}, строка {line}',
+  'builder.variableSitesTitle': '{name} · связанные правила · {count}',
+  'builder.variableMore': '+{count} ещё',
+  'builder.variableBrowseHint': 'Нажмите, чтобы открыть список исходников',
+  'builder.variableIconHint': 'Клик по значку — полный список связанных правил',
+  'builder.variableUse.set': 'Задаёт переменную',
+  'builder.variableUse.add': 'Прибавляет к переменной',
+  'builder.variableUse.sub': 'Вычитает из переменной',
+  'builder.variableUse.delete': 'Удаляет переменную',
+  'builder.variableUse.expire': 'Задаёт срок жизни',
+  'builder.variableUse.read': 'Читает переменную',
+
+  'builder.otherActions': 'Прочие действия',
+  'builder.unset': 'не задано',
+
+  'builder.notes': 'Замечания',
+
+  'builder.secAction': 'Безусловное действие',
+  'builder.marker': 'Метка',
+  'builder.saveMarker': 'Сохранить метку',
+  'builder.markerInfo': 'Что набор знает о метке',
+  'builder.markerNote':
+    'Именованная точка посадки для skipAfter: правило прыгает сюда и пропускает всё, что написано между прыжком и меткой',
+  'builder.markerReferencedBy': 'Ссылаются',
+  'builder.markerNeverReferenced': 'нигде — ни один skipAfter в загруженных файлах сюда не прыгает',
+  'builder.markerIconHint': 'Клик по значку — полный список ссылающихся правил',
+  'builder.directive': 'Директива',
+  'builder.readOnly': 'Редактируется только в текстовой вкладке',
+  'builder.deleteBlock': 'Удалить блок',
+  'builder.duplicateLine': 'Дублировать строку',
+  'builder.deleteLine': 'Удалить строку',
+
+  'builder.exclusionOpRemove': 'снимает правило',
+  'builder.exclusionOpRemoveTarget': 'снимает одну цель',
+  'builder.exclusionOpUpdateTarget': 'меняет цели',
+  'builder.exclusionOpUpdateAction': 'меняет действия',
+  'builder.exclusionInactive': 'не применяется',
+  'builder.exclusionInactiveHint':
+    'Стоит выше правил, которые называет, — в этом месте ModSecurity их ещё не прочитал',
+  'builder.exclusionLateHint':
+    'Выполняется позже правил, которые называет: исключение через ctl обязано сработать раньше, а это решает сначала фаза и только потом строка',
+  'builder.exclusionNoMatch': 'правил не найдено',
+  'builder.exclusionNoMatchHint':
+    'Ни одно правило загруженных файлов не подходит — возможно, оно приходит из набора, который здесь не открыт',
+  'builder.exclusionReveal': 'Показать правило {id}',
+  'builder.exclusionRevealIn': 'Показать правило {id} в «{file}»',
+  'builder.rulePreviewText': 'Показать правило {id} в текстовом редакторе',
+  'builder.rulePreviewTextIn': 'Показать правило {id} в текстовом редакторе («{file}»)',
+  'builder.rulePreviewPeek': 'Показать исходник правила {id}',
+  'builder.rulePreviewPeekIn': 'Показать исходник правила {id} («{file}»)',
+  'builder.rulePreviewExpand': 'Открыть подробнее',
+  'builder.rulePreviewViewAll': 'Посмотреть все · {count}',
+  'builder.rulePreviewListTitle': 'Связанные правила · {count}',
+  'builder.rulePreviewFilterId': 'Фильтр по id',
+  'builder.rulePreviewFilterFile': 'Файл',
+  'builder.rulePreviewFilterAllFiles': 'Все файлы',
+  'builder.rulePreviewFilterEmpty': 'Ничего не подходит под фильтр',
+  'builder.rulePreviewExpandRow': 'Показать исходник правила',
+  'builder.rulePreviewCollapse': 'Скрыть исходник правила',
+  'builder.rulePreviewMissing': 'Правила больше нет в загруженных файлах',
+  'builder.rulePreviewOpenFile': 'Показать начало «{file}»',
+  'builder.rulePreviewOpenLines': 'Показать строку {line}',
+  'builder.rulePreviewOpenLinesRange': 'Показать строки {from}–{to}',
+  'builder.markerPreviewReveal': 'Показать метку {label}',
+  'builder.markerPreviewRevealIn': 'Показать метку {label} в «{file}»',
+  'builder.markerPreviewPeek': 'Показать исходник метки {label}',
+  'builder.markerPreviewPeekIn': 'Показать исходник метки {label} («{file}»)',
+  'builder.markerPreviewText': 'Показать метку {label} в текстовом редакторе',
+  'builder.markerPreviewTextIn': 'Показать метку {label} в текстовом редакторе («{file}»)',
+  'builder.markerPreviewMissing': 'Метки «{label}» нет в загруженных файлах',
+  'builder.directivePreviewReveal': 'Показать «{name}» в конструкторе',
+  'builder.directivePreviewRevealIn': 'Показать «{name}» в «{file}»',
+  'builder.directivePreviewPeek': 'Показать исходник «{name}»',
+  'builder.directivePreviewPeekIn': 'Показать исходник «{name}» («{file}»)',
+  'builder.directivePreviewText': 'Показать «{name}» в текстовом редакторе',
+  'builder.directivePreviewTextIn': 'Показать «{name}» в текстовом редакторе («{file}»)',
+  'builder.markFile': 'в «{file}»',
+  'builder.exclusionRule': 'правило:',
+  'builder.exclusionRules': 'правила:',
+  'builder.effectRemoved': 'выключено',
+  'builder.effectRemovedHint': 'Снято директивой «{name}» в строке {line}',
+  'builder.effectRemovedRuntime': 'снято на запрос',
+  'builder.effectRemovedRuntimeHint':
+    '«{name}» в строке {line} снимает его на одну транзакцию — на тех запросах, где сработало правило с этим действием',
+  'builder.effectChanged': 'изменено',
+  'builder.effectChangedHint': 'Изменено директивой «{name}» в строке {line}',
+  'builder.effectChangedRuntime': 'изменено на запрос',
+  'builder.effectChangedRuntimeHint':
+    '«{name}» в строке {line} меняет его на одну транзакцию — на тех запросах, где сработало правило с этим действием',
+
+  'builder.setsExclusions': 'Ставит исключения',
+  'builder.exclusionsNone': 'правило никого не исключает, и его не исключают',
+  'builder.countExclusionsInbound': 'Исключений, снимающих или правящих это правило: {count}',
+  'builder.countExclusionsOutbound': 'Исключений, которые ставит само правило: {count}',
+  'builder.exclusionAtLine': 'строка {line}',
+  'builder.exclusionAtLineIn': '«{file}», строка {line}',
+  'builder.exclusionRevealLine': 'Показать строку {line}',
+  'builder.exclusionRevealBlock': 'Показать исключение в конструкторе',
+  'builder.excludeTargetTitle': 'Исключение цели у правила {id}',
+  'builder.excludeRule': 'Выключить правило',
+  'builder.excludeRuleHint':
+    'Дописать ниже правила «SecRuleRemoveById {id}» — правило перестанет работать, на всех запросах',
+  'builder.excludeRuleDone': 'Уже снято директивой в строке {line}',
+  'builder.exclusionTargetScope': 'Цель',
+  'builder.excludeTargetAllHint':
+    'Параметры не перечислены — правило перестанет смотреть в коллекцию целиком',
+  'builder.excludeTargetParamRequired':
+    'Назовите параметр — пустой перечень снимет у правила всю коллекцию',
+  'builder.excludeTargetNoExcept':
+    'Положения «ВСЕ, КРОМЕ» здесь нет: исключение дописывает свою цель к целям правила, и терм без «!» не сужает правило, а даёт ему ещё одно место для проверки',
+  'builder.excludeTarget': 'Исключить цель',
+  'builder.excludeTargetHint':
+    'Дописать ниже правила «SecRuleUpdateTargetById {id}» — правило останется в работе и лишь перестанет смотреть в эту цель',
+  'builder.excludeNeedsId': 'Исключение ссылается на правило по номеру — сначала задайте id',
+
+  'builder.exclusionsInbound': 'Правило исключают',
+  'builder.exclusionsOutbound': 'Правило исключает',
+  'builder.exclusionsOutboundHint':
+    'Только на тех запросах, где сработает само правило, — в отличие от директивы, которая снимает правило во всей конфигурации',
+  'builder.ctlRemoveById': 'снять правило {pick}',
+  'builder.ctlRemoveByMsg': 'снять правила, у которых сообщение подходит под «{pick}»',
+  'builder.ctlRemoveByTag': 'снять правила с меткой «{pick}»',
+  'builder.ctlRemoveTargetById': 'не проверять {target} в правиле {pick}',
+  'builder.ctlRemoveTargetByMsg':
+    'не проверять {target} в правилах, у которых сообщение подходит под «{pick}»',
+  'builder.ctlRemoveTargetByTag': 'не проверять {target} в правилах с меткой «{pick}»',
+  'builder.ctlIncomplete': 'исключение недописано — назовите правила, которые оно снимает',
+  'builder.ctlIncompleteTarget': 'исключение недописано — назовите цель, которую оно снимает',
+  'builder.ctlOption': 'Что снять',
+  'builder.ctlPickId': 'Номер правила',
+  'builder.ctlPickMsg': 'Шаблон сообщения',
+  'builder.ctlPickTag': 'Метка',
+  'builder.ctlPickRequired': 'Без выборки исключение ни до кого не дотянется',
+  'builder.ctlTargetRequired': 'Назовите цель, которую снимаем',
+  'builder.ctlTargetNoCount':
+    'Подсчёта у снимаемой цели не бывает: ModSecurity сравнивает её с целью правила по имени и параметру, и «&ARGS» не совпадёт ни с одной',
+  'builder.ctlTargetNoExcept':
+    'Положения «ВСЕ, КРОМЕ» здесь нет: вычитающий терм в цели ctl не совпадёт ни с чем и промолчит. Вычитают цель навсегда — директивой SecRuleUpdateTargetById',
+  'builder.addCtlTarget': 'Добавить',
+  'builder.addCtlTargetHint':
+    'Снять ещё одну цель. Цель в записи ctl ровно одна, поэтому каждая следующая уходит в файл своей записью',
+  'builder.directiveValue': 'Значение',
+  'builder.directiveNoArgument': 'аргумента не принимает',
+  'builder.directiveValueMissing': 'Значение не задано',
+  'builder.directiveBadValue': 'Такого значения у этой директивы нет',
+  'builder.directiveNotNumber': 'Здесь ожидается целое число',
+  'builder.directiveUnknownFlag': 'Части «{value}» у записи журнала нет',
+  'builder.directiveUnknownFlagHint': 'Не из тех частей, из которых состоит запись журнала',
+  'builder.directiveParts': 'Части записи',
+  'builder.directivePhaseRequired': 'Умолчания без фазы не достанутся ни одному правилу',
+  'builder.exclusionPickId': 'Номера правил',
+  'builder.exclusionPickMsg': 'Шаблон сообщения',
+  'builder.exclusionPickTag': 'Шаблон метки',
+  'builder.exclusionPickRequired': 'Без выборки исключение ни до кого не дотянется',
+  'builder.exclusionBadIdHint': 'Ожидается номер или диапазон вида 942100-942200',
+  'builder.exclusionActions': 'Дописываемые действия',
+  'builder.exclusionReplaced': 'Заменяемая цель',
+  'builder.exclusionReplacedHint':
+    'Заполняется только тогда, когда новая цель встаёт вместо старой, а не добавляется к ней',
+  'builder.exclusionReplacedBlocked':
+    'Заменять нечего: все цели здесь вычитаются, а вычитание ни на чьё место не встаёт',
+
+  'builder.exclusionWhoId': 'правила {pick}',
+  'builder.exclusionWhoMsg': 'правила, у которых сообщение подходит под «{pick}»',
+  'builder.exclusionWhoTag': 'правила с меткой, подходящей под «{pick}»',
+  'builder.exclusionSaysRemove': 'снять {who}',
+  'builder.exclusionSaysTarget': '{who} — {what}',
+  'builder.exclusionSaysActions': '{who} — дописать действия {actions}',
+  'builder.exclusionClauseDrop': 'не проверять {targets}',
+  'builder.exclusionClauseAdd': 'проверять ещё и {targets}',
+  'builder.exclusionClauseReplace': 'проверять {targets} вместо {replaced}',
+  'builder.exclusionIncompletePick':
+    'исключение недописано — назовите правила, до которых оно дотянется',
+  'builder.exclusionIncompleteTarget': 'исключение недописано — назовите цель, которую оно правит',
+  'builder.exclusionIncompleteActions':
+    'исключение недописано — назовите дописываемые действия',
+
+  'builder.exclusionSign': 'Снять цель',
+  'builder.exclusionSignOnHint':
+    'Снимаем: в файл уйдёт «!», и правило перестанет смотреть в эту цель. Нажмите, чтобы цель, наоборот, добавилась',
+  'builder.exclusionSignOffHint':
+    'Добавляем: без «!» правило получит ещё одно место для проверки и ничего не потеряет. Нажмите, чтобы цель снималась',
+  'builder.exclusionTargetRequired': 'Назовите цель',
+  'builder.exclusionTargetNoCount':
+    'Подсчёта у снимаемой цели не бывает: ModSecurity сравнивает её с целью правила по имени и параметру, и «&ARGS» не совпадёт ни с одной',
+  'builder.exclusionTargetNoExcept':
+    'Положения «ВСЕ, КРОМЕ» здесь нет: вычитает сам знак «!» у цели, поэтому коллекция и вынутые из неё параметры — это две цели, а не одна',
+  'builder.exclusionDropAllHint':
+    'Параметры не перечислены — правило перестанет смотреть в коллекцию целиком',
+  'builder.exclusionAddAllHint': 'Параметры не перечислены — правило получит всю коллекцию',
+  'builder.exclusionParamRequired':
+    'Назовите параметр — пустой перечень означает всю коллекцию',
+  'builder.addExclusionTarget': 'Добавить',
+  'builder.addExclusionTargetHint':
+    'Поправить ещё одну цель выбранных правил. В файл цели уходят одним аргументом, через «|»',
+
+  'builder.ctlPhraseLink': '{phrase}, едва совпадёт звено {n}',
+  'builder.ctlPhraseWholeChain': '{phrase}, когда совпадёт вся цепочка',
+  'builder.addCtlExclusion': 'Добавить исключение',
+  'builder.addCtlExclusionHint':
+    'Добавить правилу исключение через ctl: оно снимет названные правила только на тех запросах, где сработает это правило',
+  'builder.deleteExclusion': 'Убрать исключение',
+
+  'toolbar.undo': 'Отменить',
+  'toolbar.redo': 'Повторить',
+  'toolbar.format': 'Форматировать',
+  'toolbar.formatHint': 'Разложить правило по строкам — по одному действию в строке (Shift+Alt+F)',
+  'toolbar.formatDone': 'Текст уже разложен по строкам',
+
+  'diag.notParsed': 'Текст правила ещё не разобран.',
+  'diag.unbalancedQuotes': 'Непарные двойные кавычки.',
+  'diag.unknownDirective': 'Неизвестная директива «{name}».',
+  'diag.directiveArgCount': '«{name}» не принимает {count} аргументов.',
+  'diag.directiveValueMissing': 'У «{name}» не задано значение.',
+  'diag.directiveBadValue': 'У «{name}» нет значения «{value}».',
+  'diag.directiveNotNumber': '«{name}» ожидает целое число, а «{value}» им не является.',
+  'diag.directiveUnknownFlag': 'Части «{value}» у записи журнала аудита нет.',
+  'diag.emptyTargets': 'У правила нет областей проверки.',
+  'diag.unknownOperator': 'Неизвестный оператор «@{name}».',
+  'diag.operatorArgumentRequired': 'Оператору «@{name}» нужно значение.',
+  'diag.danglingChain': 'Цепочка разорвана: указан «chain», но следующего правила нет.',
+  'diag.missingId': 'У правила нет «id» — ModSecurity его не загрузит.',
+  'diag.duplicateId': 'Идентификатор «{id}» уже используется.',
+  'diag.duplicateIdCrossFile':
+    'Идентификатор «{id}» уже занят правилом в файле «{file}», строка {line}: конфигурацию, где один номер использован дважды, ModSecurity не загрузит.',
+  'diag.chainLinkHeadAction': 'Действие «{name}» допустимо только на первом правиле цепочки.',
+
+  'diag.unknownVariable': 'Неизвестная переменная «{name}».',
+  'diag.selectorNeedsQuotes':
+    'Параметр «{value}» приходится писать в кавычках, а ModSecurity 3 такую запись не читает. Портируемая замена: {pattern}',
+  'diag.selectorNotPortable':
+    'Параметр «{value}» нельзя записать так, чтобы ModSecurity 2 и 3 поняли его одинаково.',
+  'diag.unknownTransform': 'Неизвестное преобразование «{name}».',
+  'diag.unknownAction': 'Неизвестное действие «{name}».',
+  'diag.actionNotEditable': 'Действие «{name}» не редактируется в конструкторе.',
+  'diag.countWithTransforms': 'Подсчёт (&) игнорирует преобразования.',
+  'diag.countOnScalar': '«{name}» не коллекция, подсчёт всегда даст 0 или 1.',
+  'diag.selectorNotSupported': '«{name}» не принимает параметр.',
+  'diag.selectorRequired': '«{name}» требует параметр.',
+  'diag.excludeWithoutSelector': 'Исключение «{name}» без параметра убирает всю коллекцию.',
+  'diag.excludeWithoutBase': 'Исключению «{name}» не из чего вычитать.',
+  'diag.operatorArgumentUnexpected': 'Оператор «@{name}» не принимает значение.',
+  'diag.operatorInputMismatch': 'Оператор «@{name}» не подходит к типу значения этой проверки.',
+  'diag.nonNumericArgument': 'Оператор «@{name}» ожидает число.',
+  'diag.invalidIpEntry': 'Не похоже на IPv4/IPv6-адрес или сеть CIDR: {value}.',
+  'diag.invalidRegex': 'Регулярное выражение оператора «@{name}» некорректно.',
+  'diag.transformNoneNotFirst': '«none» сбрасывает конвейер и должно стоять первым.',
+  'diag.duplicateTransform': 'Преобразование «{name}» применяется дважды.',
+  'diag.missingPhase': 'Не указана фаза обработки.',
+  'diag.phaseTooEarly': 'Фаза {phase} слишком ранняя: области проверки заполняются с фазы {required}.',
+  'diag.noDisruptive': 'У правила нет реакции (deny / pass / …).',
+  'diag.statusWithoutBlock': '«status» имеет смысл только вместе с deny или redirect.',
+
+  'diag.caseNeverMatches': '«t:{name}» приводит значение к одному регистру — «{value}» не совпадёт никогда.',
+  'diag.whitespaceNeverMatches': '«t:{name}» меняет пробелы в значении — «{value}» в таком виде не совпадёт.',
+  'diag.hashWithoutHexEncode': 'После «t:{name}» значение — сырые байты: чтобы сравнить его с текстом, добавьте «t:hexEncode».',
+  'diag.conflictingCaseTransforms': '«t:lowercase» и «t:uppercase» в одном конвейере: работает только последнее.',
+  'diag.impossibleNumericRange': 'Цепочка не сработает никогда: нет значения, которое подходит и под «{first}», и под «{second}».',
+  'diag.literalWithRegexSyntax': 'Оператор «@{name}» сравнивает текст буквально — «{value}» будет искаться как написано, а не как шаблон.',
+  'diag.negationMatchesNothing': 'Шаблон подходит к любому значению, поэтому проверка с отрицанием не сработает никогда.',
+  'diag.neverTrueComparison': 'Это значение не бывает отрицательным — условие не выполнится никогда.',
+  'diag.matchesEverything': 'Шаблон подходит к любому значению — проверка ничего не отсеивает.',
+  'diag.alwaysTrueComparison': 'Это значение не бывает отрицательным — условие истинно всегда.',
+
+  'diag.decodeAfterNormalise': 'Декодирование «t:{decode}» стоит после «t:{normalise}»: к моменту нормализации закодированное ещё не раскрыто.',
+  'diag.noNormalisation': 'Проверка зависит от регистра и кодирования: обычно перед ней ставят «t:lowercase» и «t:urlDecodeUni».',
+  'diag.unescapedDot': 'Точка в «{value}» совпадает с любым символом — напишите «\\.», если имелась в виду обычная точка.',
+  'diag.overlappingTargets': '«{inner}» уже входит в «{outer}» — вторая область ничего не добавляет.',
+
+  'diag.requestBodyAccessOff':
+    'В загруженных файлах указано «SecRequestBodyAccess Off» — «{name}» всегда пусто.',
+  'diag.responseBodyAccessOff':
+    'В загруженных файлах указано «SecResponseBodyAccess Off» — «{name}» всегда пусто.',
+  'diag.disruptiveInLoggingPhase': 'В фазе 5 ответ уже отправлен — действие «{name}» будет проигнорировано.',
+  'diag.missingMarker': 'Метки «SecMarker {name}» в загруженных файлах нет — переходить некуда.',
+  'diag.skipBeyondEnd': '«skip:{count}» пропускает больше правил, чем осталось после него ({rest}).',
+  'diag.engineNotEnforcing': 'SecRuleEngine в режиме «{mode}»: блокирующие действия попадут в лог, но не применятся.',
+  'diag.xmlWithoutProcessor': '«XML» заполняется только после «ctl:requestBodyProcessor=XML», а в загруженных файлах его нет.',
+  'diag.txNeverSet': 'Переменную «tx.{name}» в загруженных файлах никто не выставляет.',
+
+  'diag.captureWithoutRegex': 'Захватывать нечего: ни одна проверка правила не использует регулярное выражение.',
+  'diag.captureMissing': '«%{TX.{index}}» пусто: в правиле нет действия «capture».',
+  'diag.blockWithoutLog': 'Правило блокирует запрос с «nolog»: объяснить отказ потом будет нечем.',
+  'diag.logdataWithoutLog': '«logdata» задан, но логирование выключено — данные никуда не попадут.',
+  'diag.captureUnused': '«capture» включён, но «%{TX.1}» в правиле нигде не используется.',
+  'diag.blockWithoutMsg': 'У блокирующего правила нет «msg» — в логе останется только его номер.',
+
+  'diag.possibleRedos': 'Вложенные кванторы: на специально подобранном значении такой шаблон считается очень долго.',
+  'diag.regexIsPlainText': 'В шаблоне нет спецсимволов — «@contains {value}» сделает то же самое и дешевле.',
+  'diag.anchoredLiteralRegex': 'Шаблон закреплён с обеих сторон и не содержит спецсимволов — это «@streq {value}».',
+  'diag.redundantLeadingWildcard': 'Ведущее «.*» ничего не меняет: шаблон и так ищется в любом месте значения.',
+  'diag.capturingGroupUnused': 'Группа захвата без действия «capture» только замедляет разбор — используйте «(?:…)».',
+  'diag.rblOnHotPath': 'Каждая проверка «@rbl» — запрос к DNS; на частом пути это заметно.',
+
+  'diag.duplicateTarget': 'Область проверки «{name}» указана дважды.',
+  'diag.duplicateCondition': 'Два звена цепочки проверяют одно и то же.',
+  'diag.duplicateRule': 'Правило повторяет проверку правила {id}.',
+  'diag.redundantTransform': 'После «t:{previous}» преобразование «t:{name}» уже ничего не меняет.',
+  'diag.transformsWithoutCheck': 'Оператор «@{name}» не смотрит на значение — преобразования ни на что не влияют.',
+  'diag.singlePhraseList': 'В списке одна фраза — «@contains {value}» скажет то же самое понятнее.',
+  'diag.idInReservedRange': 'Номер {id} попадает в диапазон 900000–999999, занятый CRS.',
+
+  'diag.exclusionNoTarget': 'У «{name}» нет обязательного аргумента, и она ничего не меняет.',
+  'diag.exclusionBadId': '«{value}» — не номер правила и не диапазон вида 942190-942200.',
+  'diag.exclusionUpdateActionMetadata':
+    '«{name}» не меняет «{action}»: id и phase остаются такими, какими их задал набор правил.',
+  'diag.exclusionUpdateTargetNotExclusion':
+    'В «{name}» нет «!»: «{targets}» заменяет цели правила, а не исключает одну из них.',
+  'diag.exclusionRemovedThenUpdated':
+    'Правило уже снято строкой {line} — править в нём нечего.',
+  'diag.exclusionEmptyRange': 'Диапазон «{target}» перевёрнут: в него не попадает ни одно правило.',
+  'diag.exclusionBeforeRule':
+    '«{name}» стоит выше правила {id}: исключения применяются при чтении конфигурации, поэтому это ничего не даст.',
+  'diag.exclusionInEarlierFile':
+    '«{name}» стоит в файле, который читается раньше файла «{file}» с правилом {id}: исключения применяются при чтении конфигурации, поэтому это ничего не даст. Переставьте файл ниже.',
+  'diag.exclusionNoMatch':
+    'Под «{target}» в загруженных файлах не подходит ни одно правило — проверьте, что оно приходит из файла, подключённого раньше.',
+  'diag.exclusionTooBroad':
+    '«{name}» снимает {count} правил — точечное исключение сохранит защиту в остальных местах.',
+  'diag.exclusionDuplicate': 'То же исключение уже есть в строке {line}.',
+  'diag.exclusionByMsgFragile':
+    '«{name}» выбирает по тексту сообщения, а это не стабильный интерфейс — тег или номер переживут обновление набора.',
+  'diag.exclusionCtlAfterRule':
+    '«{name}» работает в фазе {phase} — позже правила {id}: исключение через ctl действует с момента срабатывания, а к этому времени правило уже проверено. Перенесите его в более раннюю фазу или выше правила внутри этой же.',
+  'diag.exclusionCtlBadId':
+    '«{name}» принимает один номер правила или диапазон вида 942190-942200; «{value}» он прочитает целиком и не найдёт по нему ничего. Для каждого номера пишут отдельное ctl.',
+  'diag.exclusionCtlNoTarget':
+    '«{name}» снимает у правила одну цель, но после «;» цели нет — значит, не снимает ничего.',
+  'diag.exclusionCtlTargetList':
+    'После «;» у «{name}» стоит одна цель, а написано несколько — «{targets}». Всё после точки с запятой ModSecurity читает одним именем с параметром, поэтому не снимется ни одна: каждой цели нужна своя запись ctl.',
+  'diag.exclusionCtlDeadTarget':
+    'Цель «{target}» не совпадёт ни с одной целью правила: «{name}» сравнивает её по имени и параметру, а «!» и «&» в это сравнение не входят. Вычитают цель директивой SecRuleUpdateTargetById.',
+  'diag.exclusionCtlCarrierStops':
+    'Правило, в котором написано это исключение, отвечает «{action}», так что до снятых им правил дело всё равно не дойдёт.',
+  'diag.exclusionCtlAlreadyRemoved':
+    'Правило уже снято насовсем в строке {line} — исключение на один запрос к этому ничего не добавляет.',
+
+  'toolbar.copy': 'Копировать',
+  'toolbar.copied': 'Скопировано в буфер обмена',
+  'toolbar.copyFailed': 'Браузер не дал доступ к буферу обмена',
+
+  'menu.file': 'Файл',
+  'menu.fileHint': 'Текст открытого файла: откуда берётся и куда уходит',
+  'menu.replaceText': 'Заменить текст файлом с диска…',
+  'menu.saveFile': 'Выгрузить «{name}»',
+  'menu.saveArchive': 'Выгрузить все файлы архивом',
+  'menu.copy': 'Скопировать текст в буфер обмена',
+
+  'document.replaceTitle': 'Заменить текст файла?',
+  'document.replaceBody':
+    '«{name}» правлен и не сохранён. Замена текста сотрёт эти правки.',
+  'document.replace': 'Заменить',
+  'document.section': 'Файл',
+  'document.sectionHint':
+    'Какой файл профиля вы правите — наберите часть имени, чтобы сузить список',
+  'document.search': 'Часть имени',
+  'document.noMatch': 'Подходящего имени нет',
+
+  'files.manage': 'Файлы',
+  'files.manageHint': 'Файлы профиля: порядок чтения, выгрузка, снятие с профиля',
+  'files.title': 'Файлы профиля',
+  'files.order':
+    'ModSecurity читает файлы в этом порядке. Переставьте файл ниже другого — и его исключения начнут дотягиваться до того файла: директива действует только на правила, прочитанные раньше неё.',
+  'files.list': 'Файлы профиля',
+  'files.current': 'правится',
+  'files.readFailed': 'Этот файл не прочитался',
+  'files.download': 'Выгрузить «{name}» как есть',
+  'files.up': 'Выше — читается раньше',
+  'files.down': 'Ниже — читается позже',
+  'files.drag': 'Перетащите, чтобы изменить порядок',
+  'files.remove': 'Убрать «{name}» из профиля',
+  'files.removeTitle': 'Убрать набор из профиля?',
+  'files.removeBody':
+    '«{name}» правлен и не сохранён. Если убрать, правки пропадут. Сам набор останется в каталоге.',
+  'files.removeConfirm': 'Убрать',
+  'files.lastFile': 'Единственный файл не убирают: профиль не может остаться без правил',
+  'files.edited': 'правлен',
+  'files.lines': 'строк: {count}',
+  'files.empty': 'пусто',
+
+  'builder.destination': 'Адрес',
+  'builder.collapse': 'Свернуть правило',
+  'builder.expand': 'Развернуть правило',
+  'builder.collapseBlock': 'Свернуть блок',
+  'builder.expandBlock': 'Развернуть блок',
+  'builder.collapseSection': 'Свернуть «{name}»',
+  'builder.expandSection': 'Развернуть «{name}»',
+  'builder.collapseAll': 'Свернуть все',
+  'builder.expandAll': 'Раскрыть все',
+  'builder.expandAllSlow': 'Раскрыть все — на файле такого размера это займёт время',
+  'builder.expandedOf': 'Раскрыто {expanded} из {total}',
+  'builder.duplicateRule': 'Дублировать правило',
+  'builder.moveUp': 'Переместить выше',
+  'builder.moveDown': 'Переместить ниже',
+  'builder.andMore': 'ещё',
+  'diag.destinationMissing':
+    '«{name}» без адреса: ModSecurity не загрузит такое правило.',
+  'diag.destinationUnexpected':
+    '«{name}» не принимает адрес: значение рядом с ним будет отвергнуто при загрузке.',
+
+  'topic.structure': 'Форма',
+  'topic.logic': 'Логика',
+  'topic.coverage': 'Покрытие',
+  'topic.environment': 'Окружение',
+  'topic.logging': 'Логи',
+  'topic.performance': 'Цена',
+  'topic.style': 'Избыточность',
+
+  'fix.title': 'Исправить',
+  'fix.lowercaseValue': 'Привести значение к нижнему регистру',
+  'fix.uppercaseValue': 'Привести значение к верхнему регистру',
+  'fix.useContains': 'Заменить на @contains',
+  'fix.useStreq': 'Заменить на @streq',
+  'fix.dropLeadingWildcard': 'Убрать ведущее «.*»',
+  'fix.escapeDots': 'Экранировать точки',
+  'fix.moveNoneFirst': 'Поставить «none» первым',
+  'fix.removeTransform': 'Убрать «t:{name}»',
+  'fix.reorderPipeline': 'Декодировать раньше',
+  'fix.clearTransforms': 'Очистить конвейер',
+  'fix.addHexEncode': 'Добавить «t:hexEncode»',
+  'fix.addNormalisation': 'Нормализовать перед проверкой',
+  'fix.removeTarget': 'Убрать «{name}»',
+  'fix.usePatternSelector': 'Задать имя шаблоном',
+  'fix.setPhase': 'Подставить нужную фазу',
+  'fix.clearStatus': 'Очистить «status»',
+  'fix.restoreLog': 'Вернуть запись в лог',
+  'fix.enableCapture': 'Добавить «capture»',
+  'fix.disableCapture': 'Убрать «capture»',
+
+  'tooltip.noDescription': 'Описание пока недоступно.',
+  'tooltip.expandHint': 'Alt — подробнее',
+  'tooltip.collapseHint': 'Отпустите Alt, чтобы свернуть',
+  'tooltip.syntax': 'Синтаксис',
+  'tooltip.tech': 'Технически',
+  'tooltip.tech.argument': 'Аргумент',
+  'tooltip.tech.fallback': 'Если не указан',
+  'tooltip.tech.scope': 'Где действует',
+  'tooltip.tech.cost': 'Стоимость',
+  'tooltip.tech.availability': 'Доступность',
+  'tooltip.gotchas': 'Осторожно',
+  'tooltip.example': 'Пример',
+  'tooltip.seeAlso': 'См. также',
+  'category.directive': 'Директива',
+  'category.action': 'Действие',
+  'category.transform': 'Трансформация',
+  'category.operator': 'Оператор',
+  'category.variable': 'Переменная',
+};
+
+export const translations: Record<Locale, Record<TranslationKey, string>> = {
+  en,
+  ru,
+};
+
+/** Ключ перевода для подписи категории ключевого слова. */
+export function categoryKey(category: KeywordCategory): TranslationKey {
+  return `category.${category}` as TranslationKey;
+}
