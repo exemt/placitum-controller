@@ -6,40 +6,123 @@ import type { RootState } from "./state/types.ts";
 
 const PATH = "/agent_health_socket";
 
+export interface HealthSocketOptions {
+  /**
+   * Не чаще снимка за интервал. seq двигает пульс любого участника флота: на
+   * полутора десятках участников это несколько полных снимков в секунду каждой
+   * вкладке, а графикам панели хватает секунды.
+   */
+  pushMs?: number;
+  /**
+   * Очередь сокета, за которой снимок не шлётся. Свёрнутая вкладка кадры не
+   * читает: без порога они копились бы в памяти контроллера и в буферах прокси,
+   * а развёрнутая вкладка разбирала бы накопленное разом. Снимок полный --
+   * отставшему хватит последнего, когда очередь разойдётся.
+   */
+  backlogBytes?: number;
+  /** Пинг: соединение, не ответившее до следующего, обрывается. */
+  pingMs?: number;
+}
+
+const DEFAULTS = { pushMs: 1_000, backlogBytes: 256 * 1024, pingMs: 30_000 };
+
 /**
  * Отдельный сокет живого флота. На коннект — снимок, дальше — когда seq
- * в Redux сдвинулся (пульс, degraded, удаление). Не REST и не /api.
+ * в Redux сдвинулся (пульс, degraded, удаление), но не чаще pushMs. Не REST и
+ * не /api.
  */
 export function attachAgentHealthSocket(
   getState: () => RootState,
   subscribe: (listener: () => void) => () => void,
+  options: HealthSocketOptions = {},
 ): { wss: WebSocketServer; path: string; close: () => void } {
+  const { pushMs, backlogBytes, pingMs } = { ...DEFAULTS, ...options };
   const wss = new WebSocketServer({ noServer: true });
-  const clients = new Set<WebSocket>();
-  let prevSeq = getState().fleet.seq;
+  /** Сокет — seq снимка, который он получил последним. */
+  const clients = new Map<WebSocket, number>();
+  /** Ответившие на последний пинг. */
+  const alive = new Set<WebSocket>();
+  let seenSeq = getState().fleet.seq;
+  let pushedAt = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  const drop = (socket: WebSocket): void => {
+    clients.delete(socket);
+    alive.delete(socket);
+  };
 
   wss.on("connection", (socket) => {
-    clients.add(socket);
-    send(socket, snapshotFleet(getState()));
+    const state = getState();
+    clients.set(socket, state.fleet.seq);
+    alive.add(socket);
+    send(socket, JSON.stringify(snapshotFleet(state)));
+    socket.on("pong", () => {
+      alive.add(socket);
+    });
     socket.on("close", () => {
-      clients.delete(socket);
+      drop(socket);
     });
     socket.on("error", () => {
-      clients.delete(socket);
+      drop(socket);
     });
   });
+
+  const push = (): void => {
+    timer = undefined;
+    pushedAt = Date.now();
+    const state = getState();
+    const seq = state.fleet.seq;
+    let payload: string | undefined;
+    let behind = false;
+
+    for (const [socket, sent] of clients) {
+      if (sent === seq) {
+        continue;
+      }
+      if (socket.bufferedAmount > backlogBytes) {
+        behind = true;
+        continue;
+      }
+      payload ??= JSON.stringify(snapshotFleet(state));
+      if (send(socket, payload)) {
+        clients.set(socket, seq);
+      }
+    }
+
+    // отставший получит снимок, когда очередь разойдётся, даже если флот затих
+    if (behind) {
+      schedule();
+    }
+  };
+
+  const schedule = (): void => {
+    if (timer === undefined) {
+      timer = setTimeout(push, Math.max(0, pushedAt + pushMs - Date.now()));
+    }
+  };
 
   const unsubscribe = subscribe(() => {
     const seq = getState().fleet.seq;
-    if (seq === prevSeq) {
+    if (seq === seenSeq) {
       return;
     }
-    prevSeq = seq;
-    const payload = snapshotFleet(getState());
-    for (const socket of clients) {
-      send(socket, payload);
-    }
+    seenSeq = seq;
+    schedule();
   });
+
+  // Уснувший ноутбук или оборванный NAT закрытия не шлют: без пинга такой
+  // сокет висел бы в рассылке, пока TCP не сдастся.
+  const heartbeat = setInterval(() => {
+    for (const socket of clients.keys()) {
+      if (!alive.has(socket)) {
+        socket.terminate();
+        continue;
+      }
+      alive.delete(socket);
+      socket.ping();
+    }
+  }, pingMs);
+  heartbeat.unref();
 
   log("info", "agent health socket", { path: PATH });
 
@@ -48,7 +131,11 @@ export function attachAgentHealthSocket(
     path: PATH,
     close: () => {
       unsubscribe();
-      for (const socket of clients) {
+      clearInterval(heartbeat);
+      if (timer !== undefined) {
+        clearTimeout(timer);
+      }
+      for (const socket of clients.keys()) {
         socket.close();
       }
       wss.close();
@@ -56,9 +143,10 @@ export function attachAgentHealthSocket(
   };
 }
 
-function send(socket: WebSocket, payload: unknown): void {
+function send(socket: WebSocket, payload: string): boolean {
   if (socket.readyState !== 1) {
-    return;
+    return false;
   }
-  socket.send(JSON.stringify(payload));
+  socket.send(payload);
+  return true;
 }

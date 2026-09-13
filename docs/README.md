@@ -89,7 +89,7 @@ curl http://127.0.0.1:8080/api/<scope_uuid>/crypto
 | `POST /api/:scope/config/send` | Тот же текст в Redis blob + KV `policy/nginx` + PUB `waf.desired.nginx` |
 | `GET /api/:scope/config/desired` | Указатель текущего шаблона: rev, hash |
 | `GET /api/fleet` | Кластер: агенты, воркеры, инспекторы, Redis, сервисы; `up`/`degraded` |
-| WS `/agent_health_socket` | Тот же снимок пушем при изменении seq |
+| WS `/agent_health_socket` | Тот же снимок: на коннект и при изменении seq, не чаще раза в секунду. Сокету с забитой очередью (свёрнутая вкладка не читает) снимок не шлётся — он получит последний, когда очередь разойдётся. Не ответивший на пинг за 30 с обрывается. Панель закрывает сокет, если вкладка скрыта дольше 30 с, и открывает, когда её покажут |
 | `GET /api/:scope/crypto` | Публичный ключ контура: `alg`, `public_key`, `fingerprint` |
 | `GET /api/:scope/store` | Каталог объектов: uuid, type, metadata, size — без blob |
 | `POST /api/:scope/store` | Принять ciphertext (`type`, `metadata`, `blob` base64), выдать uuid |

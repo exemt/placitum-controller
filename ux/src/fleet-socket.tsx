@@ -5,6 +5,17 @@ import { applyFleetSnapshot } from "./store/fleet-ingest.ts";
 import { setConnected } from "./store/slices/fleet.ts";
 import type { FleetSnapshot } from "./fleet.ts";
 
+/**
+ * Сколько вкладка держит сокет скрытой. Свёрнутая вкладка кадры не разбирает,
+ * они копятся в буферах браузера и прокси, и развёрнутая через десять минут
+ * вкладка встаёт колом, пока не переварит накопленное. Снимок полный и приходит
+ * на коннект: закрыть и открыть заново ничего не теряет.
+ */
+const HIDDEN_CLOSE_MS = 30_000;
+
+/** Снимок перерисовывает весь флот: не чаще раза в интервал, сколько бы ни пришло. */
+const APPLY_GAP_MS = 500;
+
 function socketUrl(): string {
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
   return `${proto}//${window.location.host}/agent_health_socket`;
@@ -15,12 +26,16 @@ export function FleetSocket() {
 
   useEffect(() => {
     let cancelled = false;
+    // Живой сокет; null — закрыт или ждёт переподключения.
     let socket: WebSocket | null = null;
     let retry: number | undefined;
+    let park: number | undefined;
     let delay = 500;
-    // Свёрнутая вкладка копит кадры. Снимок полный — достаточно последнего.
+    // Снимок полный — достаточно последнего.
     let pending: string | null = null;
     let raf = 0;
+    let gap: number | undefined;
+    let appliedAt = -Infinity;
 
     const flush = () => {
       raf = 0;
@@ -29,6 +44,7 @@ export function FleetSocket() {
       }
       const raw = pending;
       pending = null;
+      appliedAt = performance.now();
       try {
         const payload = JSON.parse(raw) as FleetSnapshot;
         if (payload.type === "snapshot") {
@@ -40,22 +56,23 @@ export function FleetSocket() {
     };
 
     const schedule = () => {
-      if (raf !== 0 || document.hidden) {
+      if (raf !== 0 || gap !== undefined || pending === null || document.hidden) {
+        return;
+      }
+      const wait = appliedAt + APPLY_GAP_MS - performance.now();
+      if (wait > 0) {
+        gap = window.setTimeout(() => {
+          gap = undefined;
+          schedule();
+        }, wait);
         return;
       }
       raf = window.requestAnimationFrame(flush);
     };
 
-    const onVisible = () => {
-      if (!document.hidden) {
-        schedule();
-      }
-    };
-
-    document.addEventListener("visibilitychange", onVisible);
-
     const open = () => {
-      if (cancelled) {
+      // скрытая вкладка сокет не открывает: откроет, когда её покажут
+      if (cancelled || socket !== null || document.hidden) {
         return;
       }
 
@@ -63,14 +80,14 @@ export function FleetSocket() {
       socket = ws;
 
       ws.onopen = () => {
-        if (!cancelled) {
+        if (socket === ws) {
           delay = 500;
           dispatch(setConnected(true));
         }
       };
 
       ws.onmessage = (event) => {
-        if (cancelled || typeof event.data !== "string") {
+        if (socket !== ws || typeof event.data !== "string") {
           return;
         }
         pending = event.data;
@@ -78,11 +95,16 @@ export function FleetSocket() {
       };
 
       ws.onclose = () => {
-        if (cancelled) {
+        // закрыли мы сами: размонтирование или долго скрытая вкладка
+        if (socket !== ws) {
           return;
         }
+        socket = null;
         dispatch(setConnected(false));
-        retry = window.setTimeout(open, delay);
+        retry = window.setTimeout(() => {
+          retry = undefined;
+          open();
+        }, delay);
         delay = Math.min(delay * 2, 8_000);
       };
 
@@ -91,18 +113,55 @@ export function FleetSocket() {
       };
     };
 
+    const close = () => {
+      const ws = socket;
+      socket = null;
+      pending = null;
+      ws?.close();
+    };
+
+    const onVisibility = () => {
+      if (document.hidden) {
+        if (park === undefined && socket !== null) {
+          park = window.setTimeout(() => {
+            park = undefined;
+            if (document.hidden) {
+              close();
+            }
+          }, HIDDEN_CLOSE_MS);
+        }
+        return;
+      }
+      if (park !== undefined) {
+        window.clearTimeout(park);
+        park = undefined;
+      }
+      if (socket === null) {
+        if (retry !== undefined) {
+          window.clearTimeout(retry);
+          retry = undefined;
+        }
+        delay = 500;
+        open();
+      }
+      schedule();
+    };
+
+    document.addEventListener("visibilitychange", onVisibility);
     open();
 
     return () => {
       cancelled = true;
-      document.removeEventListener("visibilitychange", onVisible);
+      document.removeEventListener("visibilitychange", onVisibility);
       if (raf !== 0) {
         window.cancelAnimationFrame(raf);
       }
-      if (retry !== undefined) {
-        window.clearTimeout(retry);
+      for (const id of [retry, park, gap]) {
+        if (id !== undefined) {
+          window.clearTimeout(id);
+        }
       }
-      socket?.close();
+      close();
     };
   }, [dispatch]);
 
