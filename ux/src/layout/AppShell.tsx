@@ -25,7 +25,6 @@ import LightModeIcon from "@mui/icons-material/LightMode";
 import PolicyIcon from "@mui/icons-material/Policy";
 import SettingsIcon from "@mui/icons-material/Settings";
 import SubjectIcon from "@mui/icons-material/Subject";
-import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import TranslateIcon from "@mui/icons-material/Translate";
 import TuneIcon from "@mui/icons-material/Tune";
 
@@ -159,7 +158,6 @@ const NAV: NavNode[] = [
     ],
   },
   { kind: "page", to: "/logs", key: "nav.logs", icon: <SubjectIcon /> },
-  { kind: "page", to: "/traffic", key: "nav.traffic", icon: <SwapHorizIcon /> },
 ];
 
 function pageSelected(node: NavPage, pathname: string): boolean {

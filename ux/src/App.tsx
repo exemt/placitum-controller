@@ -25,8 +25,6 @@ import Help from "./pages/Help.tsx";
 import { FleetProvider } from "./pages/FleetProvider.tsx";
 import Incidents from "./pages/Incidents.tsx";
 import Logs from "./pages/Logs.tsx";
-import { PlaceholderProvider } from "./pages/PlaceholderProvider.tsx";
-import Traffic from "./pages/Traffic.tsx";
 import Lists from "./pages/Lists.tsx";
 import { ListsProvider } from "./pages/ListsProvider.tsx";
 import Profiles from "./pages/Profiles.tsx";
@@ -223,14 +221,6 @@ export default function App() {
               ей место только в меню.
             */}
             <Route path="/logs" element={<Logs />} />
-            <Route
-              path="/traffic"
-              element={
-                <PlaceholderProvider page="traffic">
-                  <Traffic />
-                </PlaceholderProvider>
-              }
-            />
             <Route
               path="/config"
               element={

@@ -57,7 +57,6 @@ const PAGES: PageCrumb[] = [
   { path: "/config/haproxy", key: "nav.haproxy", section: "config" },
   { path: "/config/agent", key: "nav.agent", section: "config" },
   { path: "/logs", key: "nav.logs" },
-  { path: "/traffic", key: "nav.traffic" },
 ];
 
 export function crumbsForPath(

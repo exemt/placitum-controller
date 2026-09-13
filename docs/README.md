@@ -155,7 +155,6 @@ curl http://127.0.0.1:8080/api/<scope_uuid>/crypto
 | `CONTROLLER_FLEET_EXPIRE_MS` | `60000` | Нет healthup — выкинуть из стора |
 | `CONTROLLER_FLEET_TICK_MS` | `1000` | Шаг тика флота |
 | `CONTROLLER_FLEET_DEMO` | включён, пока не `0` | Demo-пульсы воркеров; в `deploy/` выключен |
-| `CONTROLLER_LOADGEN_URL` | пусто | HTTP loadgen; в `deploy/` — `http://loadgen:8090` |
 | `CONTROLLER_SEARCH_URL` | пусто | HTTP waf-search; в `deploy/` — `http://search:8091` |
 | `CONTROLLER_GEO_URL` | пусто | HTTP geo/asn кодера; в `deploy/` — `http://geo:8092` |
 | `CONTROLLER_CRYPTO_PUBLIC_KEY` | пусто | Публичный PEM контура или путь; приватный отвергается |
@@ -191,7 +190,6 @@ NATS и тот же Redis подняты у агента (`nginx/agent/agent.con
 | [`src/datasets-http.ts`](../src/datasets-http.ts), [`src/rule-files-http.ts`](../src/rule-files-http.ts), [`src/rule-sets-http.ts`](../src/rule-sets-http.ts) | `/api/:scope/datasets`, `addresses`, `rule-files`, `rule-sets` |
 | [`src/rules-http.ts`](../src/rules-http.ts), [`src/desired.ts`](../src/desired.ts), [`src/rules-manifest.ts`](../src/rules-manifest.ts) | `send` правил в KV `WAF_DESIRED/policy/modsec` |
 | [`src/fleet-http.ts`](../src/fleet-http.ts) | Снимок флота |
-| [`src/load-http.ts`](../src/load-http.ts) | Прокси к k6-кнопке в deploy/ |
 | [`src/search-http.ts`](../src/search-http.ts) | Прокси к waf-search: `/api/search/…` |
 | [`src/geo-http.ts`](../src/geo-http.ts) | Страна и ASN адреса из каталога пространства: `POST /api/:scope/geo/lookup/batch`; запасной источник — geo/asn кодер |
 | [`src/model/`](../src/model) | Модель http-пространства, сервера и пути |

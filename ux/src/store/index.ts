@@ -27,7 +27,6 @@ import pathsReducer from "./slices/pages/paths.ts";
 import portsReducer from "./slices/pages/ports.ts";
 import serversReducer from "./slices/pages/servers.ts";
 import upstreamsReducer from "./slices/pages/upstreams.ts";
-import { trafficReducer } from "./slices/pages/shell.ts";
 import sessionReducer from "./slices/session.ts";
 import uiReducer from "./slices/ui.ts";
 import formsReducer from "./slices/forms.ts";
@@ -51,7 +50,6 @@ const pagesReducer = combineReducers({
   rewriteProfiles: rewriteProfilesReducer,
   inspectors: inspectorsPageReducer,
   inspectorCatalog: inspectorCatalogReducer,
-  traffic: trafficReducer,
   config: configReducer,
   servers: serversReducer,
   paths: pathsReducer,

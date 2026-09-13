@@ -35,7 +35,6 @@ import type { GeoFileRepo } from "./geo-files.ts";
 import { geoRouter } from "./geo-http.ts";
 import type { GeoImports } from "./geo-import.ts";
 import { GEO_SERVICE, geoFilesRouter, geoImportRouter } from "./geo-import-http.ts";
-import { loadRouter } from "./load-http.ts";
 import { searchRouter } from "./search-http.ts";
 import { log } from "./log.ts";
 import { logLevelsRouter } from "./log-levels-http.ts";
@@ -164,7 +163,6 @@ export function createApp(cfg: Config, services: AppServices): Express {
   app.use("/api/actions", actionsRouter());
   app.use("/api/spaces", spacesRouter(services.getState));
   app.use("/api/fleet", fleetRouter(services.getState));
-  app.use("/api/load", loadRouter(cfg.loadgenUrl));
   app.use("/api/search", searchRouter(cfg.searchUrl));
   // Уровни журнала -- не под пространством: процессы общие на весь контур.
   app.use("/api/log-levels", logLevelsRouter(services.desired));

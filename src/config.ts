@@ -45,8 +45,6 @@ export interface Config {
   fleetDemo: boolean;
   /** NATS для WAF_STATUS. Пустая строка — не подключаться. */
   natsUrl: string;
-  /** HTTP loadgen в deploy/. Пустая строка — кнопка нагрузки выключена. */
-  loadgenUrl: string;
   /** HTTP поиска по waf.audit. Пустая строка — журнал в UX выключен. */
   searchUrl: string;
   /** HTTP geo/asn кодера. Пустая строка — флаг и ASN в UX не показываются. */
@@ -113,7 +111,6 @@ export function load(env: NodeJS.ProcessEnv = process.env): Config {
     fleetTickMs: Number(env.CONTROLLER_FLEET_TICK_MS ?? 1_000),
     fleetDemo: env.CONTROLLER_FLEET_DEMO !== "0",
     natsUrl: env.CONTROLLER_NATS_URL ?? env.NATS_URL ?? "nats://127.0.0.1:4222",
-    loadgenUrl: env.CONTROLLER_LOADGEN_URL ?? "",
     searchUrl: env.CONTROLLER_SEARCH_URL ?? "",
     geoUrl: env.CONTROLLER_GEO_URL ?? "",
     cryptoPublicKey: env.CONTROLLER_CRYPTO_PUBLIC_KEY ?? "",
