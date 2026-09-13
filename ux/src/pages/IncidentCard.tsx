@@ -158,7 +158,6 @@ function InspectorsPanel({
       <ResultRow row={row} sibling={sibling} cell={cell} />
       <FrameRow frame={row.frame} />
       <SessionRow session={row.session} />
-      <MarkersPanel markers={row.markers ?? []} seek={cell} />
       {card.loading ? (
         <Waiting />
       ) : card.error !== null ? (
@@ -183,14 +182,16 @@ function InspectorsPanel({
         ))
       )}
       {/*
-        Таблицы -- под участниками, и всегда в этом порядке: сессии
-        предпоследними, автодействия в самом низу. Обе отвечают на вопрос
-        «что было вокруг вердикта», и читать их идут после того, как разобрали
-        сам вердикт; просьбы соседей -- последнее, потому что их исход часто
-        объясняется тем, что стоит выше.
+        Секции -- под участниками, и всегда в этом порядке: сессии, автодействия,
+        маркеры в самом низу. Все три отвечают на вопрос «что было вокруг
+        вердикта», и читать их идут после того, как разобрали сам вердикт;
+        просьбы соседей -- после сессий, потому что их исход часто объясняется
+        тем, что стоит выше, а маркеры -- итог просьб mark: кто и по какому
+        поводу пометил, видно в автодействиях над ними.
       */}
       <SessionsPanel items={row.sessions ?? []} />
       <ActionsPanel items={card.data?.actions ?? []} heard={card.data?.items ?? []} />
+      <MarkersPanel markers={row.markers ?? []} seek={cell} />
     </Box>
   );
 }
@@ -200,8 +201,12 @@ function InspectorsPanel({
  * Фишками и кликом в фильтр -- метку ставят затем, чтобы по ней собрать
  * остальные такие же события, и первый жест на ней именно этот.
  *
- * Кто и по какому поводу пометил, здесь не печатается: это видно ниже, в
- * действиях записи, где просьба стоит рядом с именем отправителя.
+ * Рамка та же, что у сессий и автодействий, только внутри не таблица, а
+ * фишки: полей у метки нет, делить её на столбцы нечем. Кто и по какому поводу
+ * пометил, здесь не печатается: это видно выше, в автодействиях, где просьба
+ * стоит рядом с именем отправителя.
+ *
+ * Секция появляется, только когда метки есть.
  */
 function MarkersPanel({ markers, seek }: { markers: string[]; seek?: SeekState }) {
   const t = useT();
@@ -211,18 +216,13 @@ function MarkersPanel({ markers, seek }: { markers: string[]; seek?: SeekState }
   }
 
   return (
-    <Box sx={{ mb: 0.75, px: 1.25, minWidth: 0 }}>
-      <Typography
-        variant="caption"
-        color="text.secondary"
-        sx={{ display: "block", mb: 0.5 }}
-      >
-        {t("incidentsPage.card.markers")}
-      </Typography>
+    <CardSection title={t("incidentsPage.card.markers")}>
+      {/* Зазор флексом, а не отступом: перенесённая фишка встаёт к левому краю. */}
       <Stack
         direction="row"
         spacing={0.75}
-        sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 0.5, minWidth: 0 }}
+        useFlexGap
+        sx={{ px: 1.25, py: 0.75, alignItems: "center", flexWrap: "wrap", minWidth: 0 }}
       >
         {markers.map((marker) => (
           <Chip
@@ -238,7 +238,7 @@ function MarkersPanel({ markers, seek }: { markers: string[]; seek?: SeekState }
           />
         ))}
       </Stack>
-    </Box>
+    </CardSection>
   );
 }
 
@@ -343,13 +343,51 @@ function SessionNotes({ item }: { item: AuditSession }) {
 }
 
 /*
- * Общий вид секций-таблиц карточки: сессии и автодействия -- один и тот же
- * разбор записи, и рамка у них одна на двоих. Рамка как у участника, только
+ * Общий вид секций карточки: сессии, автодействия и маркеры -- один и тот же
+ * разбор записи, и рамка у них одна на всех. Рамка как у участника, только
  * серая: это не чей-то вердикт, цветной полосы блоку брать неоткуда.
  *
- * Столбцы делят ширину поровну и не жмутся ниже своего содержимого, отступы
- * живут в ячейках, а не зазором грида: иначе разделитель строк рвался бы на
- * каждом промежутке между столбцами.
+ * Секции нет, пока ей нечего показать: решает панель, а рамка только рисует.
+ */
+function CardSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <Box
+      sx={{
+        mt: 1,
+        mb: 0.75,
+        minWidth: 0,
+        border: 1,
+        borderColor: "divider",
+        borderLeft: "3px solid",
+        borderLeftColor: "text.secondary",
+        borderRadius: "0 4px 4px 0",
+        overflow: "hidden",
+      }}
+    >
+      <Box
+        sx={{
+          height: 36,
+          minHeight: 36,
+          boxSizing: "border-box",
+          px: 1.25,
+          display: "flex",
+          alignItems: "center",
+          borderBottom: 1,
+          borderColor: "divider",
+        }}
+      >
+        {/* Фишка как у участника, только серая: блок разбора, а не вердикт. */}
+        <Chip size="small" variant="outlined" color="default" label={title} />
+      </Box>
+      {children}
+    </Box>
+  );
+}
+
+/*
+ * Секция-таблица: сессии и автодействия. Столбцы делят ширину поровну и не
+ * жмутся ниже своего содержимого, отступы живут в ячейках, а не зазором грида:
+ * иначе разделитель строк рвался бы на каждом промежутке между столбцами.
  */
 interface CardColumn {
   key: string;
@@ -385,34 +423,7 @@ function CardTable({
   rows: CardRow[];
 }) {
   return (
-    <Box
-      sx={{
-        mt: 1,
-        mb: 0.75,
-        minWidth: 0,
-        border: 1,
-        borderColor: "divider",
-        borderLeft: "3px solid",
-        borderLeftColor: "text.secondary",
-        borderRadius: "0 4px 4px 0",
-        overflow: "hidden",
-      }}
-    >
-      <Box
-        sx={{
-          height: 36,
-          minHeight: 36,
-          boxSizing: "border-box",
-          px: 1.25,
-          display: "flex",
-          alignItems: "center",
-          borderBottom: 1,
-          borderColor: "divider",
-        }}
-      >
-        {/* Фишка как у участника, только серая: блок разбора, а не вердикт. */}
-        <Chip size="small" variant="outlined" color="default" label={title} />
-      </Box>
+    <CardSection title={title}>
       <Box
         sx={{
           display: "grid",
@@ -452,7 +463,7 @@ function CardTable({
           )),
         )}
       </Box>
-    </Box>
+    </CardSection>
   );
 }
 
