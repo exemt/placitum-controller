@@ -29,6 +29,7 @@ test("renderHaproxyCfg: пустой документ -- поставочный 
   assert.match(cfg, /bind \*:8080/);
   assert.match(cfg, /balance roundrobin/);
   assert.match(cfg, /option httpchk GET \/healthz/);
+  assert.match(cfg, /option {18}forwardfor/);
   assert.match(cfg, /http-check expect status 200/);
   assert.match(
     cfg,

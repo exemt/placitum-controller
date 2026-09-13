@@ -129,6 +129,11 @@ export function renderHaproxyCfg(settings: HaproxySettings): string {
     "    option                  httplog",
     "    option                  dontlognull",
     "    option                  http-keep-alive",
+    // Адрес клиента узлу. Без заголовка узел за балансировщиком видит у всех
+    // запросов адрес haproxy, и счёт по адресу у калитки и лимитов становится
+    // общим на всех. Верит узел заголовку только от балансировщика: realip с
+    // его адресами в set_real_ip_from.
+    "    option                  forwardfor",
     `    timeout connect         ${fmtMs(connect)}`,
     `    timeout client          ${fmtMs(client)}`,
     `    timeout server          ${fmtMs(server)}`,
