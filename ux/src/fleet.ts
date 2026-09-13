@@ -634,7 +634,7 @@ export function mergeErrors(
   const merged = new Map<string, PulseError>();
   for (const row of rows) {
     for (const error of row.errors ?? []) {
-      const key = `${error.source ?? ""} ${error.msg}`;
+      const key = `${error.source ?? ""}\u0000${error.msg}`;
       const prev = merged.get(key);
       if (prev === undefined) {
         merged.set(key, { ...error });

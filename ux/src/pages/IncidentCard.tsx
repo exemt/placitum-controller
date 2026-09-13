@@ -451,7 +451,7 @@ function CardTable({
         {rows.map((row, r) =>
           cols.map((col, i) => (
             <Box
-              key={`${row.key} ${col.key}`}
+              key={`${row.key}\u0000${col.key}`}
               sx={{
                 ...cardCellSx(i, cols.length, r === rows.length - 1),
                 minWidth: 0,
