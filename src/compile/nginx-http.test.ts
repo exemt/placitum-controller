@@ -657,6 +657,29 @@ test("upstream: имя пула и peer", () => {
   assert.equal(compileHttp({ upstreams: [backend()] }).text, expected);
 });
 
+test("upstream: resolve кладёт пул в zone и печатает resolve у узла", () => {
+  const up = backend();
+  up.peers = [{ host: "controller", port: 8080, weight: 1, backup: false, down: false, resolve: true }];
+
+  const { text } = compileHttp({ nginx: { resolver: ["127.0.0.11", "valid=10s"] }, upstreams: [up] });
+
+  assert.match(text, /resolver 127\.0\.0\.11 valid=10s;/);
+  assert.match(
+    text,
+    /upstream backend \{\s+zone\s+upstream_backend 64k;\s+server\s+controller:8080 resolve;\s+\}/,
+  );
+});
+
+test("upstream: resolve без resolver в http -- ошибка компиляции, а не nginx -t на узле", () => {
+  const up = backend();
+  up.peers = [{ host: "controller", port: 8080, weight: 1, backup: false, down: false, resolve: true }];
+
+  assert.throws(
+    () => compileHttp({ upstreams: [up] }),
+    (err: unknown) => err instanceof WafCompileError && err.code === "resolver_required",
+  );
+});
+
 test("вставляет compileServer и пропускает выключенный сервер", () => {
   const loc: Location = {
     id: "loc",

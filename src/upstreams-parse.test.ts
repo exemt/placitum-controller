@@ -26,6 +26,7 @@ test("accepts a named pool with one peer", () => {
           weight: 1,
           backup: false,
           down: false,
+          resolve: false,
         },
       ],
     });
@@ -77,6 +78,26 @@ test("rejects a peer without a valid port", () => {
   }
 });
 
+test("resolve is a boolean flag of the peer", () => {
+  const parsed = parseUpstreamCreate(
+    { name: "panel", peers: [{ host: "controller", port: 8080, resolve: true }] },
+    SPACE,
+  );
+  assert.equal(parsed.ok, true);
+  if (parsed.ok) {
+    assert.equal(parsed.value.peers[0].resolve, true);
+  }
+
+  const bad = parseUpstreamCreate(
+    { name: "panel", peers: [{ host: "controller", port: 8080, resolve: "yes" }] },
+    SPACE,
+  );
+  assert.equal(bad.ok, false);
+  if (!bad.ok) {
+    assert.equal(bad.error, "invalid_peers");
+  }
+});
+
 test("patch replaces peers and clears keepalive", () => {
   const parsed = parseUpstreamPatch({
     keepalive: null,
@@ -92,6 +113,7 @@ test("patch replaces peers and clears keepalive", () => {
         weight: 2,
         backup: true,
         down: false,
+        resolve: false,
       },
     ]);
   }

@@ -30,6 +30,8 @@ export interface UpstreamPeer {
   failTimeoutMs?: number;
   backup: boolean;
   down: boolean;
+  /** `server … resolve`: пулу нужны zone и resolver в http. */
+  resolve?: boolean;
 }
 
 export interface ServerExport {

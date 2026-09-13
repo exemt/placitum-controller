@@ -320,6 +320,7 @@ export async function exportNginx(pool: Pool, httpSpaceId: string): Promise<Ngin
         failTimeoutMs: p.fail_timeout_ms ?? undefined,
         backup: p.backup,
         down: p.down,
+        resolve: p.resolve === true,
       })),
   }));
 

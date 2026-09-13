@@ -29,6 +29,7 @@ function jsonPeer(row: UpstreamPeer) {
     fail_timeout_ms: row.failTimeoutMs ?? null,
     backup: row.backup,
     down: row.down,
+    resolve: row.resolve,
     position: row.position,
   };
 }

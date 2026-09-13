@@ -312,6 +312,18 @@ export function compileHttp(source: HttpCompileSource): NginxCompileResult {
   );
   validateWafCompile(source, printed);
   const upstreams = source.upstreams ?? [];
+  /*
+   * resolve без resolver nginx отвергает на -t всё поколение («no resolver
+   * defined to resolve names at run time»): назвать это здесь, при рассылке, а
+   * не узнать от агента, который упавший -t не повторяет.
+   */
+  const resolving = upstreams.filter((up) => upstreamResolves(up)).map((up) => up.name);
+  if (resolving.length > 0 && (source.nginx?.resolver ?? []).length === 0) {
+    throw new WafCompileError(
+      "resolver_required",
+      `server … resolve needs resolver in http: ${resolving.sort().join(", ")}`,
+    );
+  }
   const storeRefs: string[] = [];
   const store = nestStore(storeRefs, source.store);
   const lines: string[] = ["http {"];
@@ -931,6 +943,11 @@ function serverTitle(server: ServerExport["server"]): string {
   return `server ${names !== "" ? names : server.name}`;
 }
 
+/** Пул с узлом `resolve`: ему нужны `zone` и `resolver` в `http`. */
+export function upstreamResolves(up: Pick<Upstream, "peers">): boolean {
+  return up.peers.some((peer) => peer.resolve === true);
+}
+
 /**
  * Блок `upstream {}`. Отступ уровнями по 4 пробела: 1 -- внутри `http {}`,
  * 0 -- сам блок (превью карточки пула). В `store` пулу класть нечего.
@@ -940,6 +957,13 @@ export function compileUpstream(up: Upstream, indent = 0): NginxCompileResult {
   const inner = indent + 1;
 
   ind(lines, `upstream ${up.name} {`, indent);
+  /*
+   * Узел с resolve живёт только в разделяемой памяти: без zone nginx отвергает
+   * пул («resolving names at run time requires upstream … to be in shared
+   * memory»). Приставка -- потому что пространство имён зон одно на весь http:
+   * пул не должен столкнуться с waf_shm_zone или limit_req_zone того же имени.
+   */
+  if (upstreamResolves(up)) ind(lines, `zone upstream_${up.name} 64k;`, inner);
   if (up.method === "least_conn") ind(lines, "least_conn;", inner);
   if (up.method === "ip_hash") ind(lines, "ip_hash;", inner);
   if (up.method === "hash" && up.hashKey) ind(lines, `hash ${up.hashKey};`, inner);
@@ -951,6 +975,7 @@ export function compileUpstream(up: Upstream, indent = 0): NginxCompileResult {
     if (peer.failTimeoutMs !== undefined) parts.push(`fail_timeout=${peer.failTimeoutMs}ms`);
     if (peer.backup) parts.push("backup");
     if (peer.down) parts.push("down");
+    if (peer.resolve === true) parts.push("resolve");
     ind(lines, `server ${parts.join(" ")};`, inner);
   }
 

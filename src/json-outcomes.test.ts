@@ -187,3 +187,13 @@ test("renderProfileYaml stays quiet without outcomes", () => {
 
   assert.equal(yaml.includes("outcomes:"), false);
 });
+
+test("a profile without a schema is a placeholder: valid, shipped to the inspector as off", () => {
+  const idle = validateDoc({});
+
+  assert.match(renderProfileYaml("default", idle, new Map()), /^mode: off$/m);
+  assert.match(
+    renderProfileYaml("api", validateDoc(base), new Map([[SOURCE, "api"]])),
+    /^mode: enforce$/m,
+  );
+});

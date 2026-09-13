@@ -31,6 +31,7 @@ interface PeerRow {
   fail_timeout_ms: number | null;
   backup: boolean;
   down: boolean;
+  resolve: boolean;
   position: number;
 }
 
@@ -81,6 +82,7 @@ function ofPeer(row: PeerRow): UpstreamPeer {
     weight: row.weight,
     backup: row.backup,
     down: row.down,
+    resolve: row.resolve,
     position: row.position,
   };
   if (row.max_fails !== null) {
@@ -97,7 +99,7 @@ const UP_COLS = `id, http_space_id, name, method, hash_key,
                  tls, tls_name, host_header`;
 
 const PEER_COLS = `id, upstream_id, host, port, weight, max_fails,
-                   fail_timeout_ms, backup, down, position`;
+                   fail_timeout_ms, backup, down, resolve, position`;
 
 export interface UpstreamPeerInsert {
   host: string;
@@ -107,6 +109,7 @@ export interface UpstreamPeerInsert {
   failTimeoutMs?: number;
   backup: boolean;
   down: boolean;
+  resolve: boolean;
 }
 
 export interface UpstreamInsert {
@@ -341,8 +344,8 @@ async function replacePeers(
     await client.query(
       `insert into upstream_peers
          (upstream_id, host, port, weight, max_fails, fail_timeout_ms,
-          backup, down, position)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          backup, down, resolve, position)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
       [
         upstreamId,
         peer.host,
@@ -352,6 +355,7 @@ async function replacePeers(
         peer.failTimeoutMs ?? null,
         peer.backup,
         peer.down,
+        peer.resolve,
         index,
       ],
     );

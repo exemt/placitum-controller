@@ -17,6 +17,7 @@ export type PeerDraft = {
   failTimeoutMs: string;
   backup: boolean;
   down: boolean;
+  resolve: boolean;
 };
 
 /* Умолчания nginx: их показывает и запертое поле окна, и погашенная ячейка
@@ -39,6 +40,7 @@ export function emptyPeer(): PeerDraft {
     failTimeoutMs: "",
     backup: false,
     down: false,
+    resolve: false,
   };
 }
 
@@ -51,6 +53,7 @@ export function peerFromRow(row: UpstreamPeer): PeerDraft {
     failTimeoutMs: row.fail_timeout_ms === null ? "" : String(row.fail_timeout_ms),
     backup: row.backup,
     down: row.down,
+    resolve: row.resolve,
   };
 }
 
@@ -90,7 +93,7 @@ export function peerReady(peer: PeerDraft): boolean {
 
 /**
  * Строка `server` так, как её печатает компилятор
- * (`controller/src/compile/nginx-http.ts`, `emitUpstream`): умолчания в файл
+ * (`controller/src/compile/nginx-http.ts`, `compileUpstream`): умолчания в файл
  * не едут, `fail_timeout` -- в миллисекундах с суффиксом `ms`.
  */
 export function peerLine(peer: PeerDraft): string {
@@ -113,13 +116,16 @@ export function peerLine(peer: PeerDraft): string {
   if (peer.down) {
     parts.push("down");
   }
+  if (peer.resolve) {
+    parts.push("resolve");
+  }
   return `server ${parts.join(" ")};`;
 }
 
 /**
  * Сервер пула -- окном, а не строкой, которая правится на месте.
  *
- * У строки семь параметров, и три из них (`weight=`, `max_fails=`,
+ * У строки восемь параметров, и три из них (`weight=`, `max_fails=`,
  * `fail_timeout=`) в ячейке таблицы стояли голыми числами: ни выбрать `s`
  * вместо `ms`, ни увидеть, что возьмёт nginx, когда поле пустое. В окне это
  * те же строки настроек, что у keepalive рядом, -- подсказка, подстановки,
@@ -236,6 +242,12 @@ export function PeerDialog({
             helper={t("upstreams.downHint")}
             checked={draft.down}
             onChange={(down) => patch({ down })}
+          />
+          <Flag
+            label={t("upstreams.resolve")}
+            helper={t("upstreams.resolveHint")}
+            checked={draft.resolve}
+            onChange={(resolve) => patch({ resolve })}
           />
         </SettingsTable>
         </FlushSectionProvider>

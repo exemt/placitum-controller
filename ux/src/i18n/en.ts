@@ -3692,7 +3692,11 @@ export const en: DeepString<typeof ru> = {
     failTimeoutHint: "fail_timeout=: failure-counting window and pause after removal. Empty — nginx default (10 s).",
     backupHint: "backup: receives requests only when the primary servers are down.",
     downHint: "down: server taken out of rotation by hand.",
-    flagsHint: "Tail of the server line: backup — a spare server, down — out of rotation.",
+    resolve: "resolve",
+    resolveHint:
+      "resolve: the name is resolved at run time, not when the configuration loads. nginx starts even if the name is not in DNS yet and follows address changes. Needs a resolver in the http settings.",
+    flagsHint:
+      "Tail of the server line: backup — a spare server, down — out of rotation, resolve — the name is resolved at run time.",
     peersEmpty: "No servers yet — add the first one with “+”.",
     addPeer: "Add server",
     editPeer: "Pool server",

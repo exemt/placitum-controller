@@ -798,9 +798,10 @@ export function validatePage(text: string): void {
 }
 
 export function validateDoc(doc: CaptchaProfileDoc): void {
-  // Путь обязателен всегда: режим у профиля снят, а без пути капче некуда
-  // отправить клиента.
-  checkPath(doc.path, "path", true);
+  // Путь -- адрес виджета. Профиль без него -- заготовка: капче некуда отправить
+  // клиента, и инспектору он едет выключенным (renderProfileYaml, mode: off).
+  // Так приходит default чистой установки.
+  checkPath(doc.path, "path", false);
 
   if (doc.page !== "" && !UUID_RE.test(doc.page)) {
     fail("page must be a content object uuid");
@@ -1031,9 +1032,10 @@ export function renderProfileYaml(name: string, doc: CaptchaProfileDoc): string 
   out.push("# источник -- таблица captcha_profiles, раздел /captcha в UX.");
   out.push("");
   // Режима у профиля больше нет: включён ли инспектор и гейтит ли он, решает
-  // вызов на маршруте (waf_inspect … mode=). mode: enforce печатается ради
-  // загрузчика инспектора, у которого ключ пока обязателен.
-  out.push("mode: enforce");
+  // вызов на маршруте (waf_inspect … mode=). mode печатается ради загрузчика
+  // инспектора, у которого ключ пока обязателен: enforce -- как было, off -- у
+  // заготовки без адреса виджета, которую инспектор пропускает.
+  out.push(`mode: ${doc.path === "" ? "off" : "enforce"}`);
   out.push(`path: ${q(doc.path)}`);
   out.push(`title: ${q(doc.title)}`);
   out.push(`note: ${q(doc.note)}`);

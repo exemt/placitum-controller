@@ -132,12 +132,17 @@ function parsePeer(value: unknown): UpstreamPeerInsert | "bad" {
   if (down === "bad") {
     return "bad";
   }
+  const resolve = parseBool(value.resolve);
+  if (resolve === "bad") {
+    return "bad";
+  }
   const peer: UpstreamPeerInsert = {
     host,
     port,
     weight: weight ?? 1,
     backup: backup ?? false,
     down: down ?? false,
+    resolve: resolve ?? false,
   };
   if (maxFails !== undefined && maxFails !== null) {
     peer.maxFails = maxFails;

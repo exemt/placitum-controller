@@ -31,6 +31,7 @@ const backend: UpstreamTree = {
       weight: 1,
       backup: false,
       down: false,
+      resolve: false,
       position: 0,
     },
   ],

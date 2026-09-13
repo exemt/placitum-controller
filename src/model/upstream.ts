@@ -52,6 +52,13 @@ export interface UpstreamPeer {
   failTimeoutMs?: number;
   backup: boolean;
   down: boolean;
+  /**
+   * `server … resolve`: имя узла резолвится на лету, а не при загрузке
+   * конфигурации. nginx стартует и тогда, когда имени ещё нет в DNS (соседний
+   * контейнер не поднят), и сам следит за сменой адресов. Нужен `resolver` в
+   * `http`; пул с таким узлом компилятор кладёт в разделяемую память (`zone`).
+   */
+  resolve: boolean;
   position: number;
 }
 

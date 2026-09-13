@@ -148,3 +148,17 @@ test("next narrows by the ladder decision where it can go either way", () => {
     assert.throws(() => validateDoc(docWith([rule])), why, JSON.stringify(rule));
   }
 });
+
+test("a profile without a widget path is a placeholder: valid, shipped to the inspector as off", () => {
+  const empty = normalizeDoc({});
+
+  validateDoc(empty);
+  assert.match(renderProfileYaml("default", empty), /^mode: off$/m);
+
+  const configured = normalizeDoc({ path: "/waf/captcha" });
+
+  validateDoc(configured);
+  assert.match(renderProfileYaml("default", configured), /^mode: enforce$/m);
+
+  assert.throws(() => validateDoc(normalizeDoc({ path: "waf/captcha" })), /absolute path/);
+});

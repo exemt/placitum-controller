@@ -610,9 +610,11 @@ export function validateDoc(input: unknown): JsonProfileDoc {
     fail("schema.kind must be openapi or jsonschema");
   }
 
-  if (doc.schema.source === "" && doc.bindings.length === 0 && doc.frame.bindings.length === 0) {
-    fail("schema.source is required");
-  }
+  /*
+   * Схема не обязательна: профиль без схемы и привязок -- заготовка, проверять
+   * ему нечем, и инспектору он едет выключенным (renderProfileYaml, mode: off).
+   * Так приходит default чистой установки.
+   */
 
   if (doc.schema.source !== "" && !UUID_RE.test(doc.schema.source)) {
     fail("schema.source must be an object uuid");
@@ -806,9 +808,12 @@ export function renderProfileYaml(
   out.push("# источник -- таблица json_profiles, раздел /json в UX.");
   out.push("");
   // Режима у профиля больше нет: включён ли инспектор и гейтит ли он, решает
-  // вызов на маршруте (waf_inspect … mode=). mode: enforce печатается ради
-  // загрузчика инспектора, у которого ключ пока обязателен.
-  out.push("mode: enforce");
+  // вызов на маршруте (waf_inspect … mode=). mode печатается ради загрузчика
+  // инспектора, у которого ключ пока обязателен: enforce -- как было, off -- у
+  // заготовки без схемы и привязок, которую инспектор пропускает, схемы не требуя.
+  const idle =
+    doc.schema.source === "" && doc.bindings.length === 0 && doc.frame.bindings.length === 0;
+  out.push(`mode: ${idle ? "off" : "enforce"}`);
   out.push(`description: ${q(doc.description)}`);
   out.push("");
 

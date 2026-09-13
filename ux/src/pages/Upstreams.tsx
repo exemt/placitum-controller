@@ -152,6 +152,7 @@ function toInput(
       fail_timeout_ms: failTimeoutMs,
       backup: peer.backup,
       down: peer.down,
+      resolve: peer.resolve,
     });
   }
   return {
@@ -613,7 +614,9 @@ function Peers({
   };
 
   const flags = (peer: PeerDraft) =>
-    [peer.backup ? "backup" : "", peer.down ? "down" : ""].filter((s) => s !== "").join(" ");
+    [peer.backup ? "backup" : "", peer.down ? "down" : "", peer.resolve ? "resolve" : ""]
+      .filter((s) => s !== "")
+      .join(" ");
 
   return (
     <>

@@ -2437,6 +2437,8 @@ export type UpstreamPeer = {
   fail_timeout_ms: number | null;
   backup: boolean;
   down: boolean;
+  /** server … resolve: имя резолвится на лету, нужен resolver в http. */
+  resolve: boolean;
   position: number;
 };
 
@@ -2468,6 +2470,7 @@ export type UpstreamPeerInput = {
   fail_timeout_ms?: number | null;
   backup: boolean;
   down: boolean;
+  resolve?: boolean;
 };
 
 export type UpstreamInput = {

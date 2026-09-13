@@ -85,6 +85,7 @@ export const copyUpstreamThunk = createAsyncThunk(
           fail_timeout_ms: peer.fail_timeout_ms,
           backup: peer.backup,
           down: peer.down,
+          resolve: peer.resolve,
         })),
       });
       return await fetchUpstreams(input.scope);
