@@ -4488,26 +4488,28 @@ export const en: DeepString<typeof ru> = {
       response:
         "Response-phase objects: upstream headers and body. Default is nothing. The body size here also caps how much of the response is held (waf_hold). Without response-phase inspectors the response is not held: the record and the archive get a copy of the body prefix, the client gets the response at once.",
       "frame:c2s":
-        "Payload of a WebSocket frame from the client. Default is nothing: frame inspectors see only the framing. Capture, archive and preview are three independent sizes into one frame buffer — archive and preview may be wider than capture (up to waf_body_limit). Which frames reach the journal and the archive follows “Frame records”; without inspectors — only with “all”.",
+        "Payload of a WebSocket frame from the client. Default is nothing. Capture and delivery matter only to frame inspectors — without them the group keeps the record and the archive. Archive and preview may be wider than capture (up to waf_body_limit). Frames reach the journal and the archive by the frame record policy — the selector on the right; without inspectors only “record all” writes.",
       "frame:s2c":
-        "Payload of a WebSocket frame from the application. Default is nothing. Capture, archive and preview are independent sizes into one frame buffer, archive and preview may be wider than capture (up to waf_body_limit). Which frames reach the journal and the archive follows “Frame records”; without inspectors — only with “all”.",
+        "Payload of a WebSocket frame from the application. Default is nothing. Capture and delivery matter only to frame inspectors — without them the group keeps the record and the archive. Archive and preview may be wider than capture (up to waf_body_limit). Frames reach the journal and the archive by the frame record policy; without inspectors only “record all” writes.",
     },
     frameAudit: "Frame records",
     frameAuditHint:
-      "waf_audit_frames — which frames reach the journal, and with them the slice (“To record”) and the archive. **denied** — a frame with a deny, a rewrite or a score; **all** — every frame of both sides, a side without inspectors is journaled, the frame goes to the receiver without waiting for the record; **off** — neither frames nor the session summary. The session summary is written on close with any value but “off”. One policy per path, both sides.",
+      "waf_audit_frames — which frames reach the journal, and with them the slice (“To record”) and the archive. **record denials** — a frame with a deny, a rewrite or a score (none without inspectors); **record all** — every frame of both sides, a side without inspectors is journaled, the frame goes to the receiver without waiting for the record; **no records** — neither frames nor the session summary. The session summary is written on close with any value but “no records”. One policy per path, both sides.",
     frameAuditOptions: {
       inherit: "inherits: {value}",
-      off: "off",
-      deny: "denied",
-      all: "all",
+      off: "no records",
+      deny: "record denials",
+      all: "record all",
     },
     frameAuditEvery: "every {n}th",
     frameAuditEveryOne: "every",
     frameAuditWarn: {
-      off: "frame records are off — the frame slice and archive will not go out, and there will be no session summary",
+      off: "no frame records — the frame slice and archive will not go out, and there will be no session summary",
       deny:
-        "no frame inspectors, and “denied” records only a frame with a deny, a rewrite or a score — this side's slice and archive will not go out; choose “all”",
+        "no frame inspectors, and “record denials” records only a frame with a deny, a rewrite or a score — this side's slice and archive will not go out; choose “record all”",
     },
+    journalSource:
+      "No inspectors and no capture on this phase: the object is taken from the traffic itself — in this axis's size, with the capture's name lists if they are set.",
     phaseEmpty: {
       request: "nothing is captured",
       response: "response is not captured — response-phase inspectors see only the status and metadata",

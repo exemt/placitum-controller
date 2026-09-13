@@ -614,10 +614,19 @@ export function CaptureTable({
    * Строки таблицы -- объекты, названные хоть одной осью, по фазам. Объект,
    * которого нет нигде, строкой не стоит: пустая строка на всех трёх осях
    * означала бы «ничего», а «ничего» показывают отсутствием строки.
+   *
+   * Снимок и отдача -- только для инспекторов: снимок кладут им, отдача
+   * поднимает их правки. У фазы без инспекторов этих осей нет: строку заводят
+   * запись и архив, ячейки снимка и отдачи пусты, а колонки пропадают, когда
+   * инспекторов нет ни у одной фазы таблицы.
    */
+  const usedKinds = (phase: TailPhase): readonly TailKind[] => usedKindsOf(inspected[phase]);
+  const columns = KINDS.filter((kind) => phases.some((phase) => usedKinds(phase).includes(kind)));
   const rowsOf = (phase: TailPhase) =>
     PHASE_OBJECTS[phase].filter((name) =>
-      ROW_KINDS.some((kind) => axes[kind].effective[phase].objects[name].on),
+      ROW_KINDS.some(
+        (kind) => usedKinds(phase).includes(kind) && axes[kind].effective[phase].objects[name].on,
+      ),
     );
   const unusedOf = (phase: TailPhase) =>
     PHASE_OBJECTS[phase].filter((name) => !rowsOf(phase).includes(name));
@@ -654,13 +663,21 @@ export function CaptureTable({
 
   const hasAnyRow = phases.some((phase) => rowsOf(phase).length > 0);
 
+  /*
+   * Подзаголовок фазы делится, как строки под ним: слева объект и оси до
+   * отдачи, справа отдача и действия. Без колонки отдачи справа -- одни
+   * действия.
+   */
+  const rightSpan = columns.includes("send") ? 2 : 1;
+  const leftSpan = columns.length + 2 - rightSpan;
+
   return (
     <SectionBleed>
       <Table size="small" sx={flushTableSx}>
         <TableHead>
           <TableRow>
             <HeadCell label={t("tail.object")} help={t("tail.objectHint")} width={OBJECT_W} />
-            {KINDS.map((kind) => (
+            {columns.map((kind) => (
               <AxisHead
                 key={kind}
                 axis={axes[kind]}
@@ -672,7 +689,7 @@ export function CaptureTable({
         </TableHead>
         <TableBody>
           {!hasAnyRow && (
-            <TableNoticeRow colSpan={6} kind="empty" message={t("tail.empty")} />
+            <TableNoticeRow colSpan={columns.length + 2} kind="empty" message={t("tail.empty")} />
           )}
           {phases.map((phase) => (
             <PhaseRows
@@ -680,6 +697,7 @@ export function CaptureTable({
               phase={phase}
               rows={rowsOf(phase)}
               unused={unusedOf(phase)}
+              span={{ left: leftSpan, right: rightSpan }}
               onAdd={(name) => setAdding({ phase, name })}
               /*
                 Политика одна на обе стороны -- селектор у первой группы
@@ -729,15 +747,26 @@ export function CaptureTable({
                       </Typography>
                     </Tooltip>
                   </FilterCell>
-                  {KINDS.map((kind) => (
-                    <ObjectCell
-                      key={kind}
-                      axis={axes[kind]}
-                      phase={phase}
-                      name={name}
-                      problem={problemOf(kind, phase, name)}
-                    />
-                  ))}
+                  {/*
+                    Ось, которой у фазы нет (снимок и отдача без
+                    инспекторов), -- пустая ячейка: колонка общая с фазами,
+                    где она есть, а показывать в ней нечего.
+                  */}
+                  {columns.map((kind) =>
+                    usedKinds(phase).includes(kind) ? (
+                      <ObjectCell
+                        key={kind}
+                        axis={axes[kind]}
+                        phase={phase}
+                        name={name}
+                        problem={problemOf(kind, phase, name)}
+                      />
+                    ) : (
+                      <FilterCell key={kind} width={axisWidth(kind)}>
+                        {null}
+                      </FilterCell>
+                    ),
+                  )}
                   <FilterCell width={ACTIONS_W}>
                     <Box
                       onClick={(e) => e.stopPropagation()}
@@ -825,10 +854,21 @@ interface FrameAudit {
 const FRAME_AUDIT_SAMPLES = [1, 2, 5, 10, 100] as const;
 
 /**
- * «Запись кадров» в подзаголовке группы кадров -- рядом с «В запись»: срез и
- * архив кадра уходят только вместе с записью кадра, и политика, спрятанная в
- * другой секции, делала настроенный архив молчащим без объяснений. Селектор
- * тот же, что у осей в шапке; «наследует» показывает действующее значение.
+ * Оси, которые есть у фазы. Снимок и отдача -- для инспекторов: снимок кладут
+ * им, отдача поднимает их правки. У фазы без инспекторов остаются запись и
+ * архив.
+ */
+const JOURNAL_KINDS: readonly TailKind[] = ["preview", "archive"];
+
+function usedKindsOf(inspected: boolean): readonly TailKind[] {
+  return inspected ? KINDS : JOURNAL_KINDS;
+}
+
+/**
+ * Политика записи кадров у правого края подзаголовка группы кадров: срез и
+ * архив кадра уходят только вместе с записью кадра. Подписи перед селектором
+ * нет -- варианты говорят сами («запись всех», «запись отказов», «без
+ * записи»), а что это за политика, объясняет подсказка при наведении.
  */
 function FrameAuditPick({ audit }: { audit: FrameAudit }) {
   const t = useT();
@@ -846,26 +886,32 @@ function FrameAuditPick({ audit }: { audit: FrameAudit }) {
   ];
 
   return (
-    <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", pl: 1.5, flexShrink: 0 }}>
-      <HintLabel text={t("tail.frameAudit")} hint={t("tail.frameAuditHint")} sx={dialogLabelSx} />
-      <BlockSelect
-        value={inherited ? "inherit" : audit.policy}
-        options={options}
-        onChange={(next) => audit.onChange(next, audit.sample)}
-        ariaLabel={t("tail.frameAudit")}
-      />
-      {audit.policy === "all" && (
+    <Tooltip
+      arrow
+      placement="top"
+      enterDelay={400}
+      title={<HintMarkup text={t("tail.frameAuditHint")} />}
+    >
+      <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", flexShrink: 0 }}>
         <BlockSelect
-          value={String(audit.sample ?? 1)}
-          options={FRAME_AUDIT_SAMPLES.map((n) => ({
-            value: String(n),
-            label: n === 1 ? t("tail.frameAuditEveryOne") : t("tail.frameAuditEvery", { n }),
-          }))}
-          onChange={(next) => audit.onChange("all", Number(next))}
-          ariaLabel={`${t("tail.frameAudit")}: sample=`}
+          value={inherited ? "inherit" : audit.policy}
+          options={options}
+          onChange={(next) => audit.onChange(next, audit.sample)}
+          ariaLabel={t("tail.frameAudit")}
         />
-      )}
-    </Stack>
+        {audit.policy === "all" && (
+          <BlockSelect
+            value={String(audit.sample ?? 1)}
+            options={FRAME_AUDIT_SAMPLES.map((n) => ({
+              value: String(n),
+              label: n === 1 ? t("tail.frameAuditEveryOne") : t("tail.frameAuditEvery", { n }),
+            }))}
+            onChange={(next) => audit.onChange("all", Number(next))}
+            ariaLabel={`${t("tail.frameAudit")}: sample=`}
+          />
+        )}
+      </Stack>
+    </Tooltip>
   );
 }
 
@@ -873,6 +919,7 @@ function PhaseRows({
   phase,
   rows,
   unused,
+  span,
   onAdd,
   audit,
   warning,
@@ -881,6 +928,8 @@ function PhaseRows({
   phase: TailPhase;
   rows: readonly ObjectName[];
   unused: readonly ObjectName[];
+  /** Сколько колонок занимают левая и правая ячейки подзаголовка. */
+  span: { left: number; right: number };
   /** Выбранный в меню «+» объект: окно открывается уже на нём. */
   onAdd: (name: ObjectName) => void;
   /** Запись кадров -- только у первой группы кадров. */
@@ -899,10 +948,17 @@ function PhaseRows({
   const openMenu = (event: MouseEvent<HTMLElement>) => setAnchor(event.currentTarget);
   const closeMenu = () => setAnchor(null);
 
+  /*
+   * Селектор записи кадров -- у правого края, рядом с «+». Правая ячейка
+   * вмещает его, пока в ней есть колонка отдачи; без неё (на пути нет
+   * инспекторов вовсе) он встаёт в конец левой ячейки -- тоже справа.
+   */
+  const auditRight = span.right > 1;
+
   return (
     <>
       <TableRow>
-        <TableCell colSpan={4} sx={{ py: 0.5, bgcolor: "action.hover" }}>
+        <TableCell colSpan={span.left} sx={{ py: 0.5, bgcolor: "action.hover" }}>
           <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", minWidth: 0 }}>
             <HintLabel
               text={t(`tail.phase.${phase}`)}
@@ -914,7 +970,12 @@ function PhaseRows({
                 {t(`tail.phaseEmpty.${phase}`)}
               </Typography>
             )}
-            {audit !== undefined && <FrameAuditPick audit={audit} />}
+            {audit !== undefined && !auditRight && (
+              <>
+                <Box sx={{ flex: 1 }} />
+                <FrameAuditPick audit={audit} />
+              </>
+            )}
           </Stack>
           {warning !== undefined && (
             <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", minWidth: 0, pt: 0.25 }}>
@@ -934,7 +995,7 @@ function PhaseRows({
           у ячейки сняты, внутренний `Box` получает их от `flushTableSx`.
         */}
         <TableCell
-          colSpan={2}
+          colSpan={span.right}
           sx={{ p: "0 !important", height: HEAD_H, bgcolor: "action.hover" }}
         >
           <Box
@@ -947,6 +1008,7 @@ function PhaseRows({
               minHeight: HEAD_H,
             }}
           >
+            {audit !== undefined && auditRight && <FrameAuditPick audit={audit} />}
             <TableIconButton
               color="success"
               icon={<AddIcon />}
@@ -1336,8 +1398,9 @@ function ObjectDialog({
     ) as Draft;
   }, [adding, axes, name, phase]);
 
+  /* снимок включается новому объекту, только если его есть кому читать */
   const [draft, setDraft] = useState<Draft>(() =>
-    adding ? { ...baseline, capture: { ...offDraft(), on: true } } : baseline,
+    adding && inspected ? { ...baseline, capture: { ...offDraft(), on: true } } : baseline,
   );
 
   if (name === undefined) return null;
@@ -1447,7 +1510,8 @@ function ObjectDialog({
 
   /* Те же проверки, что у таблицы, но до записи -- про этот объект. */
   const problems = [
-    ...KINDS.flatMap((kind) =>
+    /* у фазы без инспекторов снимка и отдачи нет -- и спорить с ними нечему */
+    ...usedKindsOf(inspected).flatMap((kind) =>
       checkTail(models[kind], kind, {
         capture: models.capture,
         bodyLimit,
@@ -1608,6 +1672,13 @@ function ObjectDialog({
           text={t(frame ? "tail.alert.sourceOriginalFrame" : "tail.alert.sourceOriginal")}
         />
       );
+    }
+    /*
+     * У фазы без инспекторов снимка нет: «со снимка» значит «из трафика, со
+     * списками снимка», и говорить о срезе снимка было бы неправдой.
+     */
+    if (!inspected) {
+      return <DialogAlert text={t("tail.journalSource")} />;
     }
     return (
       <DialogAlert
@@ -1917,7 +1988,8 @@ function ObjectDialog({
       }
     >
         <Stack spacing={1}>
-          {KINDS.map((kind) => axisBlock(kind))}
+          {/* у фазы без инспекторов снимать и отдавать некому -- этих осей нет */}
+          {usedKindsOf(inspected).map((kind) => axisBlock(kind))}
           {problems.length > 0 && (
             <Stack spacing={0.5}>
               {problems.map((p, index) => (
