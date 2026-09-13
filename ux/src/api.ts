@@ -165,8 +165,36 @@ export interface RuleSet extends RuleSetMeta {
   modified?: boolean;
 }
 
+/*
+ * 401 отвечает не контроллер, а калитка панели: сессии нет -- истекла, вышли,
+ * контур переставили. Запрос из панели её не вернёт, поэтому панель уходит на
+ * вход переходом: калитка отвечает на него формой и после входа возвращает сюда
+ * же. Не чаще раза в минуту: если и после перехода сессии нет, панель не должна
+ * уйти в перезагрузки по кругу.
+ */
+const RELOGIN_KEY = "placitum.relogin";
+
+function sessionLost(res: Response): void {
+  if (res.status !== 401) {
+    return;
+  }
+
+  try {
+    const last = Number(window.sessionStorage.getItem(RELOGIN_KEY) ?? "0");
+    if (Date.now() - last < 60_000) {
+      return;
+    }
+    window.sessionStorage.setItem(RELOGIN_KEY, String(Date.now()));
+  } catch {
+    // хранилища нет -- уходим на вход без счёта
+  }
+
+  window.location.reload();
+}
+
 async function parseJson<T>(res: Response, path: string): Promise<T> {
   if (!res.ok) {
+    sessionLost(res);
     let detail = `${res.status}`;
     try {
       const body = (await res.json()) as {
@@ -283,6 +311,7 @@ async function sendNoContent(
   const res = await fetch(path, { method });
 
   if (!res.ok) {
+    sessionLost(res);
     let detail = `${res.status}`;
 
     try {
@@ -2087,6 +2116,7 @@ export async function uploadGeoFile(
   }
 
   if (!res.ok || body.job === undefined) {
+    sessionLost(res);
     throw new GeoUploadError(body.error ?? `http_${res.status}`, body.detail);
   }
 
