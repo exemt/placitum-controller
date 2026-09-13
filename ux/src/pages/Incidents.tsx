@@ -238,7 +238,7 @@ export default function Incidents() {
         })),
     [routes],
   );
-  const [verdict, setVerdict] = useState<AuditFilter>("deny");
+  const [verdict, setVerdict] = useState<AuditFilter>("all");
   const [range, setRange] = useState<DateRange>(defaultRange);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [applied, setApplied] = useState<Draft>(emptyDraft);
