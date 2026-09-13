@@ -760,6 +760,7 @@ export function CaptureTable({
                         phase={phase}
                         name={name}
                         problem={problemOf(kind, phase, name)}
+                        inspected={inspected[phase]}
                       />
                     ) : (
                       <FilterCell key={kind} width={axisWidth(kind)}>
@@ -1127,8 +1128,12 @@ function archiveMark(t: Translate, spec: ObjectSpec): { text: string; hint: stri
   };
 }
 
-/** Значение ячейки словами: величина, «как снимок», «весь», «нет». */
-function cellValue(t: Translate, kind: TailKind, spec: ObjectSpec): string {
+/**
+ * Значение ячейки словами: величина, «как снимок», «весь», «нет». Архив без
+ * размера у фазы без инспекторов -- «весь»: снимка, в размере которого он
+ * уехал бы, там нет, и модуль кладёт объект целиком.
+ */
+function cellValue(t: Translate, kind: TailKind, spec: ObjectSpec, inspected = true): string {
   if (kind === "capture") {
     return spec.size ?? t("tail.whole");
   }
@@ -1143,7 +1148,7 @@ function cellValue(t: Translate, kind: TailKind, spec: ObjectSpec): string {
     if (spec.size === undefined) return "—";
     return spec.item === undefined ? spec.size : `${spec.size} / ${spec.item}`;
   }
-  return spec.size ?? t("tail.asCapture");
+  return spec.size ?? t(inspected ? "tail.asCapture" : "tail.whole");
 }
 
 /**
@@ -1161,11 +1166,14 @@ function ObjectCell({
   phase,
   name,
   problem,
+  inspected = true,
 }: {
   axis: Axis;
   phase: TailPhase;
   name: ObjectName;
   problem?: CellProblem;
+  /** Есть ли у фазы инспекторы: без них архив без размера -- весь объект. */
+  inspected?: boolean;
 }) {
   const t = useT();
   const effective = axis.effective[phase];
@@ -1176,7 +1184,7 @@ function ObjectCell({
   const keep = spec.on && axis.kind === "archive" ? archiveMark(t, spec) : undefined;
 
   const text = spec.on
-    ? cellValue(t, axis.kind, spec)
+    ? cellValue(t, axis.kind, spec, inspected)
     : spec.none === true && axis.parent[phase].objects[name].on
       ? t("tail.clearedHere")
       : t("tail.no");
@@ -1665,6 +1673,21 @@ function ObjectDialog({
     if (d.source === "sent") {
       return <DialogAlert text={t("tail.alert.sourceSent")} />;
     }
+    /*
+     * У фазы без инспекторов снимка нет: говорить о срезе снимка было бы
+     * неправдой. Телу источник не показывается вовсе, заголовкам и строке
+     * запроса -- словами журнала.
+     */
+    if (!inspected) {
+      if (name === "body") {
+        return null;
+      }
+      return d.source === "original" ? (
+        <DialogAlert tone="warning" text={t("tail.journalOriginal")} />
+      ) : (
+        <DialogAlert text={t("tail.journalSource")} />
+      );
+    }
     if (d.source === "original") {
       return (
         <DialogAlert
@@ -1672,13 +1695,6 @@ function ObjectDialog({
           text={t(frame ? "tail.alert.sourceOriginalFrame" : "tail.alert.sourceOriginal")}
         />
       );
-    }
-    /*
-     * У фазы без инспекторов снимка нет: «со снимка» значит «из трафика, со
-     * списками снимка», и говорить о срезе снимка было бы неправдой.
-     */
-    if (!inspected) {
-      return <DialogAlert text={t("tail.journalSource")} />;
     }
     return (
       <DialogAlert
@@ -1695,14 +1711,38 @@ function ObjectDialog({
     );
   };
 
+  /*
+   * Источник словами журнала -- у фазы без инспекторов. Масок у тела нет, и
+   * выбирать ему нечего: строка источника у тела не показывается, пока в
+   * черновике не стоит оригинал или доставленное из прежней настройки -- их
+   * можно вернуть «по размеру». У заголовков и строки запроса -- «с масками»
+   * или «оригинал».
+   */
+  const journalSourceOptions = (d: AxisDraft): DialogOption<"capture" | "original" | "sent">[] => [
+    name === "body"
+      ? { value: "capture", label: t("tail.sourceSized"), hint: t("tail.sourceSizedHint") }
+      : { value: "capture", label: t("tail.sourceMasked"), hint: t("tail.sourceMaskedHint") },
+    {
+      value: "original" as const,
+      label: t("tail.sourceOriginal"),
+      hint: t("tail.sourceOriginalJournalHint"),
+    },
+    ...(d.source === "sent"
+      ? [{ value: "sent" as const, label: t("tail.recordSent"), hint: t("tail.recordSentHint") }]
+      : []),
+  ];
+
   /** Источник и, при оригинале, сколько его класть в обменник. */
-  const sourceRow = (kind: TailKind, d: AxisDraft) => (
+  const sourceRow = (kind: TailKind, d: AxisDraft) =>
+    !inspected && name === "body" && d.source === "capture" ? null : (
     <>
       <DialogPick
         label={t("tail.source")}
-        hint={t(frame ? "tail.sourceFrameHint" : "tail.sourceHint")}
+        hint={t(
+          !inspected ? "tail.sourceJournalHint" : frame ? "tail.sourceFrameHint" : "tail.sourceHint",
+        )}
         value={d.source}
-        options={sourceOptionsFor(kind)}
+        options={inspected ? sourceOptionsFor(kind) : journalSourceOptions(d)}
         onChange={(source) => patch(kind, { source })}
       />
       {sourceAlert(kind, d)}
@@ -1712,7 +1752,11 @@ function ObjectDialog({
             label={t("tail.origAmount")}
             hint={t("tail.origAmountHint")}
             value={d.origMode}
-            options={origOptions}
+            options={
+              inspected
+                ? origOptions
+                : origOptions.filter((o) => o.value !== "capture" || d.origMode === "capture")
+            }
             onChange={(origMode) => patch(kind, { origMode })}
           />
           {d.origMode === "size" && (
@@ -1787,10 +1831,10 @@ function ObjectDialog({
       <>
         <DialogPick
           label={t("tail.lists")}
-          hint={t("tail.listsHint")}
+          hint={t(inspected ? "tail.listsHint" : "tail.listsJournalHint")}
           value={d.ownLists ? "own" : "capture"}
           options={[
-            { value: "capture", label: t("tail.listsCapture") },
+            { value: "capture", label: t(inspected ? "tail.listsCapture" : "tail.listsStandard") },
             { value: "own", label: t("tail.listsOwn") },
           ]}
           onChange={(v) => patch(kind, { ownLists: v === "own" })}
@@ -1843,7 +1887,7 @@ function ObjectDialog({
     if (!d.on) {
       return t("tail.axisOff");
     }
-    const value = cellValue(t, kind, specOf(kind, d));
+    const value = cellValue(t, kind, specOf(kind, d), inspected);
     if (kind === "capture" || kind === "send") {
       return value;
     }
@@ -1908,8 +1952,16 @@ function ObjectDialog({
         {kind === "archive" && (
           <>
             {sourceRow(kind, d)}
+            {/* без инспекторов снимка нет: пустой размер -- весь объект */}
             {d.source === "capture" &&
-              sizeRow(kind, d, t("tail.archiveSize"), t("tail.archiveSizeHint"), t("tail.asCapture"), t("tail.asCapture"))}
+              sizeRow(
+                kind,
+                d,
+                t("tail.archiveSize"),
+                t(inspected ? "tail.archiveSizeHint" : "tail.archiveSizeJournalHint"),
+                t(inspected ? "tail.asCapture" : "tail.whole"),
+                t(inspected ? "tail.asCapture" : "tail.whole"),
+              )}
             {ttlRow(kind, d)}
             {whenRow(kind, d)}
             {listsRow(kind, d)}
@@ -1977,7 +2029,7 @@ function ObjectDialog({
               phase: t(`tail.phase.${phase}`),
             })
       }
-      hint={t("tail.objectDialogHint")}
+      hint={t(inspected ? "tail.objectDialogHint" : "tail.objectDialogHintJournal")}
       actions={
         <>
           <Modal.Cancel />

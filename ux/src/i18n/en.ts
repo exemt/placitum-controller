@@ -4509,7 +4509,23 @@ export const en: DeepString<typeof ru> = {
         "no frame inspectors, and “record denials” records only a frame with a deny, a rewrite or a score — this side's slice and archive will not go out; choose “record all”",
     },
     journalSource:
-      "No inspectors and no capture on this phase: the object is taken from the traffic itself — in this axis's size, with the capture's name lists if they are set.",
+      "No inspectors on this phase: the object is taken from the traffic itself, in this axis's size; the name masks and denials set for the phase apply.",
+    journalOriginal:
+      "Original — as it arrived: masks and denials do not apply, and a masked header travels whole. Names can be limited here only with own lists.",
+    objectDialogHintJournal:
+      "No inspectors on this phase, nobody to capture or deliver for: the object keeps the audit record and the archive, taken from the traffic itself. Below are the warnings and the lines that go into the file. Only touched axes are written.",
+    archiveSizeJournalHint:
+      "How many bytes of the object go to S3. Empty — the whole object, but no wider than waf_body_limit.",
+    sourceJournalHint:
+      "With masks — the name masks and denials set for the phase (waf_capture … mask= / deny=). Original — as it arrived: masks do not apply, a masked header travels whole.",
+    sourceMasked: "with masks",
+    sourceMaskedHint: "the name masks and denials set for the phase apply",
+    sourceOriginalJournalHint: "as it arrived — masks do not apply",
+    sourceSized: "by size",
+    sourceSizedHint: "as much as the size says",
+    listsStandard: "standard",
+    listsJournalHint:
+      "Which names travel. Standard — the masks and denials set for the phase. Own — an override, not an addition: the agent applies only what is named here. The original has no masks — mask it here with own lists.",
     phaseEmpty: {
       request: "nothing is captured",
       response: "response is not captured — response-phase inspectors see only the status and metadata",
