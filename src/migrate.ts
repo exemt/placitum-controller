@@ -7,6 +7,7 @@
  *
  *   01-baseline.sql        структура поставки 1.0 -- только на пустую базу
  *   02-shipped.sql         данные поставки; несёт заполненный waf_schema_log
+ *   04-example.sql         пример для default капчи и json -- тоже только на пустую базу
  *   migrations/NNN_*.sql   всё, что новее поставки, по журналу
  *
  * Три правила. Один проход за раз: pg_advisory_lock на время работы, две
@@ -57,6 +58,7 @@ const LOCK_KEY = 7413001;
 
 const BASELINE = "01-baseline.sql";
 const SHIPPED = "02-shipped.sql";
+const EXAMPLE = "04-example.sql";
 const MIGRATIONS = "migrations";
 
 /* Таблица, по которой видно, что схема на месте, даже если журнала нет. */
@@ -90,6 +92,17 @@ export async function migrate(pool: pg.Pool, opts: MigrateOptions): Promise<Migr
       if (!opts.check) {
         await applyFile(client, dir, BASELINE);
         await applyFile(client, dir, SHIPPED);
+
+        /*
+         * Пример -- только первой инициализацией: живой установке чужой сервер
+         * не нужен, поэтому это не миграция. Без него профили default капчи и
+         * json не проходят своих проверок, и пустая установка не издаёт эти
+         * каналы. Нет файла -- нет примера: каталог схемы старше него.
+         */
+        if (existsSync(join(dir, EXAMPLE))) {
+          await applyFile(client, dir, EXAMPLE);
+        }
+
         log("info", "schema baseline applied", { dir });
       }
     } else if (!hasLog) {
@@ -222,7 +235,7 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
     if (check) {
       process.stdout.write(
         report.baseline
-          ? "база пустая: накатится поставка 1.0 и миграции новее неё\n"
+          ? "база пустая: накатится поставка 1.0 с примером и миграции новее неё\n"
           : "поставка на месте\n",
       );
       process.stdout.write(
