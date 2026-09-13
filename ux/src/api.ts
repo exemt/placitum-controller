@@ -2211,6 +2211,101 @@ export function exportIpAsnAddresses(scope: string, id: string): Promise<string>
   return getText(`/api/${scope}/ip-asns/${id}/addresses/export`);
 }
 
+// ---------- выгрузки гео ----------
+
+export type GeoKind = "country" | "asn";
+
+/** Загрузка выгрузки MaxMind: сверка каталога пространства и файл кодеру. */
+export interface GeoImportJob {
+  kind: GeoKind;
+  space_id: string;
+  state: "running" | "done" | "failed";
+  /** catalog -- разбор и сверка каталога; publish -- документ кодеру. */
+  phase: "catalog" | "publish";
+  sha256: string;
+  size: number;
+  database_type: string;
+  build_epoch: number;
+  networks: number;
+  keys: number;
+  added: number;
+  removed: number;
+  started_at: string;
+  finished_at?: string;
+  took_ms?: number;
+  error?: string;
+  detail?: string;
+}
+
+/** Загруженный файл вида: что стоит в каталоге и что должен держать кодер. */
+export interface GeoFileInfo {
+  sha256: string;
+  size: number;
+  database_type: string;
+  build_epoch: number;
+  uploaded_at: string;
+  /** Документ policy/geo называет этот файл: кодер о нём знает. */
+  published: boolean;
+  /** Сколько живых копий кодера отвечает по этому файлу. */
+  coders: number;
+}
+
+export interface GeoImportView {
+  jobs: Record<GeoKind, GeoImportJob | null>;
+  files: Record<GeoKind, GeoFileInfo | null>;
+  coder: { replicas: number; rev: number };
+}
+
+/** Отказ загрузки с кодом контроллера: окно переводит код во фразу. */
+export class GeoUploadError extends Error {
+  readonly code: string;
+  readonly detail?: string;
+
+  constructor(code: string, detail?: string) {
+    super(detail === undefined ? code : `${code}: ${detail}`);
+    this.name = "GeoUploadError";
+    this.code = code;
+    this.detail = detail;
+  }
+}
+
+export function fetchGeoImports(scope: string): Promise<GeoImportView> {
+  return getJson<GeoImportView>(`/api/${scope}/geo/import`);
+}
+
+/**
+ * Файл уходит телом как есть: base64 в JSON раздул бы двенадцать мегабайт на
+ * треть, а контроллеру всё равно нужны байты. Ответ 202 -- задача принята;
+ * ход -- `fetchGeoImports`.
+ */
+export async function uploadGeoFile(
+  scope: string,
+  kind: GeoKind,
+  file: File,
+): Promise<GeoImportJob> {
+  const path = `/api/${scope}/geo/import/${kind}`;
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "content-type": "application/octet-stream" },
+    body: file,
+  });
+
+  let body: { job?: GeoImportJob; error?: string; detail?: string } = {};
+
+  try {
+    body = (await res.json()) as typeof body;
+  } catch {
+    // не JSON: прокси впереди или обрыв
+  }
+
+  if (!res.ok || body.job === undefined) {
+    throw new GeoUploadError(body.error ?? `http_${res.status}`, body.detail);
+  }
+
+  mutationListener?.(path, "POST");
+  return body.job;
+}
+
 export async function fetchIpSets(scope: string): Promise<IpSetMeta[]> {
   const row = await getJson<{ ip_sets: IpSetMeta[] }>(`/api/${scope}/ip-sets`);
   return row.ip_sets;
@@ -3382,11 +3477,13 @@ export type AuthAxis = "request" | "session";
  * События правил калитки. Просьба соседу доедет только с allow, поэтому у
  * anonymous, invalid и forbidden доступны лишь глаголы записи маршрута.
  */
-export type AuthOn = "authenticated" | "anonymous" | "invalid" | "forbidden";
+export type AuthOn = "authenticated" | "anonymous" | "invalid" | "forbidden" | "overload";
 
 /** Правило калитки по событию: просьба соседу либо запись адреса в набор. */
 export interface AuthEventRule {
   on: AuthOn;
+  /** Только у on: overload: порог заполнения очереди в процентах; пусто -- край. */
+  at?: number | null;
   to: string;
   do: string;
   apply: string;
@@ -3809,7 +3906,8 @@ export type CaptchaOn =
   | "bucket_captcha"
   | "bucket_ban"
   | "cleared"
-  | "uncleared";
+  | "uncleared"
+  | "overload";
 
 /**
  * Правило по событию: «когда → кому → что сделать». Действие ровно одно:
@@ -3819,6 +3917,8 @@ export type CaptchaOn =
  */
 export interface CaptchaEventRule {
   on: CaptchaOn;
+  /** Только у on: overload: порог заполнения очереди в процентах; пусто -- край. */
+  at?: number | null;
   /** У порогов корзин: какая корзина; пусто -- любая. */
   bucket: string;
   /** У uncleared и порогов: что капча решила на этом запросе; пусто -- любое решение. */
@@ -4573,6 +4673,9 @@ export interface ActionCondition {
 export interface ActionProfileRule {
   /** Имя живёт в логе и аудите, на провод не едет. */
   name: string;
+  /** Строка перегрузки: on: overload и порог очереди в процентах; пусто -- правило по совпадению. */
+  on?: "" | "overload";
+  at?: number | null;
   match: ActionProfileMatch;
   /** Имя условия профиля; пусто -- правило всегда. */
   cond?: string;
@@ -4725,8 +4828,10 @@ export interface CookieProfileRule {
   phase?: CookiePhase | "";
   /** Коды ответа апстрима; только фаза ответа, пусто -- любой. */
   status?: number[];
-  /** Состояние куки на входе; пусто -- любое. */
-  on?: CookieState | "";
+  /** Состояние куки на входе; пусто -- любое; overload -- строка перегрузки. */
+  on?: CookieState | "overload" | "";
+  /** Только у on: overload: порог заполнения очереди в процентах; пусто -- край. */
+  at?: number | null;
   /** Чьё состояние смотреть; у правила с операцией -- она же. */
   cookie?: string;
   /** Операция: имя объявленной куки. Одно из двух, не оба. */

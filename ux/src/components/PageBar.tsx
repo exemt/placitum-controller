@@ -156,11 +156,13 @@ export default function PageBar({
   onSave,
   onSend,
   onReset,
+  onUpload,
   createDisabled,
   updateDisabled,
   saveDisabled,
   sendDisabled,
   resetDisabled,
+  uploadDisabled,
   extra,
 }: {
   crumbs: PageBarCrumb[];
@@ -173,11 +175,14 @@ export default function PageBar({
   onSave?: () => void;
   onSend?: () => void;
   onReset?: () => void;
+  /** Загрузить данные в раздел файлом: рядом с «Обновить», главным действием страницы. */
+  onUpload?: () => void;
   createDisabled?: boolean;
   updateDisabled?: boolean;
   saveDisabled?: boolean;
   sendDisabled?: boolean;
   resetDisabled?: boolean;
+  uploadDisabled?: boolean;
   extra?: ReactNode;
 }) {
   const t = useT();
@@ -267,6 +272,17 @@ export default function PageBar({
           sx={pageBarBtnSx}
         >
           {t("common.refresh")}
+        </Button>
+      )}
+      {onUpload !== undefined && (
+        <Button
+          size="small"
+          variant="contained"
+          disabled={uploadDisabled}
+          onClick={onUpload}
+          sx={pageBarBtnSx}
+        >
+          {t("common.uploadData")}
         </Button>
       )}
       {onSend !== undefined && (

@@ -33,13 +33,14 @@ import {
 } from "./model/counter-profile.ts";
 
 import { checkAsk } from "./model/action-ask.ts";
+import { checkOverloadAt } from "./model/overload.ts";
 
 const JUDGE_ACTIONS = new Set<CounterJudgeAction>(["deny", "score"]);
 const SOURCES = new Set<CounterSource>(["const", "regex_count", "size_kb", "bytes"]);
 const AXES = new Set<string>(COUNTER_AXES);
 const DIRECTIONS = new Set<string>(COUNTER_DIRECTIONS);
 const OPCODES = new Set<string>(COUNTER_OPCODES);
-const ON = new Set<CounterOn>(["deny", "allow", "score", "level"]);
+const ON = new Set<CounterOn>(["deny", "allow", "score", "level", "overload"]);
 
 const CODE_RE = /^[A-Z][A-Z0-9_]{0,63}$/;
 const METHOD_RE = /^[A-Z]+$/;
@@ -573,7 +574,7 @@ function checkOutcome(outcome: CounterOutcome, i: number, frame: boolean): void 
   const where = `${frame ? "frame" : "request"}.outcomes[${i}]`;
 
   if (!ON.has(outcome.on)) {
-    fail(`${where}.on must be deny, allow or score`);
+    fail(`${where}.on must be deny, allow, score, level or overload`);
   }
 
   if (outcome.on === "score") {
@@ -606,6 +607,18 @@ function checkOutcome(outcome: CounterOutcome, i: number, frame: boolean): void 
      */
     if (outcome.eq) {
       fail(`${where}: eq is only for on: score: a bucket level is continuous`);
+    }
+  } else if (outcome.on === "overload") {
+    // Порог -- заполнение очереди в процентах, не назван -- край; строка
+    // перегрузки -- только в секции запроса (model/overload.ts).
+    if (frame) {
+      fail(`${where}: on: overload is only for the request section`);
+    }
+
+    checkOverloadAt(outcome.at, where, fail);
+
+    if (outcome.below || outcome.eq) {
+      fail(`${where}: below and eq are only for on: score or level`);
     }
   } else if (outcome.at !== null || outcome.below || outcome.eq) {
     fail(`${where}: at, below and eq are only for on: score or level`);
@@ -1154,6 +1167,10 @@ function pushOutcomes(out: string[], outcomes: readonly CounterOutcome[]): void 
 
     if (o.on === "level" && o.if !== null) {
       out.push(`      if: { counter: ${q(o.if.counter)}, axis: ${o.if.axis} }`);
+    }
+
+    if (o.on === "overload" && o.at !== null) {
+      out.push(`      at: ${o.at}`);
     }
 
     if ((o.on === "score" || o.on === "level") && o.at !== null) {

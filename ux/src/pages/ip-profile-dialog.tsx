@@ -166,14 +166,6 @@ export function RuleDialog({
                   dataset: byList(value) ? fields.dataset : "",
                 });
 
-                /*
-                 * Запись на перегрузке исполняет модуль, а он знает только
-                 * адрес клиента: собранные подсеть и система тут не поедут, и
-                 * оставлять их в форме значит обещать невыполнимое.
-                 */
-                if (value === "overload") {
-                  patchDraft({ write: "addr" });
-                }
               }}
               helperText={t("ipProfiles.triggerHint")}
             >
@@ -195,7 +187,7 @@ export function RuleDialog({
             <TextField
               size="small"
               type="number"
-              label={t("ipProfiles.overloadAt")}
+              label={t("outcomes.overloadAt")}
               value={String(fields.at)}
               onChange={(e) => {
                 const n = Number(e.target.value);
@@ -204,7 +196,7 @@ export function RuleDialog({
               }}
               slotProps={{ htmlInput: { min: OVERLOAD_AT_MIN, max: OVERLOAD_AT_MAX, step: 5 } }}
               error={fields.at < OVERLOAD_AT_MIN || fields.at > OVERLOAD_AT_MAX}
-              helperText={t("ipProfiles.overloadAtHint")}
+              helperText={t("outcomes.overloadAtHint")}
             />
           )}
 
@@ -311,21 +303,12 @@ export function RuleDialog({
               ttlRequired={false}
               /*
                * Кого писать: адрес либо подсеть и система -- их фильтр берёт у
-               * гео. На перегрузке выбора нет: запись исполняет модуль, а он
-               * сетей не резолвит -- кодер есть только у инспекторов.
+               * гео. На перегрузке так же: запись делает сам инспектор.
                */
-              writes={(fields.trigger === "overload"
-                ? (["addr"] as const)
-                : (["addr", "net", "net_all", "asn"] as const)
-              ).map((write) => ({
+              writes={(["addr", "net", "net_all", "asn"] as const).map((write) => ({
                 value: write,
                 label: t(`outcomes.writes.${write}`),
               }))}
-              writeHint={
-                fields.trigger === "overload"
-                  ? t("ipProfiles.overloadWriteHint")
-                  : undefined
-              }
               toHint={
                 denyRisk ? t("ipProfiles.toDenyRiskHint") : t("ipProfiles.toHint")
               }

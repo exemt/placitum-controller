@@ -804,6 +804,7 @@ export const en: DeepString<typeof ru> = {
     hide: "hide",
     create: "Create",
     refresh: "Refresh",
+    uploadData: "Upload data",
     cancel: "Cancel",
     close: "Close",
     add: "Add",
@@ -1157,6 +1158,44 @@ export const en: DeepString<typeof ru> = {
     asn: "ASN",
     empty: "No ASN sets in this space yet.",
     noAddresses: "No prefixes in this set.",
+  },
+  geoImport: {
+    title: "Upload data",
+    kindCountry: "country database",
+    kindAsn: "ASN database",
+    hintCountry:
+      "A MaxMind DB file (.mmdb) with countries — GeoLite2-Country or compatible. The space catalog is reconciled with the file: new networks are added, missing ones are removed. The geo coder downloads a copy and switches to it, answering from the previous one until the new one is ready.",
+    hintAsn:
+      "A MaxMind DB file (.mmdb) with autonomous systems — GeoLite2-ASN or compatible. The space catalog is reconciled with the file: new networks are added, missing ones are removed. The geo coder downloads a copy and switches to it, answering from the previous one until the new one is ready.",
+    pick: "Choose file",
+    noFile: "No file chosen",
+    submit: "Upload",
+    statusImport: "Upload",
+    statusFile: "Dataset",
+    statusCoder: "Coder",
+    phaseCatalog: "{type}: networks are moving from the file into the catalog",
+    phasePublish: "Catalog written, the coder is being told",
+    failed: "failed",
+    fileTitle: "{type} · {size} · uploaded {uploaded} · sha256 {sha}",
+    coderNone: "none",
+    coderNoneTitle: "The geo coder is not on the air: no presence frames",
+    coderUnpublished:
+      "The coder does not know about the file yet: policy/geo did not reach KV, the controller retries",
+    coderBehind:
+      "Not every coder replica is on this file: downloading it or still on the previous dataset",
+    coderOnFile: "Every coder replica answers from this dataset",
+    done: "{type} built {build} uploaded: {networks} networks, {added} added, {removed} removed.",
+    errors: {
+      file_empty: "The file is empty.",
+      file_too_large: "The file is larger than {max}.",
+      file_unreadable: "The file did not arrive in full: the connection broke.",
+      mmdb_invalid: "The file is not a readable MaxMind DB.",
+      mmdb_unsupported: "This is neither a country nor an ASN database.",
+      mmdb_kind_mismatch: "This is a {got}, but this page takes a {want}.",
+      mmdb_empty: "The file has no networks of this kind.",
+      import_running: "An upload of this kind is already running.",
+      catalog_failed: "The catalog was not written: {detail}",
+    },
   },
   geo: {
     unknown: "Geo coder has no data for this address",
@@ -1541,6 +1580,9 @@ export const en: DeepString<typeof ru> = {
     outcomeCode: "Reason",
     outcomeCodeHint: "Optional; empty means the decision code",
     outcomesEmpty: "No initiators -- the inspector decides and stays quiet",
+    overloadAt: "Queue threshold, %",
+    overloadAtHint:
+      "How full the inspector's queue must be for the row to fire, 25–100 %. Empty means 100. Below the threshold the row stays silent. From the threshold up to the edge the inspector checks as usual and the request gets a real verdict — the row's action rides along with it: the point of a threshold is to shed before the queue overflows. 100 is the edge only: the request has already been shed, there is no verdict, the module carries out only its own verbs, a list write is still done by the inspector, and what happens to the request itself is decided by the route's “inspector is overloaded” exception",
     outcomeWhere: "Where",
     outcomeWhereHint: "The row's phase: by the verdict on the request or on the frame",
     addOutcome: "Add initiator",
@@ -1553,7 +1595,7 @@ export const en: DeepString<typeof ru> = {
       allow: "Allow",
       score: "Score",
       level: "Counter level",
-      overload: "Overload",
+      overload: "Inspector overloaded",
     },
   },
   counter: {
@@ -1965,6 +2007,7 @@ export const en: DeepString<typeof ru> = {
       bucket_ban: "bucket: ban threshold",
       cleared: "client with a valid clearance",
       uncleared: "client without a clearance",
+      overload: "inspector overloaded: the queue is at the threshold or above",
     },
     ruleNext: "What next",
     ruleNextHint:
@@ -2372,6 +2415,7 @@ export const en: DeepString<typeof ru> = {
       anonymous: "anonymous: no cookie at all",
       invalid: "session invalid: expired, revoked, another network or source",
       forbidden: "signed in at the wrong door: not in the access groups",
+      overload: "inspector overloaded: the queue is at the threshold or above",
     },
     ruleToHint: "A neighbour inspector, the route record, points or a live set",
     ruleToDenyHint:
@@ -2529,11 +2573,6 @@ export const en: DeepString<typeof ru> = {
       list_not: "address not in the list",
       overload: "inspector is overloaded",
     },
-    overloadAt: "Queue threshold, %",
-    overloadAtHint:
-      "How full the inspector's queue must be for the row to fire, 25–100 %. Below the threshold it stays silent. From the threshold up to the edge the inspector checks as usual and the request gets a real verdict — the ask simply rides along with it: the whole point of a threshold is to shed before the queue overflows. 100 is the edge only: the request has already been shed, there is no verdict, and what happens to it is decided by the route's “inspector is overloaded” exception",
-    overloadWriteHint:
-      "On overload the module does the writing, and it only knows the client address: networks and systems are resolved by the geo coder, which the edge does not have",
     notSetShort: "not {name}",
     list: "List",
     listHint:

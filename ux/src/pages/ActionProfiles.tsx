@@ -94,6 +94,14 @@ import { thunkError } from "../errors.ts";
 import { usePageBar } from "../layout/PageBarHost.tsx";
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import {
+  OVERLOAD_AT_MAX,
+  OVERLOAD_AT_MIN,
+  OVERLOAD_WHEN,
+  overloadAtLabel,
+  overloadAtOf,
+  overloadAtOk,
+} from "../overload.ts";
+import {
   clearSent,
   closePanel,
   copyActionProfile,
@@ -114,6 +122,9 @@ interface AskRow {
   ask: ActionProfileAsk;
   cond: string;
   negate: boolean;
+  /** Строка перегрузки: срабатывает по заполнению очереди, а не по условию. */
+  overload?: boolean;
+  at?: number | null;
 }
 
 /** Просьбы профиля одним списком: правило-обёртка -- деталь хранения, условие -- нет. */
@@ -123,6 +134,8 @@ function asksOf(doc: ActionProfileDoc | undefined): AskRow[] {
       ask,
       cond: rule.cond ?? "",
       negate: rule.cond !== undefined && rule.cond !== "" && rule.negate === true,
+      overload: rule.on === "overload",
+      at: rule.at ?? null,
     })),
   );
 }
@@ -135,15 +148,20 @@ function asksOf(doc: ActionProfileDoc | undefined): AskRow[] {
 function rulesOf(rows: AskRow[]): ActionProfileDoc["rules"] {
   return rows.map((row) => ({
     name: "",
+    ...(row.overload === true ? { on: "overload" as const, at: row.at ?? null } : {}),
     match: { pathPrefix: "", suffixes: [], static: false, methods: [] },
-    cond: row.cond,
-    negate: row.cond === "" ? false : row.negate,
+    cond: row.overload === true ? "" : row.cond,
+    negate: row.overload === true || row.cond === "" ? false : row.negate,
     actions: [row.ask],
   }));
 }
 
 /** «Когда» просьбы одним словом: пусто -- всегда, `if:имя`, `unless:имя`. */
-function whenKey(row: { cond: string; negate: boolean }): string {
+function whenKey(row: { cond: string; negate: boolean; overload?: boolean }): string {
+  if (row.overload === true) {
+    return OVERLOAD_WHEN;
+  }
+
   if (row.cond === "") {
     return "";
   }
@@ -781,7 +799,14 @@ function AsksTable({
 
             return (
               <TableRow key={index} hover>
-                <TextCell text={whenLabel(t, row.cond, row.negate)} muted={row.cond === ""} />
+                <TextCell
+                  text={
+                    row.overload === true
+                      ? `${t("outcomes.ons.overload")} ${overloadAtLabel(row.at)}`
+                      : whenLabel(t, row.cond, row.negate)
+                  }
+                  muted={row.cond === "" && row.overload !== true}
+                />
                 {/*
                   Запись маршрута, очки и запись в набор адресата на проводе не
                   несут: у каждого свой пункт «Кому».
@@ -954,12 +979,18 @@ function AskDialog({
    * бы «всегда», не будучи им.
    */
   const [when, setWhen] = useState<string>(() => (row === null ? "" : whenKey(row)));
+  /* Порог строки перегрузки: пусто -- край, запрос сброшен. */
+  const [atDraft, setAtDraft] = useState<string>(() =>
+    row?.at === null || row?.at === undefined ? "" : String(row.at),
+  );
   const whenOptions: { key: string; label: string }[] = [
     { key: "", label: whenLabel(t, "", false) },
     ...conditions.flatMap((cond) => [
       { key: `if:${cond.name}`, label: whenLabel(t, cond.name, false) },
       { key: `unless:${cond.name}`, label: whenLabel(t, cond.name, true) },
     ]),
+    /* Перегрузка -- не условие профиля, а состояние инспектора: свой пункт. */
+    { key: OVERLOAD_WHEN, label: t("outcomes.ons.overload") },
   ];
 
   if (when !== "" && !whenOptions.some((option) => option.key === when)) {
@@ -984,6 +1015,10 @@ function AskDialog({
   const axes = axesFor(registry, fields.verb === "" ? [] : [fields.verb]);
 
   const ready = (): boolean => {
+    if (when === OVERLOAD_WHEN && !overloadAtOk(atDraft)) {
+      return false;
+    }
+
     /* Очки: глагола нет, есть величина 1..100 и направление. */
     if (fields.target === TO_SCORE) {
       return numberOk(fields.scorePoints, 1, POINTS_MAX)
@@ -1036,14 +1071,16 @@ function AskDialog({
   };
 
   const save = () => {
-    const { cond, negate } = whenOf(when);
+    const overload = when === OVERLOAD_WHEN;
+    const { cond, negate } = overload ? { cond: "", negate: false } : whenOf(when);
+    const at = overload ? overloadAtOf(atDraft) : null;
 
     if (fields.target === TO_SCORE) {
       const magnitude = Number(fields.scorePoints);
       const ask = scoreAsk(fields.scoreDir === "cut" ? -magnitude : magnitude);
 
       ask.code = fields.code;
-      onSave({ ask, cond, negate });
+      onSave({ ask, cond, negate, overload, at });
 
       return;
     }
@@ -1053,6 +1090,8 @@ function AskDialog({
         ask: listAsk(fields.list, fields.write, ttlSeconds(fields.ttl), fields.code),
         cond,
         negate,
+        overload,
+        at,
       });
 
       return;
@@ -1098,7 +1137,7 @@ function AskDialog({
       out.value = fields.noteDir === "cut" ? -magnitude : magnitude;
     }
 
-    onSave({ ask: out, cond, negate });
+    onSave({ ask: out, cond, negate, overload, at });
   };
 
   return (
@@ -1138,6 +1177,23 @@ function AskDialog({
               </MenuItem>
             ))}
           </TextField>
+
+          {/*
+            Порог перегрузки: с какого заполнения очереди инспектора строка
+            срабатывает. Пусто -- край: запрос уже сброшен (src/overload.ts).
+          */}
+          {when === OVERLOAD_WHEN && (
+            <TextField
+              size="small"
+              label={t("outcomes.overloadAt")}
+              value={atDraft}
+              placeholder={String(OVERLOAD_AT_MAX)}
+              onChange={(e) => setAtDraft(e.target.value)}
+              error={!overloadAtOk(atDraft)}
+              helperText={t("outcomes.overloadAtHint")}
+              slotProps={{ htmlInput: { inputMode: "numeric", min: OVERLOAD_AT_MIN, max: OVERLOAD_AT_MAX } }}
+            />
+          )}
 
           <TextField
             select

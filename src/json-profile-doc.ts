@@ -34,6 +34,7 @@ import {
 } from "./model/json-profile.ts";
 
 import { checkAsk } from "./model/action-ask.ts";
+import { checkOverloadAt } from "./model/overload.ts";
 
 const KINDS = new Set<JsonSchemaKind>(["openapi", "jsonschema"]);
 const ACTIONS = new Set<JsonAction>(["deny", "score", "allow"]);
@@ -42,7 +43,7 @@ const DIRECTIONS = new Set<JsonDirection>(["c2s", "s2c", "any"]);
 const AUDIT_VALUES = new Set<JsonAuditValues>(["off", "hash"]);
 
 /* Инициаторы: триггер -- собственный вердикт фазы, повод -- алфавит модуля. */
-const JSON_ON = new Set<JsonOutcome["on"]>(["deny", "allow", "score"]);
+const JSON_ON = new Set<JsonOutcome["on"]>(["deny", "allow", "score", "overload"]);
 const JSON_WRITES = new Set<JsonOutcome["write"]>(["addr", "net", "net_all", "asn"]);
 const CODE_RE = /^[A-Z][A-Z0-9_]{0,63}$/;
 
@@ -520,7 +521,7 @@ function checkOutcome(outcome: JsonOutcome, i: number, phase: string): void {
   const where = `${phase}.outcomes[${i}]`;
 
   if (!JSON_ON.has(outcome.on)) {
-    fail(`${where}.on must be deny, allow or score`);
+    fail(`${where}.on must be deny, allow, score or overload`);
   }
 
   if (outcome.on === "score") {
@@ -533,6 +534,18 @@ function checkOutcome(outcome: JsonOutcome, i: number, phase: string): void {
     // Сравнение одно: «ровно at» и «ниже at» разом не бывают.
     if (outcome.below && outcome.eq) {
       fail(`${where}: below and eq are mutually exclusive`);
+    }
+  } else if (outcome.on === "overload") {
+    // Порог -- заполнение очереди в процентах, не назван -- край; строка
+    // перегрузки -- только в секции запроса (model/overload.ts).
+    if (phase !== "request") {
+      fail(`${where}: on: overload is only for the request section`);
+    }
+
+    checkOverloadAt(outcome.at, where, fail);
+
+    if (outcome.below || outcome.eq) {
+      fail(`${where}: below and eq are only for on: score`);
     }
   } else if (outcome.at !== null || outcome.below || outcome.eq) {
     fail(`${where}: at, below and eq are only for on: score`);
@@ -951,6 +964,10 @@ function pushOutcomes(out: string[], outcomes: readonly JsonOutcome[], indent = 
 
   for (const o of outcomes) {
     out.push(`${i2}- on: ${o.on}`);
+
+    if (o.on === "overload" && o.at !== null) {
+      out.push(`${i3}at: ${o.at}`);
+    }
 
     if (o.on === "score" && o.at !== null) {
       out.push(`${i3}at: ${o.at}`);

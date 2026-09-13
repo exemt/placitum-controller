@@ -199,7 +199,7 @@ export interface JsonTrigger {
 }
 
 /** Триггер инициатора: собственный решённый вердикт фазы. */
-export type JsonOn = "deny" | "allow" | "score";
+export type JsonOn = "deny" | "allow" | "score" | "overload";
 
 /**
  * Инициатор по исходу: «когда → что сделать». Условие -- само решение фазы, а

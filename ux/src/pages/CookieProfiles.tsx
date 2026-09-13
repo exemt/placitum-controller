@@ -105,6 +105,14 @@ import { thunkError } from "../errors.ts";
 import { usePageBar } from "../layout/PageBarHost.tsx";
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import {
+  OVERLOAD_AT_MAX,
+  OVERLOAD_AT_MIN,
+  OVERLOAD_WHEN,
+  overloadAtLabel,
+  overloadAtOf,
+  overloadAtOk,
+} from "../overload.ts";
+import {
   clearSent,
   closePanel,
   copyCookieProfile,
@@ -132,10 +140,13 @@ interface AskRow {
   cond: string;
   negate: boolean;
   phase: CookiePhase | "";
-  on: CookieState | "";
+  /** Состояние куки на входе; overload -- строка перегрузки, не про куку. */
+  on: CookieState | "overload" | "";
   cookie: string;
   issue: string;
   drop: string;
+  /** Только у строки перегрузки: порог очереди в процентах; пусто -- край. */
+  at?: number | null;
 }
 
 /** Правила профиля одним списком: правило с двумя просьбами разложится на две строки. */
@@ -149,6 +160,7 @@ function asksOf(doc: CookieProfileDoc | undefined): AskRow[] {
       cookie: rule.cookie ?? "",
       issue: rule.issue ?? "",
       drop: rule.drop ?? "",
+      at: rule.at ?? null,
     };
 
     if (rule.actions.length === 0) {
@@ -172,6 +184,7 @@ function rulesOf(rows: AskRow[]): CookieProfileDoc["rules"] {
     negate: row.cond === "" ? false : row.negate,
     phase: row.phase,
     on: row.on,
+    ...(row.on === "overload" ? { at: row.at ?? null } : {}),
     cookie: row.cookie,
     issue: row.issue,
     drop: row.drop,
@@ -192,7 +205,11 @@ function emptyCookie(): CookieDecl {
 }
 
 /** «Когда» просьбы одним словом: пусто -- всегда, `if:имя`, `unless:имя`. */
-function whenKey(row: { cond: string; negate: boolean }): string {
+function whenKey(row: { cond: string; negate: boolean; on?: string }): string {
+  if (row.on === "overload") {
+    return OVERLOAD_WHEN;
+  }
+
   if (row.cond === "") {
     return "";
   }
@@ -304,6 +321,11 @@ function rowCookie(row: AskRow, cookies: CookieDecl[]): string {
 
 /** Что строка делает с кукой одним словом. */
 function opLabel(t: Translate, row: AskRow, cookies: CookieDecl[]): string {
+  /* Строка перегрузки куку не трогает. */
+  if (row.on === "overload") {
+    return "—";
+  }
+
   const named = rowCookie(row, cookies);
 
   if (row.issue !== "") {
@@ -319,6 +341,11 @@ function opLabel(t: Translate, row: AskRow, cookies: CookieDecl[]): string {
 
 /** Когда строка работает: фаза и состояние куки на входе. */
 function stateLabel(t: Translate, row: AskRow): string {
+  /* Строка перегрузки -- не про куку: её «когда» в первой колонке. */
+  if (row.on === "overload") {
+    return "—";
+  }
+
   const parts: string[] = [];
 
   if (row.phase !== "") {
@@ -974,7 +1001,14 @@ function AsksTable({
 
             return (
               <TableRow key={index} hover>
-                <TextCell text={whenLabel(t, row.cond, row.negate)} muted={row.cond === ""} />
+                <TextCell
+                  text={
+                    row.on === "overload"
+                      ? `${t("outcomes.ons.overload")} ${overloadAtLabel(row.at)}`
+                      : whenLabel(t, row.cond, row.negate)
+                  }
+                  muted={row.cond === "" && row.on !== "overload"}
+                />
                 <TextCell
                   text={stateLabel(t, row)}
                   muted={row.phase === "" && row.on === ""}
@@ -1470,9 +1504,13 @@ function AskDialog({
    * бы «всегда», не будучи им.
    */
   const [when, setWhen] = useState<string>(() => (row === null ? "" : whenKey(row)));
+  /* Порог строки перегрузки: пусто -- край, запрос сброшен. */
+  const [atDraft, setAtDraft] = useState<string>(() =>
+    row?.at === null || row?.at === undefined ? "" : String(row.at),
+  );
   /* Фаза, состояние куки на входе и операция -- свойства правила, не просьбы. */
   const [phase, setPhase] = useState<CookiePhase | "">(() => row?.phase ?? "");
-  const [on, setOn] = useState<CookieState | "">(() => row?.on ?? "");
+  const [on, setOn] = useState<CookieState | "">(() => (row?.on === "overload" ? "" : (row?.on ?? "")));
   const [cookie, setCookie] = useState<string>(() => row?.cookie ?? "");
   const [op, setOp] = useState<"" | "issue" | "drop">(() => {
     if (row === null) {
@@ -1506,6 +1544,8 @@ function AskDialog({
       { key: `if:${cond.name}`, label: whenLabel(t, cond.name, false) },
       { key: `unless:${cond.name}`, label: whenLabel(t, cond.name, true) },
     ]),
+    /* Перегрузка -- не условие профиля, а состояние инспектора: свой пункт. */
+    { key: OVERLOAD_WHEN, label: t("outcomes.ons.overload") },
   ];
 
   if (when !== "" && !whenOptions.some((option) => option.key === when)) {
@@ -1530,6 +1570,11 @@ function AskDialog({
   const axes = axesFor(registry, fields.verb === "" ? [] : [fields.verb]);
 
   const ready = (): boolean => {
+    /* Строка перегрузки: порог в шкале и действие обязательно -- куки у неё нет. */
+    if (when === OVERLOAD_WHEN && (!overloadAtOk(atDraft) || fields.target === "")) {
+      return false;
+    }
+
     /* Очки: глагола нет, есть величина 1..100 и направление. */
     if (fields.target === TO_SCORE) {
       return numberOk(fields.scorePoints, 1, POINTS_MAX)
@@ -1595,18 +1640,22 @@ function AskDialog({
   };
 
   const save = () => {
-    const { cond, negate } = whenOf(when);
+    const overload = when === OVERLOAD_WHEN;
+    const { cond, negate } = overload ? { cond: "", negate: false } : whenOf(when);
+    const at = overload ? overloadAtOf(atDraft) : null;
 
     /* Общая половина строки: когда она работает и что делает с кукой. */
-    const head = {
-      cond,
-      negate,
-      phase,
-      on,
-      cookie,
-      issue: op === "issue" ? named : "",
-      drop: op === "drop" ? named : "",
-    };
+    const head: Omit<AskRow, "ask"> = overload
+      ? { cond: "", negate: false, phase: "", on: "overload", cookie: "", issue: "", drop: "", at }
+      : {
+          cond,
+          negate,
+          phase,
+          on,
+          cookie,
+          issue: op === "issue" ? named : "",
+          drop: op === "drop" ? named : "",
+        };
 
     /* Просьбы нет: правило только выдаёт или снимает. */
     if (fields.target === "") {
@@ -1705,6 +1754,8 @@ function AskDialog({
             Что сделать с кукой. «Ничего» -- законный выбор: правило вправе
             только рассказать соседям про состояние куки, ничего не выдавая.
           */}
+          {when !== OVERLOAD_WHEN && (
+          <>
           <Stack direction="row" spacing={1}>
             <TextField
               select
@@ -1797,6 +1848,8 @@ function AskDialog({
               )}
             </TextField>
           </Stack>
+          </>
+          )}
 
           {/* Когда: всегда, если А, если не А. Условия заводятся в секции профиля. */}
           <TextField
@@ -1818,6 +1871,23 @@ function AskDialog({
               </MenuItem>
             ))}
           </TextField>
+
+          {/*
+            Порог перегрузки: с какого заполнения очереди инспектора строка
+            срабатывает. Пусто -- край: запрос уже сброшен (src/overload.ts).
+          */}
+          {when === OVERLOAD_WHEN && (
+            <TextField
+              size="small"
+              label={t("outcomes.overloadAt")}
+              value={atDraft}
+              placeholder={String(OVERLOAD_AT_MAX)}
+              onChange={(e) => setAtDraft(e.target.value)}
+              error={!overloadAtOk(atDraft)}
+              helperText={t("outcomes.overloadAtHint")}
+              slotProps={{ htmlInput: { inputMode: "numeric", min: OVERLOAD_AT_MIN, max: OVERLOAD_AT_MAX } }}
+            />
+          )}
 
           <TextField
             select

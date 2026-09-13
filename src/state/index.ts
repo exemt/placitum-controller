@@ -57,6 +57,7 @@ export { createRuleFile, updateRuleFile } from "./thunks/rule-files.ts";
 export { createRuleSet, updateRuleSet } from "./thunks/rule-sets.ts";
 export { createIpProfile, updateIpProfile } from "./thunks/ip-profiles.ts";
 export {
+  ipCountriesReplaced,
   ipCountrySelectors,
   selectIpCountriesInSpace,
 } from "./slices/ip-countries.ts";

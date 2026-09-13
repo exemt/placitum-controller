@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -68,6 +68,7 @@ export function IpSetCatalog({
   onReload,
   onLoadAddresses,
   onExportAddresses,
+  notice,
 }: {
   formId: string;
   keyLabel: string;
@@ -84,6 +85,8 @@ export function IpSetCatalog({
   onReload: () => void;
   onLoadAddresses: (id: string, page: number, pageSize: number, q: string) => void;
   onExportAddresses: (id: string) => Promise<string>;
+  /** Полоса над таблицей: итог загрузки выгрузки. */
+  notice?: ReactNode;
 }) {
   const t = useT();
   const [keyQuery, setKeyQuery] = useState("");
@@ -139,6 +142,7 @@ export function IpSetCatalog({
           {error}
         </Alert>
       )}
+      {notice}
       <DataTable loading={loading} error={error} flush>
         <DataTable.Head>
           <FilterText

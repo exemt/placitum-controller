@@ -1,4 +1,4 @@
-import { createEntityAdapter, createSlice } from "@reduxjs/toolkit";
+import { createEntityAdapter, createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 import type { IpCountry } from "../../model/ip-profile.ts";
 import { hydrateModel } from "../hydrate.ts";
@@ -12,7 +12,22 @@ const adapter = createEntityAdapter<IpCountry, string>({
 const ipCountriesSlice = createSlice({
   name: "ipCountries",
   initialState: adapter.getInitialState(),
-  reducers: {},
+  reducers: {
+    /**
+     * Каталог пространства сверен с выгрузкой (geo-import.ts): страны этого
+     * пространства -- заново целиком, соседние пространства не трогаются.
+     */
+    ipCountriesReplaced(
+      state,
+      action: PayloadAction<{ spaceId: string; rows: IpCountry[] }>,
+    ) {
+      const stale = state.ids.filter(
+        (id) => state.entities[id]?.httpSpaceId === action.payload.spaceId,
+      );
+      adapter.removeMany(state, stale);
+      adapter.upsertMany(state, action.payload.rows);
+    },
+  },
   extraReducers: (builder) => {
     builder.addCase(hydrateModel.fulfilled, (state, action) => {
       adapter.setAll(state, action.payload.ipCountries);
@@ -21,6 +36,7 @@ const ipCountriesSlice = createSlice({
 });
 
 export const ipCountriesReducer = ipCountriesSlice.reducer;
+export const { ipCountriesReplaced } = ipCountriesSlice.actions;
 
 export const ipCountrySelectors = adapter.getSelectors(
   (state: { ipCountries: ReturnType<typeof ipCountriesSlice.reducer> }) =>

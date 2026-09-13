@@ -86,7 +86,8 @@ export type CaptchaOn =
   | "bucket_captcha"
   | "bucket_ban"
   | "cleared"
-  | "uncleared";
+  | "uncleared"
+  | "overload";
 
 /** Решение лестницы -- уточнение правил uncleared и порогов; пусто -- любое. */
 export type CaptchaNext = "" | "allow" | "challenge";
@@ -110,6 +111,8 @@ export type CaptchaWrite = "addr" | "net" | "net_all" | "asn" | "cid";
  */
 export interface CaptchaEventRule {
   on: CaptchaOn;
+  /** Только у on: overload: порог заполнения очереди в процентах; пусто -- край. */
+  at?: number | null;
   /** У порогов корзин: какая корзина; пусто -- любая. */
   bucket: string;
   /**

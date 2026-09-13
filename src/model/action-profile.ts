@@ -116,6 +116,12 @@ export interface ActionCondition {
 export interface ActionRule {
   /** Имя живёт в логе и аудите, на провод не едет. */
   name: string;
+  /**
+   * Строка перегрузки: on: overload и порог заполнения очереди в процентах.
+   * Пусто -- правило по совпадению запроса.
+   */
+  on?: "" | "overload";
+  at?: number | null;
   match: ActionMatch;
   /** Имя условия профиля; пусто -- правило всегда. */
   cond: string;

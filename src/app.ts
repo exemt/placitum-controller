@@ -31,7 +31,10 @@ import { inspectorsRouter } from "./inspectors-http.ts";
 import type { InspectorRepo } from "./inspectors.ts";
 import type { DatasetRepo } from "./datasets.ts";
 import { fleetRouter } from "./fleet-http.ts";
+import type { GeoFileRepo } from "./geo-files.ts";
 import { geoRouter } from "./geo-http.ts";
+import type { GeoImports } from "./geo-import.ts";
+import { GEO_SERVICE, geoFilesRouter, geoImportRouter } from "./geo-import-http.ts";
 import { loadRouter } from "./load-http.ts";
 import { searchRouter } from "./search-http.ts";
 import { log } from "./log.ts";
@@ -77,6 +80,7 @@ import { serversRouter } from "./servers-http.ts";
 import { upstreamsRouter } from "./upstreams-http.ts";
 import { spaceSettingsRouter } from "./space-settings-http.ts";
 import { spacesRouter } from "./spaces-http.ts";
+import { serviceSelectors } from "./state/slices/fleet.ts";
 import type { AppDispatch, RootState } from "./state/types.ts";
 import { storeRouter } from "./store-http.ts";
 import type { StoreRepo } from "./store.ts";
@@ -102,6 +106,8 @@ export interface AppServices {
   ipAsns: IpAsnRepo;
   ipSets: IpSetRepo;
   ipProfiles: IpProfileRepo;
+  geoFiles: GeoFileRepo;
+  geoImports: GeoImports;
   desired: DesiredStore;
   compiler: RulesCompiler;
   ipCompiler: IpCompiler;
@@ -162,6 +168,8 @@ export function createApp(cfg: Config, services: AppServices): Express {
   app.use("/api/search", searchRouter(cfg.searchUrl));
   // Уровни журнала -- не под пространством: процессы общие на весь контур.
   app.use("/api/log-levels", logLevelsRouter(services.desired));
+  // Файл выгрузки гео кодеру -- тоже не под пространством: кодер один на контур.
+  app.use("/api/geo/files", geoFilesRouter(services.geoFiles));
 
   const scoped = express.Router({ mergeParams: true });
   /*
@@ -276,6 +284,22 @@ export function createApp(cfg: Config, services: AppServices): Express {
     ipCountriesRouter(services.getState, services.ipCountries),
   );
   scoped.use("/ip-asns", ipAsnsRouter(services.ipAsns));
+  /*
+    Загрузка выгрузки MaxMind: каталог пространства сверяется с файлом, файл
+    уходит кодеру (geo-import.ts). Раньше `/geo`: тот роутер путь не знает.
+  */
+  scoped.use(
+    "/geo/import",
+    geoImportRouter({
+      imports: services.geoImports,
+      files: services.geoFiles,
+      desired: services.desired,
+      coders: () =>
+        serviceSelectors
+          .selectAll(services.getState())
+          .filter((row) => row.name === GEO_SERVICE),
+    }),
+  );
   /*
     Страна и ASN адреса для карточек: отвечает каталог пространства, а
     кодер -- только за то, чего в каталоге нет (см. geo-http.ts). Потому

@@ -10,6 +10,7 @@ import {
   loadIpCountryAddresses,
   selectCountry,
 } from "../store/slices/pages/ip-countries.ts";
+import { useGeoImport } from "./GeoImport.tsx";
 import { IpSetCatalog } from "./IpSetCatalog.tsx";
 
 export default function IpCountries() {
@@ -31,23 +32,34 @@ export default function IpCountries() {
   );
   const addressesQuery = useAppSelector((s) => s.pages.ipCountries.addressesQuery);
 
+  const reload = () => {
+    void dispatch(loadIpCountries(scope));
+    if (scope !== null && selectedId !== null) {
+      void dispatch(
+        loadIpCountryAddresses({
+          scope,
+          id: selectedId,
+          page: addressesPage,
+          pageSize: addressesPageSize,
+          q: addressesQuery,
+        }),
+      );
+    }
+  };
+
+  /* Выгрузка стран загрузилась -- список и открытый набор перечитываются. */
+  const geo = useGeoImport("country", scope, reload);
+
   usePageBar({
     flush: scope !== null,
     onUpdate: () => {
-      void dispatch(loadIpCountries(scope));
-      if (scope !== null && selectedId !== null) {
-        void dispatch(
-          loadIpCountryAddresses({
-            scope,
-            id: selectedId,
-            page: addressesPage,
-            pageSize: addressesPageSize,
-            q: addressesQuery,
-          }),
-        );
-      }
+      reload();
+      geo.refresh();
     },
     updateDisabled: scope === null,
+    onUpload: geo.openUpload,
+    uploadDisabled: geo.uploadDisabled,
+    status: geo.status,
   });
 
   const loadAddresses = useCallback(
@@ -74,28 +86,32 @@ export default function IpCountries() {
   }
 
   return (
-    <IpSetCatalog
-      formId="ip-country"
-      keyLabel={t("ipCountries.code")}
-      empty={t("ipCountries.empty")}
-      noAddresses={t("ipCountries.noAddresses")}
-      error={error}
-      rows={rows.map((row) => ({
-        uuid: row.uuid,
-        key: row.code,
-        type: row.type,
-        description: row.description,
-        size: row.size,
-      }))}
-      loading={loading}
-      selectedId={selectedId}
-      addresses={addresses}
-      addressesTotal={addressesTotal}
-      addressesLoading={addressesLoading}
-      onSelect={(id) => dispatch(selectCountry(id))}
-      onReload={() => void dispatch(loadIpCountries(scope))}
-      onLoadAddresses={loadAddresses}
-      onExportAddresses={exportAddresses}
-    />
+    <>
+      <IpSetCatalog
+        formId="ip-country"
+        keyLabel={t("ipCountries.code")}
+        empty={t("ipCountries.empty")}
+        noAddresses={t("ipCountries.noAddresses")}
+        error={error}
+        rows={rows.map((row) => ({
+          uuid: row.uuid,
+          key: row.code,
+          type: row.type,
+          description: row.description,
+          size: row.size,
+        }))}
+        loading={loading}
+        selectedId={selectedId}
+        addresses={addresses}
+        addressesTotal={addressesTotal}
+        addressesLoading={addressesLoading}
+        onSelect={(id) => dispatch(selectCountry(id))}
+        onReload={() => void dispatch(loadIpCountries(scope))}
+        onLoadAddresses={loadAddresses}
+        onExportAddresses={exportAddresses}
+        notice={geo.banner}
+      />
+      {geo.dialog}
+    </>
   );
 }

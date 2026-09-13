@@ -74,18 +74,17 @@ test("отдаёт словарь целиком: оси, глаголы и об
   assert.deepEqual(body.axes, ["request", "response", "ip", "asn", "session", "conn"]);
   assert.deepEqual(
     body.verbs.map((v) => v.do),
-    ["challenge", "threshold", "skip", "reauth", "mutate", "active", "passive", "vote", "off", "audit", "archive", "mark", "score", "ban", "note"],
+    ["challenge", "threshold", "skip", "reauth", "mutate", "active", "passive", "vote", "off", "audit", "archive", "mark", "score", "note"],
   );
   // Управляющие глаголы помечены: панель не предлагает их «всем» и правилам приёма.
   assert.deepEqual(
     body.verbs.filter((v) => v.module === true).map((v) => v.do),
-    ["active", "passive", "vote", "off", "audit", "archive", "mark", "score", "ban"],
+    ["active", "passive", "vote", "off", "audit", "archive", "mark", "score"],
   );
-  // Адресат -- сам маршрут: запись (журнал, архив, маркер), сумма фазы (очки)
-  // и живой набор (бан).
+  // Адресат -- сам маршрут: запись (журнал, архив, маркер) и сумма фазы (очки).
   assert.deepEqual(
     body.verbs.filter((v) => v.route === true).map((v) => v.do),
-    ["audit", "archive", "mark", "score", "ban"],
+    ["audit", "archive", "mark", "score"],
   );
 
   assert.deepEqual(

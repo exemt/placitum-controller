@@ -158,7 +158,7 @@ export interface CounterTrigger {
  * названной корзины. Второй нужен там, где вердикт ответа не даёт: корзин у
  * счётчика много, а вердикт один, и по нему не отличить, какая перелилась.
  */
-export type CounterOn = "deny" | "allow" | "score" | "level";
+export type CounterOn = "deny" | "allow" | "score" | "level" | "overload";
 
 /** Какую корзину смотрит инициатор с on: level. */
 export interface CounterOutcomeIf {

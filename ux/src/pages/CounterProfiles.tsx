@@ -1460,6 +1460,7 @@ function CounterProfileForm({
             datasets={datasetNames}
             inspectors={inspectors}
             registry={actionsReg}
+            ons={["deny", "allow", "score", "overload"]}
             phases={[
               { value: "request", label: t("counter.phaseRequest") },
               { value: "frame", label: t("counter.phaseFrame") },

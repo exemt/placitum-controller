@@ -20,11 +20,13 @@ export type PageBarActions = {
   onSave?: () => void;
   onSend?: () => void;
   onReset?: () => void;
+  onUpload?: () => void;
   createDisabled?: boolean;
   updateDisabled?: boolean;
   saveDisabled?: boolean;
   sendDisabled?: boolean;
   resetDisabled?: boolean;
+  uploadDisabled?: boolean;
   crumb?: string;
   meta?: string;
   flush?: boolean;
@@ -37,11 +39,13 @@ type HostState = {
   hasSave: boolean;
   hasSend: boolean;
   hasReset: boolean;
+  hasUpload: boolean;
   createDisabled?: boolean;
   updateDisabled?: boolean;
   saveDisabled?: boolean;
   sendDisabled?: boolean;
   resetDisabled?: boolean;
+  uploadDisabled?: boolean;
   crumb?: string;
   meta?: string;
   flush?: boolean;
@@ -54,6 +58,7 @@ const empty: HostState = {
   hasSave: false,
   hasSend: false,
   hasReset: false,
+  hasUpload: false,
   flush: false,
 };
 
@@ -63,6 +68,7 @@ const UpdateRefCtx = createContext<{ current?: () => void }>({});
 const SaveRefCtx = createContext<{ current?: () => void }>({});
 const SendRefCtx = createContext<{ current?: () => void }>({});
 const ResetRefCtx = createContext<{ current?: () => void }>({});
+const UploadRefCtx = createContext<{ current?: () => void }>({});
 const StateCtx = createContext<HostState>(empty);
 
 export function PageBarProvider({ children }: { children: ReactNode }) {
@@ -72,6 +78,7 @@ export function PageBarProvider({ children }: { children: ReactNode }) {
   const onSaveRef = useRef<(() => void) | undefined>(undefined);
   const onSendRef = useRef<(() => void) | undefined>(undefined);
   const onResetRef = useRef<(() => void) | undefined>(undefined);
+  const onUploadRef = useRef<(() => void) | undefined>(undefined);
 
   return (
     <SetCtx.Provider value={setState}>
@@ -80,7 +87,9 @@ export function PageBarProvider({ children }: { children: ReactNode }) {
           <SaveRefCtx.Provider value={onSaveRef}>
             <SendRefCtx.Provider value={onSendRef}>
               <ResetRefCtx.Provider value={onResetRef}>
-                <StateCtx.Provider value={state}>{children}</StateCtx.Provider>
+                <UploadRefCtx.Provider value={onUploadRef}>
+                  <StateCtx.Provider value={state}>{children}</StateCtx.Provider>
+                </UploadRefCtx.Provider>
               </ResetRefCtx.Provider>
             </SendRefCtx.Provider>
           </SaveRefCtx.Provider>
@@ -97,17 +106,20 @@ export function usePageBar(actions: PageBarActions = {}): void {
   const onSaveRef = useContext(SaveRefCtx);
   const onSendRef = useContext(SendRefCtx);
   const onResetRef = useContext(ResetRefCtx);
+  const onUploadRef = useContext(UploadRefCtx);
   const hasCreate = actions.onCreate !== undefined;
   const hasUpdate = actions.onUpdate !== undefined;
   const hasSave = actions.onSave !== undefined;
   const hasSend = actions.onSend !== undefined;
   const hasReset = actions.onReset !== undefined;
+  const hasUpload = actions.onUpload !== undefined;
 
   onCreateRef.current = actions.onCreate;
   onUpdateRef.current = actions.onUpdate;
   onSaveRef.current = actions.onSave;
   onSendRef.current = actions.onSend;
   onResetRef.current = actions.onReset;
+  onUploadRef.current = actions.onUpload;
 
   /*
    * Показатели -- список объектов, и страница пересобирает его на каждом
@@ -125,11 +137,13 @@ export function usePageBar(actions: PageBarActions = {}): void {
       hasSave,
       hasSend,
       hasReset,
+      hasUpload,
       createDisabled: actions.createDisabled,
       updateDisabled: actions.updateDisabled,
       saveDisabled: actions.saveDisabled,
       sendDisabled: actions.sendDisabled,
       resetDisabled: actions.resetDisabled,
+      uploadDisabled: actions.uploadDisabled,
       crumb: actions.crumb,
       meta: actions.meta,
       flush: actions.flush === true,
@@ -144,11 +158,13 @@ export function usePageBar(actions: PageBarActions = {}): void {
     hasSave,
     hasSend,
     hasReset,
+    hasUpload,
     actions.createDisabled,
     actions.updateDisabled,
     actions.saveDisabled,
     actions.sendDisabled,
     actions.resetDisabled,
+    actions.uploadDisabled,
     actions.crumb,
     actions.meta,
     actions.flush,
@@ -170,6 +186,7 @@ export function ShellPageBar() {
   const onSaveRef = useContext(SaveRefCtx);
   const onSendRef = useContext(SendRefCtx);
   const onResetRef = useContext(ResetRefCtx);
+  const onUploadRef = useContext(UploadRefCtx);
 
   const extraCrumbs =
     state.crumb === undefined ? [] : [{ label: state.crumb }];
@@ -200,6 +217,7 @@ export function ShellPageBar() {
       saveDisabled={state.saveDisabled}
       sendDisabled={state.sendDisabled}
       resetDisabled={state.resetDisabled}
+      uploadDisabled={state.uploadDisabled}
       onCreate={
         state.hasCreate
           ? () => {
@@ -232,6 +250,13 @@ export function ShellPageBar() {
         state.hasReset
           ? () => {
               onResetRef.current?.();
+            }
+          : undefined
+      }
+      onUpload={
+        state.hasUpload
+          ? () => {
+              onUploadRef.current?.();
             }
           : undefined
       }

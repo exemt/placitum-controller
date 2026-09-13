@@ -37,8 +37,9 @@ import {
 } from "../components/action-part.tsx";
 import { axisLabel, verbLabel } from "../components/action-select.tsx";
 import { useT, type Translate } from "../i18n/index.ts";
+import { OVERLOAD_AT_MAX, OVERLOAD_AT_MIN, overloadAtOf, overloadAtOk } from "../overload.ts";
 
-const ONS = ["authenticated", "anonymous", "invalid", "forbidden"] as const;
+const ONS = ["authenticated", "anonymous", "invalid", "forbidden", "overload"] as const;
 
 /**
  * Кого писать в набор -- те же охваты, что у остальных отправителей: адрес;
@@ -47,9 +48,12 @@ const ONS = ["authenticated", "anonymous", "invalid", "forbidden"] as const;
  */
 const WRITES = ["addr", "net", "net_all", "asn"] as const;
 
-/** Просьба соседу доедет только с allow: отказ и редирект обрывают фазу. */
+/**
+ * Просьба соседу доедет только с allow: отказ и редирект обрывают фазу. У
+ * перегрузки исход заранее не известен, и просьбу оператор ставит сам.
+ */
 function askTravels(on: string): boolean {
-  return on === "authenticated";
+  return on === "authenticated" || on === "overload";
 }
 
 export function emptyEventRule(): AuthEventRule {
@@ -174,7 +178,10 @@ export function AuthRulesBlock({
         <ActionRulesTable
           rows={rules.map((rule, i) => ({
             key: String(i),
-            when: t(`auth.ons.${rule.on}`),
+            when:
+              rule.on === "overload"
+                ? `${t("auth.ons.overload")} ≥ ${rule.at ?? OVERLOAD_AT_MAX}%`
+                : t(`auth.ons.${rule.on}`),
             target: targetOf(t, rule),
             targetMuted: rule.do === "",
             what: verbOf(t, rule),
@@ -212,12 +219,15 @@ export function AuthRulesBlock({
 
 interface Fields {
   on: AuthEventRule["on"];
+  /** Только у перегрузки: порог очереди, пусто -- край. */
+  at: string;
   draft: ActionDraft;
 }
 
 function fieldsOf(rule: AuthEventRule | null): Fields {
   const out: Fields = {
     on: rule?.on ?? "authenticated",
+    at: rule?.at === null || rule?.at === undefined ? "" : String(rule.at),
     draft: emptyActionDraft(),
   };
 
@@ -257,12 +267,14 @@ function RuleDialog({
   const askable = askTravels(fields.on);
 
   const ready = (): boolean =>
+    (fields.on !== "overload" || overloadAtOk(fields.at)) &&
     actionReady(fields.draft, { askable: askable || fields.draft.target === TO_MODULE });
 
   const save = () => {
     const out = emptyEventRule();
 
     out.on = fields.on;
+    out.at = fields.on === "overload" ? overloadAtOf(fields.at) : null;
     out.code = fields.draft.code;
 
     if (fields.draft.target === TO_DATASET) {
@@ -334,6 +346,23 @@ function RuleDialog({
             </MenuItem>
           ))}
         </TextField>
+
+        {/*
+          Порог перегрузки: с какого заполнения очереди инспектора строка
+          срабатывает. Пусто -- край: запрос уже сброшен (src/overload.ts).
+        */}
+        {fields.on === "overload" && (
+          <TextField
+            size="small"
+            label={t("outcomes.overloadAt")}
+            value={fields.at}
+            placeholder={String(OVERLOAD_AT_MAX)}
+            onChange={(e) => set({ at: e.target.value })}
+            error={!overloadAtOk(fields.at)}
+            helperText={t("outcomes.overloadAtHint")}
+            slotProps={{ htmlInput: { inputMode: "numeric", min: OVERLOAD_AT_MIN, max: OVERLOAD_AT_MAX } }}
+          />
+        )}
 
         <ActionPart
           draft={fields.draft}

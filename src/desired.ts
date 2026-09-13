@@ -30,6 +30,7 @@ import {
   RULES_PACK_SUBJECT,
   type RulesPackPointer,
 } from "./compile/pointer.ts";
+import { GEO_KEY, parseGeoDoc, type GeoDoc } from "./geo-files.ts";
 import { log } from "./log.ts";
 import {
   LOG_LEVELS_KEY,
@@ -231,6 +232,12 @@ export interface DesiredStore {
   putLogLevels(doc: LogLevelsDoc): Promise<void>;
   /** Подписка на документ: первым событием приходит то, что лежит сейчас. */
   watchLogLevels(onChange: (doc: LogLevelsDoc | null) => void): Promise<() => void>;
+  /**
+   * Выгрузки гео кодеру (`policy/geo`, geo-files.ts). Не поколение канала:
+   * загрузка файла из панели и есть применение, «разослать» здесь нечего.
+   */
+  getGeo(): Promise<GeoDoc | null>;
+  putGeo(doc: GeoDoc): Promise<void>;
   /**
    * Что делать после успешной публикации. Ставится снаружи (main.ts) и ведёт
    * в службу сходимости: та запоминает отпечаток источника на этот момент.
@@ -741,6 +748,30 @@ export async function startDesiredStore(
 
       return () => iter.stop();
     },
+    async getGeo() {
+      try {
+        const kv = await kvOf();
+        const entry = await kv.get(GEO_KEY);
+
+        if (entry === null || entry.operation !== "PUT") {
+          return null;
+        }
+
+        return parseGeoDoc(JSON.parse(new TextDecoder().decode(entry.value)));
+      } catch (err) {
+        log("warn", "desired kv get geo failed", { error: String(err) });
+        throw unavailable();
+      }
+    },
+    async putGeo(doc) {
+      try {
+        const kv = await kvOf();
+        await kv.put(GEO_KEY, JSON.stringify(doc));
+      } catch (err) {
+        log("warn", "desired kv put geo failed", { error: String(err) });
+        throw unavailable();
+      }
+    },
     close() {
       stopped = true;
       void nc?.drain();
@@ -912,6 +943,12 @@ function unavailableStore(): DesiredStore {
       throw unavailable();
     },
     async watchLogLevels() {
+      throw unavailable();
+    },
+    async getGeo() {
+      throw unavailable();
+    },
+    async putGeo() {
       throw unavailable();
     },
     close() {},

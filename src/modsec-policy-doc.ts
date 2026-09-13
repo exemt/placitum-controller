@@ -13,6 +13,7 @@
 
 import { ARCHIVE_WHEN, RECORD_OBJECTS, type ArchiveWhen, type RecordObject } from "./model/actions.ts";
 import { checkAsk } from "./model/action-ask.ts";
+import { checkOverloadAt } from "./model/overload.ts";
 
 export class PolicyError extends Error {}
 
@@ -348,6 +349,13 @@ function checkOutcome(outcome: ModsecOutcome, i: number): void {
     if (outcome.below && outcome.eq) {
       fail(`${where}: below and eq are mutually exclusive`);
     }
+  } else if (outcome.on === "overload") {
+    // Порог -- заполнение очереди в процентах, не назван -- край (model/overload.ts).
+    checkOverloadAt(outcome.at, where, fail);
+
+    if (outcome.below || outcome.eq) {
+      fail(`${where}: below and eq are only for on: score`);
+    }
   } else if (outcome.at !== null || outcome.below || outcome.eq) {
     fail(`${where}: at, below and eq are only for on: score`);
   }
@@ -475,6 +483,10 @@ export function renderPolicyYaml(name: string, policy: ModsecPolicy): string {
 
     for (const o of policy.outcomes) {
       out.push(`  - on: ${o.on}`);
+
+      if (o.on === "overload" && o.at !== null) {
+        out.push(`    at: ${o.at}`);
+      }
 
       if (o.on === "score" && o.at !== null) {
         out.push(`    at: ${o.at}`);

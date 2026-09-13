@@ -9,6 +9,7 @@
 
 import { ARCHIVE_WHEN, RECORD_OBJECTS, type ArchiveWhen, type RecordObject } from "./model/actions.ts";
 import { checkAsk } from "./model/action-ask.ts";
+import { checkOverloadAt } from "./model/overload.ts";
 import type {
   VlaiOutcome,
   VlaiOverload,
@@ -306,8 +307,14 @@ function checkOutcome(outcome: VlaiOutcome, i: number): void {
     if (outcome.below && outcome.eq) {
       fail(`${where}: below and eq are mutually exclusive`);
     }
-  } else if (outcome.at !== null || outcome.below || outcome.eq) {
-    fail(`${where}: at, below and eq are only for on: score`);
+  } else {
+    // on: overload -- порог заполнения очереди в процентах, не назван -- край
+    // (model/overload.ts).
+    checkOverloadAt(outcome.at, where, fail);
+
+    if (outcome.below || outcome.eq) {
+      fail(`${where}: below and eq are only for on: score`);
+    }
   }
 
   if (outcome.code !== "" && !CODE_RE.test(outcome.code)) {
@@ -395,6 +402,10 @@ export function renderProfileYaml(name: string, doc: VlaiProfileDoc): string {
 
     for (const o of doc.outcomes) {
       out.push(`  - on: ${o.on}`);
+
+      if (o.on === "overload" && o.at !== null) {
+        out.push(`    at: ${o.at}`);
+      }
 
       if (o.on === "score") {
         out.push(`    at: ${o.at ?? 0}`);

@@ -697,6 +697,7 @@ function JsonProfileForm({
             datasets={datasetNames}
             inspectors={inspectors}
             registry={actionsReg}
+            ons={["deny", "allow", "score", "overload"]}
             onChange={(outcomes) => patchRequest({ outcomes })}
           />
         </Section>

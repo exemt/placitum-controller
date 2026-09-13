@@ -10,6 +10,7 @@ import {
   loadIpAsns,
   selectAsn,
 } from "../store/slices/pages/ip-asns.ts";
+import { useGeoImport } from "./GeoImport.tsx";
 import { IpSetCatalog } from "./IpSetCatalog.tsx";
 
 export default function IpAsns() {
@@ -27,23 +28,34 @@ export default function IpAsns() {
   const addressesLoading = useAppSelector((s) => s.pages.ipAsns.addressesLoading);
   const addressesQuery = useAppSelector((s) => s.pages.ipAsns.addressesQuery);
 
+  const reload = () => {
+    void dispatch(loadIpAsns(scope));
+    if (scope !== null && selectedId !== null) {
+      void dispatch(
+        loadIpAsnAddresses({
+          scope,
+          id: selectedId,
+          page: addressesPage,
+          pageSize: addressesPageSize,
+          q: addressesQuery,
+        }),
+      );
+    }
+  };
+
+  /* Выгрузка ASN загрузилась -- список и открытый набор перечитываются. */
+  const geo = useGeoImport("asn", scope, reload);
+
   usePageBar({
     flush: scope !== null,
     onUpdate: () => {
-      void dispatch(loadIpAsns(scope));
-      if (scope !== null && selectedId !== null) {
-        void dispatch(
-          loadIpAsnAddresses({
-            scope,
-            id: selectedId,
-            page: addressesPage,
-            pageSize: addressesPageSize,
-            q: addressesQuery,
-          }),
-        );
-      }
+      reload();
+      geo.refresh();
     },
     updateDisabled: scope === null,
+    onUpload: geo.openUpload,
+    uploadDisabled: geo.uploadDisabled,
+    status: geo.status,
   });
 
   const loadAddresses = useCallback(
@@ -70,28 +82,32 @@ export default function IpAsns() {
   }
 
   return (
-    <IpSetCatalog
-      formId="ip-asn"
-      keyLabel={t("ipAsns.asn")}
-      empty={t("ipAsns.empty")}
-      noAddresses={t("ipAsns.noAddresses")}
-      error={error}
-      rows={rows.map((row) => ({
-        uuid: row.uuid,
-        key: String(row.asn),
-        type: row.type,
-        description: row.description,
-        size: row.size,
-      }))}
-      loading={loading}
-      selectedId={selectedId}
-      addresses={addresses}
-      addressesTotal={addressesTotal}
-      addressesLoading={addressesLoading}
-      onSelect={(id) => dispatch(selectAsn(id))}
-      onReload={() => void dispatch(loadIpAsns(scope))}
-      onLoadAddresses={loadAddresses}
-      onExportAddresses={exportAddresses}
-    />
+    <>
+      <IpSetCatalog
+        formId="ip-asn"
+        keyLabel={t("ipAsns.asn")}
+        empty={t("ipAsns.empty")}
+        noAddresses={t("ipAsns.noAddresses")}
+        error={error}
+        rows={rows.map((row) => ({
+          uuid: row.uuid,
+          key: String(row.asn),
+          type: row.type,
+          description: row.description,
+          size: row.size,
+        }))}
+        loading={loading}
+        selectedId={selectedId}
+        addresses={addresses}
+        addressesTotal={addressesTotal}
+        addressesLoading={addressesLoading}
+        onSelect={(id) => dispatch(selectAsn(id))}
+        onReload={() => void dispatch(loadIpAsns(scope))}
+        onLoadAddresses={loadAddresses}
+        onExportAddresses={exportAddresses}
+        notice={geo.banner}
+      />
+      {geo.dialog}
+    </>
   );
 }

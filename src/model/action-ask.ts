@@ -49,12 +49,6 @@ export interface Ask {
   marker: string;
   set: string;
   ttlS: number;
-  /**
-   * Только у `ban`: имя живого набора, куда модуль вносит адрес клиента.
-   * Отправители, писавшие документы до глагола, поля не несут -- и это то же
-   * «так не умеет», что у `group`.
-   */
-  list?: string;
   group?: string;
   /**
    * Только у управляющих глаголов: вызову какой фазы адресата ставить режим.
@@ -224,25 +218,6 @@ export function checkAsk(where: string, ask: Ask, rules: AskRules): void {
     if (ask.to !== "" && ask.to !== "*") {
       fail(`${where}: score takes no to: the module adds to the route's own sum`);
     }
-  }
-
-  /*
-   * Бан: адрес клиента в живой набор. Набор обязателен -- «забань» без имени
-   * набора не просьба, а полуфраза; адресат -- набор самого маршрута, и
-   * названный сосед здесь та же битая форма, что у очков и метки. Срок
-   * необязателен: не назван -- возьмётся срок самого набора.
-   */
-  if (ask.do === "ban") {
-    if ((ask.list ?? "") === "") {
-      fail(`${where}: ban needs list: the name of a live dataset`);
-    }
-
-    if (ask.to !== "" && ask.to !== "*") {
-      fail(`${where}: ban takes no to: the module writes the route's own dataset`);
-    }
-
-  } else if ((ask.list ?? "") !== "") {
-    fail(`${where}: list is only for ban`);
   }
 
   if (ask.code !== undefined && ask.code !== "" && !CODE_RE.test(ask.code)) {

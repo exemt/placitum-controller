@@ -100,7 +100,7 @@ test("validatePolicy rejects what the loader rejects", () => {
     "unknown on": { outcomes: [{ on: "sneeze", list: "x", ttl_s: 60 }] },
     "score without at": { outcomes: [{ on: "score", list: "x", ttl_s: 60 }] },
     "at without score": { outcomes: [{ on: "allow", at: 30, list: "x", ttl_s: 60 }] },
-    "at on overload": { outcomes: [{ on: "overload", at: 30, list: "x", ttl_s: 60 }] },
+    "at on overload": { outcomes: [{ on: "overload", at: 10, list: "x", ttl_s: 60 }] },
     "neither do nor list": { outcomes: [{ on: "allow" }] },
     "both do and list": {
       outcomes: [{ on: "allow", to: "captcha", do: "challenge", list: "x", ttl_s: 60 }],

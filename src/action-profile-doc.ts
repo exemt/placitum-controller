@@ -15,6 +15,7 @@
 
 import { ARCHIVE_WHEN, RECORD_OBJECTS, type ArchiveWhen, type RecordObject } from "./model/actions.ts";
 import { checkAsk } from "./model/action-ask.ts";
+import { checkOverloadAt } from "./model/overload.ts";
 import {
   ACTION_COND_NAME_RE,
   actionValueAddressable,
@@ -237,6 +238,8 @@ function normalizeRule(raw: unknown, path: string): ActionRule {
 
   return {
     name: str(row.name, `${path}.name`).trim(),
+    on: str(row.on, `${path}.on`).trim() as "" | "overload",
+    at: intOrNull(row.at, `${path}.at`),
     match: {
       pathPrefix: str(match.pathPrefix ?? match.path_prefix, `${path}.match.path_prefix`).trim(),
       suffixes: strings(match.suffixes, `${path}.match.suffixes`).map((s) =>
@@ -472,6 +475,25 @@ function checkRule(
   conds: Set<string>,
   datasets: ActionDatasetInfo[] | undefined,
 ): void {
+  /*
+   * Строка перегрузки срабатывает по заполнению очереди инспектора, а не по
+   * запросу: пути и условия у неё нет (model/overload.ts).
+   */
+  if ((rule.on ?? "") === "overload") {
+    checkOverloadAt(rule.at, at, fail);
+
+    if (
+      rule.match.pathPrefix !== "" || rule.match.suffixes.length > 0 || rule.match.static ||
+      rule.match.methods.length > 0 || rule.cond !== ""
+    ) {
+      fail(`${at}: on: overload takes no match and no condition`);
+    }
+  } else if ((rule.on ?? "") !== "") {
+    fail(`${at}: on must be overload or empty`);
+  } else if ((rule.at ?? null) !== null) {
+    fail(`${at}: at is only for on: overload`);
+  }
+
   for (const s of rule.match.suffixes) {
     if (s === "") {
       fail(`${at}: empty suffix`);
@@ -672,6 +694,14 @@ export function renderProfileYaml(
 
     if (rule.name !== "") {
       lines.push(`name: ${q(rule.name)}`);
+    }
+
+    if (rule.on === "overload") {
+      lines.push("on: overload");
+
+      if (rule.at !== null && rule.at !== undefined) {
+        lines.push(`at: ${rule.at}`);
+      }
     }
 
     const match: string[] = [];

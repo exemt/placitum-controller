@@ -382,6 +382,13 @@ export interface ServiceWork {
   skipped?: number;
   gen?: number;
   fingerprint?: string;
+  /**
+   * Кодер гео: хеш выгрузки стран, загруженной из панели, по которой он
+   * отвечает сейчас. Нет -- кодер на каталоге из своего окружения.
+   */
+  country_sha256?: string;
+  /** То же для ASN. */
+  asn_sha256?: string;
 }
 
 /** Кадр сервиса (logger, geo). Ключ записи — id процесса. */
@@ -1138,6 +1145,12 @@ function parseServiceWork(input: unknown): ServiceWork | undefined {
   const fingerprint = asString(row.fingerprint);
   if (fingerprint !== null) {
     work.fingerprint = fingerprint;
+  }
+  for (const key of ["country_sha256", "asn_sha256"] as const) {
+    const sha = asString(row[key]);
+    if (sha !== null) {
+      work[key] = sha;
+    }
   }
   return Object.keys(work).length === 0 ? undefined : work;
 }

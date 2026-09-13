@@ -36,6 +36,7 @@ import {
 } from "./model/auth-profile.ts";
 import { ARCHIVE_WHEN, RECORD_OBJECTS, type ArchiveWhen, type RecordObject } from "./model/actions.ts";
 import { checkAsk } from "./model/action-ask.ts";
+import { checkOverloadAt } from "./model/overload.ts";
 
 export { DocError } from "./auth-doc-util.ts";
 
@@ -84,6 +85,7 @@ function eventRuleOf(raw: unknown, path: string): AuthEventRule {
 
   return {
     on: str(r.on, `${path}.on`) as AuthEventRule["on"],
+    at: r.at === undefined || r.at === null ? null : num(r.at, `${path}.at`, 0),
     to: str(r.to, `${path}.to`),
     do: str(r.do, `${path}.do`),
     apply: str(r.apply, `${path}.apply`),
@@ -119,7 +121,14 @@ function checkEventRule(rule: AuthEventRule, i: number): void {
   const at = `rules[${i}]`;
 
   if (!(AUTH_ONS as readonly string[]).includes(rule.on)) {
-    fail(`${at}: on must be authenticated, anonymous, invalid or forbidden`);
+    fail(`${at}: on must be authenticated, anonymous, invalid, forbidden or overload`);
+  }
+
+  // Порог -- только у перегрузки: заполнение очереди в процентах, не назван -- край.
+  if (rule.on === "overload") {
+    checkOverloadAt(rule.at, at, fail);
+  } else if ((rule.at ?? null) !== null) {
+    fail(`${at}: at is only for on: overload`);
   }
 
   if ((rule.do === "") === (rule.list === "")) {
@@ -139,7 +148,7 @@ function checkEventRule(rule: AuthEventRule, i: number): void {
     checkAsk(at, rule, {
       fail,
       /* Отказ и редирект обрывают фазу: просьбе соседу с них не уехать. */
-      onDeny: rule.on !== "authenticated",
+      onDeny: rule.on !== "authenticated" && rule.on !== "overload",
       normalize: true,
     });
 
@@ -460,6 +469,10 @@ export function renderProfileYaml(name: string, doc: AuthProfileDoc): string {
 
     for (const rule of doc.rules) {
       out.push(`  - on: ${rule.on}`);
+
+      if (rule.on === "overload" && rule.at !== null && rule.at !== undefined) {
+        out.push(`    at: ${rule.at}`);
+      }
 
       if (rule.do !== "") {
         if (rule.to !== "") {

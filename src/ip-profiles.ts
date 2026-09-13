@@ -712,23 +712,12 @@ export class IpProfileRepo {
 
     /*
      * Строки по исходу, пишущие в набор, регистрируют его в живых -- иначе
-     * инспектор не узнает темы. У просьб соседям набора нет.
-     *
-     * Перегрузка -- исключение: её запись исполняет модуль (глагол `ban`), и
-     * зеркалить набор инспектору незачем. Имя оттуда всё равно нужно -- на
-     * проводе у просьбы стоит имя, а не uuid, -- поэтому такие наборы едут
-     * отдельным списком и в реестр живых не попадают.
+     * инспектор не узнает темы. У просьб соседям набора нет. Перегрузка не
+     * исключение: её запись исполняет сам инспектор, как у любой строки.
      */
-    const banLists = new Set<string>();
-
     for (const row of profiles) {
       for (const outcome of outcomesOf(row.outcomes)) {
         if (outcome.verb !== "" || outcome.list === "") {
-          continue;
-        }
-
-        if (outcome.on === "overload") {
-          banLists.add(outcome.list);
           continue;
         }
 
@@ -737,8 +726,6 @@ export class IpProfileRepo {
         }
       }
     }
-
-    const banNames = new Map(await namesOf(this.pool, [...banLists]));
 
     for (const [id, name] of await namesOf(this.pool, [...live.keys()])) {
       live.set(id, name);
@@ -753,30 +740,6 @@ export class IpProfileRepo {
         /* Порог есть только у перегрузки: у остальных ему нечего значить. */
         if (o.on === "overload") {
           out.at = o.at;
-        }
-
-        /*
-         * Перегрузка + запись в набор: на проводе это просьба модулю, а не
-         * запись самого инспектора. Оператор в панели говорит «внести в
-         * список», а кто пишет, решает здесь компилятор -- и решает в пользу
-         * модуля: инспектор на перегрузке не может ни сходить к кодеру, ни
-         * дождаться keeper, а модулю адрес клиента уже известен. Поэтому же у
-         * такой строки нет охватов net/net_all/asn -- край их не резолвит.
-         */
-        if (o.on === "overload" && o.verb === "" && o.list !== "") {
-          out.do = "ban";
-          out.apply = "ip";
-          out.list = banNames.get(o.list) ?? "";
-
-          if (o.ttlS > 0) {
-            out.ttl = `${o.ttlS}s`;
-          }
-
-          if (o.code !== "") {
-            out.code = o.code;
-          }
-
-          return out;
         }
 
         if (o.verb !== "") {

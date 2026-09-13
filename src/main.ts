@@ -24,6 +24,8 @@ import { exportNginx } from "./compile/nginx-export.ts";
 import { BLOB_TTL_SEC } from "./compile/pointer.ts";
 import { CryptoServiceClient } from "./crypto-service-client.ts";
 import { DatasetRepo } from "./datasets.ts";
+import { GeoFileRepo } from "./geo-files.ts";
+import { GeoImports } from "./geo-import.ts";
 import { InspectorRepo } from "./inspectors.ts";
 import { createPool } from "./db.ts";
 import { migrate } from "./migrate.ts";
@@ -53,6 +55,7 @@ import { UpstreamRepo } from "./upstreams.ts";
 import {
   createControllerStore,
   hydrateModel,
+  ipCountriesReplaced,
   startFleetTicker,
 } from "./state/index.ts";
 import { startDataBus } from "./data-bus.ts";
@@ -209,6 +212,22 @@ const stopLogLevels = await desired
     log("warn", "log levels watch failed", { error: String(err) });
     return () => {};
   });
+/*
+  Выгрузки гео из панели (geo-import.ts): каталог пространства сверяется с
+  файлом, файл уходит кодеру документом policy/geo. Документ досылается и
+  здесь, на старте: загрузка, чей документ не лёг в KV до рестарта, не должна
+  ждать следующей загрузки.
+*/
+const geoFiles = new GeoFileRepo(pool);
+const geoImports = new GeoImports({
+  pool,
+  files: geoFiles,
+  desired,
+  async countriesChanged(spaceId) {
+    model.dispatch(ipCountriesReplaced({ spaceId, rows: await ipCountries.list(spaceId) }));
+  },
+});
+void geoImports.publish();
 // Блобы поколений -- во внутренний Redis контура, не в обменник тел.
 const compileRedis =
   cfg.redisInternalUrl === "" ? null : new CompileRedis(cfg.redisInternalUrl);
@@ -339,6 +358,8 @@ const app = createApp(cfg, {
   ipAsns,
   ipSets,
   ipProfiles,
+  geoFiles,
+  geoImports,
   desired,
   compiler,
   ipCompiler,
@@ -381,6 +402,7 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
     stopFleetDemo();
     stopFleetTick();
     convergence.stop();
+    geoImports.stop();
     blobKeepalive?.stop();
     healthSocket.close();
     stopUpgrades();

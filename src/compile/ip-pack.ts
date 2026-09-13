@@ -339,6 +339,11 @@ function canonObject(o: RecordObject): Record<string, unknown> {
 function canonOutcome(outcome: IpCompileOutcome): Record<string, unknown> {
   const out: Record<string, unknown> = { on: outcome.on };
 
+  /* Порог перегрузки -- сразу за условием: так его ставит и пакет инспектора. */
+  if (outcome.at !== undefined) {
+    out.at = outcome.at;
+  }
+
   if (outcome.to !== undefined && outcome.to !== "") {
     out.to = outcome.to;
   }

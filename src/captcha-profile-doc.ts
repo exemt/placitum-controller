@@ -18,6 +18,7 @@ import type {
 } from "./model/captcha-profile.ts";
 import { ARCHIVE_WHEN, RECORD_OBJECTS, type ArchiveWhen, type RecordObject } from "./model/actions.ts";
 import { checkAsk } from "./model/action-ask.ts";
+import { checkOverloadAt } from "./model/overload.ts";
 
 /** Имя корзины у note: алфавит имён счётчиков получателя. */
 const COUNTER_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
@@ -358,6 +359,7 @@ function eventRuleOf(raw: unknown, path: string): CaptchaEventRule {
 
   return {
     on: (on === "bucket_full" ? "bucket_ban" : on) as CaptchaEventRule["on"],
+    at: r.at === undefined || r.at === null ? null : num(r.at, `${path}.at`, 0),
     bucket: str(r.bucket, `${path}.bucket`),
     next: str(r.next, `${path}.next`) as CaptchaEventRule["next"],
     to: str(r.to, `${path}.to`),
@@ -647,11 +649,14 @@ function checkBuckets(doc: { buckets: CaptchaBuckets }): void {
   }
 }
 
-const ONS = new Set(["fail", "pass", "bucket_captcha", "bucket_ban", "cleared", "uncleared"]);
+const ONS = new Set(["fail", "pass", "bucket_captcha", "bucket_ban", "cleared", "uncleared", "overload"]);
 
 /** Событие волны инспектора: просьбы соседям доедут. */
 function onWave(on: string): boolean {
-  return on === "bucket_captcha" || on === "bucket_ban" || on === "cleared" || on === "uncleared";
+  return (
+    on === "bucket_captcha" || on === "bucket_ban" || on === "cleared" || on === "uncleared" ||
+    on === "overload"
+  );
 }
 
 /** Событие порога корзины: селектор корзины имеет смысл. */
@@ -665,7 +670,14 @@ function checkEventRule(rule: CaptchaEventRule, i: number): void {
   const at = `rules[${i}]`;
 
   if (!ONS.has(rule.on)) {
-    fail(`${at}: on must be fail, pass, bucket_captcha, bucket_ban, cleared or uncleared`);
+    fail(`${at}: on must be fail, pass, bucket_captcha, bucket_ban, cleared, uncleared or overload`);
+  }
+
+  // Порог -- только у перегрузки: заполнение очереди в процентах, не назван -- край.
+  if (rule.on === "overload") {
+    checkOverloadAt(rule.at, at, fail);
+  } else if ((rule.at ?? null) !== null) {
+    fail(`${at}: at is only for on: overload`);
   }
 
   if (rule.bucket !== "") {
@@ -1083,6 +1095,10 @@ export function renderProfileYaml(name: string, doc: CaptchaProfileDoc): string 
 
     for (const rule of doc.rules) {
       out.push(`  - on: ${rule.on}`);
+
+      if (rule.on === "overload" && rule.at !== null && rule.at !== undefined) {
+        out.push(`    at: ${rule.at}`);
+      }
 
       if (rule.bucket !== "") {
         out.push(`    bucket: ${rule.bucket}`);

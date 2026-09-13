@@ -35,6 +35,7 @@ import {
 } from "./action-part.tsx";
 import { axisLabel, verbLabel } from "./action-select.tsx";
 import { useT, type Translate } from "../i18n/index.ts";
+import { OVERLOAD_AT_MAX, OVERLOAD_AT_MIN, overloadAtOf, overloadAtOk } from "../overload.ts";
 
 const ONS = ["deny", "allow", "score"] as const;
 
@@ -187,6 +188,10 @@ function whenOf(t: Translate, o: OutcomeRule): string {
     const where = o.if === null || o.if === undefined ? "?" : `${o.if.counter}/${o.if.axis}`;
 
     return `${where} ${sign} ${o.at ?? 0}%`;
+  }
+
+  if (o.on === "overload") {
+    return `${t("outcomes.ons.overload")} ≥ ${o.at ?? OVERLOAD_AT_MAX}%`;
   }
 
   if (o.on !== "score") {
@@ -372,6 +377,10 @@ function OutcomeDialog({
       }
     }
 
+    if (fields.on === "overload" && !overloadAtOk(fields.at)) {
+      return false;
+    }
+
     return actionReady(fields.draft, {
       askable: asks || fields.draft.target === TO_MODULE,
     });
@@ -394,6 +403,8 @@ function OutcomeDialog({
     } else if (fields.on === "score") {
       const sign = fields.cmp === "eq" ? "=" : fields.cmp === "below" ? "<" : "≥";
       parts.push(`${t("outcomes.ons.score")} ${sign} ${fields.at || "?"}`);
+    } else if (fields.on === "overload") {
+      parts.push(`${t("outcomes.ons.overload")} ≥ ${fields.at.trim() || OVERLOAD_AT_MAX}%`);
     } else {
       parts.push(t(`outcomes.ons.${fields.on}`));
     }
@@ -440,6 +451,10 @@ function OutcomeDialog({
       out.below = fields.cmp === "below";
       out.eq = false;
       out.if = { counter: fields.bucket, axis: fields.bucketAxis };
+    }
+
+    if (fields.on === "overload") {
+      out.at = overloadAtOf(fields.at);
     }
 
     if (fields.draft.target === TO_DATASET) {
@@ -510,6 +525,8 @@ function OutcomeDialog({
                   // Ось conn есть только у кадров: корзина по ней на запросе молчала бы.
                   set({
                     section,
+                    // Строка перегрузки -- только в секции запроса.
+                    on: section !== "request" && fields.on === "overload" ? "score" : fields.on,
                     bucketAxis:
                       section !== "frame" && fields.bucketAxis === "conn" ? "" : fields.bucketAxis,
                   });
@@ -530,7 +547,8 @@ function OutcomeDialog({
               onChange={(e) => {
                 const on = e.target.value as Fields["on"];
 
-                set({ on });
+                /* Порог счёта не порог очереди: выходящий за шкалу не переносится. */
+                set({ on, at: on === "overload" && !overloadAtOk(fields.at) ? "" : fields.at });
 
                 /* Просьба соседу не переживает уход на отказ: ей некуда ехать. */
                 if (
@@ -543,7 +561,9 @@ function OutcomeDialog({
               }}
               helperText={t("outcomes.outcomeWhenHint")}
             >
-              {(ons ?? ONS).map((on) => (
+              {(ons ?? ONS)
+                .filter((on) => on !== "overload" || phases === undefined || fields.section === "request")
+                .map((on) => (
                 <MenuItem key={on} value={on}>
                   {t(`outcomes.ons.${on}`)}
                 </MenuItem>
@@ -658,6 +678,23 @@ function OutcomeDialog({
                   sx={{ flex: 1 }}
                 />
               </Stack>
+            )}
+
+            {/*
+              Порог перегрузки: с какого заполнения очереди инспектора строка
+              срабатывает. Пусто -- край: запрос уже сброшен (src/overload.ts).
+            */}
+            {fields.on === "overload" && (
+              <TextField
+                size="small"
+                label={t("outcomes.overloadAt")}
+                value={fields.at}
+                placeholder={String(OVERLOAD_AT_MAX)}
+                onChange={(e) => set({ at: e.target.value })}
+                error={!overloadAtOk(fields.at)}
+                helperText={t("outcomes.overloadAtHint")}
+                slotProps={{ htmlInput: { inputMode: "numeric", min: OVERLOAD_AT_MIN, max: OVERLOAD_AT_MAX } }}
+              />
             )}
           </DialogSection>
 

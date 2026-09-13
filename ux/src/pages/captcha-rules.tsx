@@ -39,8 +39,9 @@ import {
 } from "../components/action-part.tsx";
 import { axisLabel, verbLabel } from "../components/action-select.tsx";
 import { useT, type Translate } from "../i18n/index.ts";
+import { OVERLOAD_AT_MAX, OVERLOAD_AT_MIN, overloadAtOf, overloadAtOk } from "../overload.ts";
 
-const ONS = ["fail", "pass", "bucket_captcha", "bucket_ban", "cleared", "uncleared"] as const;
+const ONS = ["fail", "pass", "bucket_captcha", "bucket_ban", "cleared", "uncleared", "overload"] as const;
 const BUCKETS = ["ip", "sess", "asn_net", "asn_router"] as const;
 /*
  * Что писать в набор. net -- лайт (эффективный анонс), net_all -- хард (все
@@ -51,7 +52,10 @@ const WRITES = ["addr", "net", "net_all", "asn", "cid"] as const;
 
 /** События волны инспектора -- пороги корзин и клиренс, есть он или нет: им доступны и просьбы. */
 function onWave(on: string): boolean {
-  return on === "bucket_captcha" || on === "bucket_ban" || on === "cleared" || on === "uncleared";
+  return (
+    on === "bucket_captcha" || on === "bucket_ban" || on === "cleared" || on === "uncleared" ||
+    on === "overload"
+  );
 }
 
 /** Событие порога корзины: селектор корзины имеет смысл. */
@@ -131,6 +135,10 @@ function toHintOf(t: Translate, on: string, next: string): string {
 
 function whenOf(t: Translate, rule: CaptchaEventRule): string {
   let out = t(`captcha.ons.${rule.on}`);
+
+  if (rule.on === "overload") {
+    out += ` ≥ ${rule.at ?? OVERLOAD_AT_MAX}%`;
+  }
 
   /* Корзина уточняет только пороги: у клиренса и событий виджета её нет. */
   if (bucketEvent(rule.on)) {
@@ -312,6 +320,8 @@ export function CaptchaRulesBlock({
 
 interface Fields {
   on: CaptchaEventRule["on"];
+  /** Только у перегрузки: порог очереди, пусто -- край. */
+  at: string;
   bucket: string;
   /** Решение лестницы: пусто -- любое. */
   next: string;
@@ -327,6 +337,7 @@ interface Fields {
 function fieldsOf(rule: CaptchaEventRule | null): Fields {
   const out: Fields = {
     on: rule?.on ?? "fail",
+    at: rule?.at === null || rule?.at === undefined ? "" : String(rule.at),
     bucket: rule?.bucket ?? "",
     next: rule?.next ?? "",
     charge: rule?.charge === undefined || rule.charge === "" ? "ip" : rule.charge,
@@ -399,6 +410,7 @@ function RuleDialog({
   const withNext = nextEvent(fields.on);
 
   const ready = (): boolean =>
+    (fields.on !== "overload" || overloadAtOk(fields.at)) &&
     actionReady(fields.draft, {
       askable,
       extraReady: (target) =>
@@ -411,6 +423,7 @@ function RuleDialog({
     const out = emptyEventRule();
 
     out.on = fields.on;
+    out.at = fields.on === "overload" ? overloadAtOf(fields.at) : null;
     out.bucket = bucketEvent(fields.on) ? fields.bucket : "";
     out.next = nextEvent(fields.on) ? (fields.next as CaptchaEventRule["next"]) : "";
     out.code = fields.draft.code;
@@ -492,6 +505,23 @@ function RuleDialog({
               </MenuItem>
             ))}
           </TextField>
+
+          {/*
+            Порог перегрузки: с какого заполнения очереди инспектора строка
+            срабатывает. Пусто -- край: запрос уже сброшен (src/overload.ts).
+          */}
+          {fields.on === "overload" && (
+            <TextField
+              size="small"
+              label={t("outcomes.overloadAt")}
+              value={fields.at}
+              placeholder={String(OVERLOAD_AT_MAX)}
+              onChange={(e) => set({ at: e.target.value })}
+              error={!overloadAtOk(fields.at)}
+              helperText={t("outcomes.overloadAtHint")}
+              slotProps={{ htmlInput: { inputMode: "numeric", min: OVERLOAD_AT_MIN, max: OVERLOAD_AT_MAX } }}
+            />
+          )}
 
           {withBucket && (
             <TextField

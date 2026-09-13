@@ -203,6 +203,7 @@ NATS и тот же Redis подняты у агента (`nginx/agent/agent.con
 | [`schema/`](../schema) | Схема Postgres; на пустой том целиком, на живой — вручную |
 | [`schema/seed/`](../schema/seed) | Дампы GeoLite2 (страны, ASN); на пустой том — `019_ip_geo_seed.sh` |
 | [`src/load-geo.ts`](../src/load-geo.ts), [`src/dump-geo.ts`](../src/dump-geo.ts) | Заливка MMDB и выгрузка seed SQL |
+| [`src/geo-import.ts`](../src/geo-import.ts), [`src/geo-files.ts`](../src/geo-files.ts), [`src/geo-mmdb.ts`](../src/geo-mmdb.ts) | Загрузка выгрузки из панели: разбор MMDB, сверка каталога, файл кодеру (`policy/geo`) |
 | [`ux/`](../ux) | Панель: обзор, наборы, правила, настройки http {} |
 | [`ux/src/config/`](../ux/src/config) | Настройки маршрута: наследование строкой, общая форма на три уровня, волны, живое превью |
 
@@ -333,7 +334,16 @@ docker compose exec -T postgres psql -U waf -d waf -f /docker-entrypoint-initdb.
 
 Гео и ASN — выгрузка MaxMind; тестовые три страны из архивных `011`/`014` остались фикстурой
 в [`schema/stand/geo-test.sql`](../schema/stand/geo-test.sql) для базы без выгрузки.
-Полный GeoLite2:
+Полный GeoLite2 загружают из панели: «Наборы адресов → Гео» и «→ ASN», кнопка «Загрузить
+данные» — `POST /api/:scope/geo/import/country|asn`, тело — файл `.mmdb`, ответ 202 и задача;
+ход, загруженные файлы и копии кодера — `GET /api/:scope/geo/import`. Каталог пространства
+сверяется с файлом одной транзакцией (пропавшие сети снимаются, новые добавляются, UUID
+совпавших остаются), сам файл ложится туда же в `geo_files` (миграция 101) и уходит кодеру
+документом `policy/geo` в KV: кодер скачивает копию `GET /api/geo/files/<вид>` и подменяет
+таблицы, отвечая по прежним до самой подмены. Документ, не легший в KV, досылается повтором и
+стартом контроллера.
+
+Из командной строки — как раньше; кодеру файл при этом не едет:
 
 ```sh
 cd controller

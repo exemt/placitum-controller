@@ -15,6 +15,7 @@
 
 import { ARCHIVE_WHEN, RECORD_OBJECTS, type ArchiveWhen, type RecordObject } from "./model/actions.ts";
 import { checkAsk } from "./model/action-ask.ts";
+import { checkOverloadAt } from "./model/overload.ts";
 import {
   ACTION_COND_NAME_RE,
   actionValueAddressable,
@@ -326,7 +327,8 @@ function normalizeRule(raw: unknown, path: string): CookieRule {
 
       return code;
     }),
-    on: str(row.on, `${path}.on`).trim() as CookieState | "",
+    on: str(row.on, `${path}.on`).trim() as CookieRule["on"],
+    at: intOrNull(row.at, `${path}.at`),
     cookie: str(row.cookie, `${path}.cookie`).trim(),
     issue: str(row.issue, `${path}.issue`).trim(),
     drop: str(row.drop, `${path}.drop`).trim(),
@@ -626,6 +628,37 @@ function checkRule(
   cookies: Map<string, CookieDecl>,
   datasets: ActionDatasetInfo[] | undefined,
 ): void {
+  /*
+   * Строка перегрузки срабатывает по заполнению очереди инспектора, а не по
+   * запросу и не по куке: ни пути, ни фазы, ни куки, ни условия у неё нет
+   * (model/overload.ts). Действия -- те же, что у любого правила.
+   */
+  if (rule.on === "overload") {
+    checkOverloadAt(rule.at, at, fail);
+
+    if (
+      rule.match.pathPrefix !== "" || rule.match.suffixes.length > 0 || rule.match.static ||
+      rule.match.methods.length > 0 || rule.phase !== "" || rule.status.length > 0 ||
+      rule.cookie !== "" || rule.issue !== "" || rule.drop !== "" || rule.cond !== ""
+    ) {
+      fail(`${at}: on: overload takes only at and actions`);
+    }
+
+    if (rule.actions.length === 0) {
+      fail(`${at}: on: overload without actions does nothing`);
+    }
+
+    rule.actions.forEach((ask, j) =>
+      checkRuleAsk(ask, `${at}.actions[${j}]`, rule, cookies, datasets),
+    );
+
+    return;
+  }
+
+  if ((rule.at ?? null) !== null) {
+    fail(`${at}: at is only for on: overload`);
+  }
+
   for (const s of rule.match.suffixes) {
     if (s === "") {
       fail(`${at}: empty suffix`);
@@ -1043,7 +1076,13 @@ export function renderProfileYaml(
      * Состояние и операция. Имя куки при on: печатается всегда, даже когда
      * загрузчик вывел бы его сам: профиль читают глазами чаще, чем грузят.
      */
-    if (rule.on !== "") {
+    if (rule.on === "overload") {
+      lines.push("on: overload");
+
+      if (rule.at !== null && rule.at !== undefined) {
+        lines.push(`at: ${rule.at}`);
+      }
+    } else if (rule.on !== "") {
       lines.push(`on: ${rule.on}`);
 
       const named = ruleCookie(rule, new Map(doc.cookies.map((c) => [c.name, c])));

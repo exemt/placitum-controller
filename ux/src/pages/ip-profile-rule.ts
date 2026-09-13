@@ -43,8 +43,9 @@ export type RuleTrigger =
   | "overload";
 
 /** Край шкалы порога: очередь полна, запрос сброшен. Он же умолчание. */
-export const OVERLOAD_AT_MAX = 100;
-export const OVERLOAD_AT_MIN = 25;
+import { OVERLOAD_AT_MAX, OVERLOAD_AT_MIN } from "../overload.ts";
+
+export { OVERLOAD_AT_MAX, OVERLOAD_AT_MIN };
 
 /**
  * Строка спрашивает про сырой список — значит, у неё есть поле «Список».

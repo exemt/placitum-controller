@@ -85,7 +85,7 @@ export interface AuthGate {
  * доедет только с allow: отказ и редирект обрывают фазу, поэтому у anonymous,
  * invalid и forbidden загрузчик пускает лишь глаголы записи маршрута.
  */
-export const AUTH_ONS = ["authenticated", "anonymous", "invalid", "forbidden"] as const;
+export const AUTH_ONS = ["authenticated", "anonymous", "invalid", "forbidden", "overload"] as const;
 
 export type AuthOn = (typeof AUTH_ONS)[number];
 
@@ -96,6 +96,8 @@ export type AuthOn = (typeof AUTH_ONS)[number];
  */
 export interface AuthEventRule {
   on: AuthOn;
+  /** Только у on: overload: порог заполнения очереди в процентах; пусто -- край. */
+  at?: number | null;
 
   /* Просьба соседу -- форма канала действий, общая с остальными отправителями. */
   to: string;
