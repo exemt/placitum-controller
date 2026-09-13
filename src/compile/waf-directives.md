@@ -55,7 +55,7 @@ snake_case nginx. Нет ключа — наследовать; ключ ест�
 | `waf_frame_score_deny` | inherit | нет | — |
 | `waf_capture` | inherit | печатает | `capture[]` — первое слово `request`/`response`/`frame:c2s`/`frame:s2c`/`frame` (без слова — `request`); `[]` → `none` на запросе и ответе; у кадров `none` за пустоту не печатается |
 | `waf_response_body_access` | inherit | нет | снято; jsonb ещё парсится |
-| `waf_archive` | inherit | печатает | `archive[]` — первое слово `request`/`response`; `response` требует `responseInspectors` (`archive_needs_inspect`) |
+| `waf_archive` | inherit | печатает | `archive[]` — первое слово `request`/`response`/`frame[:dir]`; инспекторы фазы не нужны — фаза без волн пишет журнал (`archive_needs_inspect` снят) |
 | `waf_body_limit` | inherit | печатает | `bodyLimit` + `bodyLimitPolicy` |
 | `waf_body_encrypt` | inherit | в jsonb | `bodyEncrypt` |
 | `waf_body_transform` | inherit | нет | — |

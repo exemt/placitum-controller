@@ -606,6 +606,11 @@ export interface TailProblem {
  * - оригинал шире снимка на фазе ответа -- отказ: перечитать ответ второй раз
  *   нельзя, держится ровно то, что снято;
  * - `=capture` при объекте не в capture -- отказ.
+ *
+ * Сверки со снимком -- только у фазы, где спрашивают (`inspected`). Фаза без
+ * инспекторов пишет журнал (archive.md, «без инспекторов»): снимка у неё нет,
+ * архив и запись берут объект из трафика в своём размере, и «не снимается» /
+ * «шире снимка» ей не ошибка.
  */
 export function checkTail(
   model: TailModel,
@@ -615,12 +620,15 @@ export function checkTail(
     bodyLimit?: string;
     clientMaxBody?: string;
     phase?: TailPhase;
+    /** Есть ли у фазы инспекторы. Нет -- журнал, сверок со снимком нет. */
+    inspected?: boolean;
   },
 ): TailProblem[] {
   const problems: TailProblem[] = [];
   const limit = sizeBytes(ctx.bodyLimit);
   const clientMax = sizeBytes(ctx.clientMaxBody);
   const phase = ctx.phase ?? "request";
+  const journal = ctx.inspected === false;
 
   /*
    * Отдача из обменника (send.md, «правила»): без снимка объекта отдавать
@@ -701,7 +709,8 @@ export function checkTail(
       if (spec.originalSize === "capture" && captured?.on !== true) {
         problems.push({ object: name, code: "originalNotCaptured", level: "error" });
       }
-      if (phase === "response") {
+      // Журнал ответа копирует префикс сам, по мере отдачи: шире снимка можно.
+      if (phase === "response" && !journal) {
         const origBytes =
           spec.originalSize === "capture" ? undefined : sizeBytes(spec.originalSize);
         const whole = spec.originalSize === undefined;
@@ -716,7 +725,8 @@ export function checkTail(
       continue;
     }
 
-    if (captured?.on !== true) {
+    // Журнал берёт объект из трафика: снимать его для этого не нужно.
+    if (captured?.on !== true && !journal) {
       problems.push({ object: name, code: "notInCapture", level: "error" });
       continue;
     }
@@ -724,10 +734,17 @@ export function checkTail(
       problems.push({ object: name, code: "budgetRequired", level: "error" });
     }
     // Шире снимка запрещено только там, где за срезом стоит оригинал за маской
-    // (запрос/ответ). У кадра масок нет и весь кадр в буфере — архив и превью
-    // могут быть шире снимка, их держит только waf_body_limit (overLimits).
+    // (запрос/ответ) и снимок вообще есть. У кадра масок нет и весь кадр в
+    // буфере, у журнала снимка нет вовсе — их держит только waf_body_limit.
     const own = sizeBytes(spec.size);
-    if (!frame && own !== undefined && captureSize !== undefined && captured.size !== undefined && own > captureSize) {
+    if (
+      !frame &&
+      !journal &&
+      own !== undefined &&
+      captureSize !== undefined &&
+      captured?.size !== undefined &&
+      own > captureSize
+    ) {
       problems.push({
         object: name,
         code: "widerThanCapture",

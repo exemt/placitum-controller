@@ -67,38 +67,11 @@ export function validateWafCompile(source: HttpCompileSource, printed: string[])
     );
   }
 
-  if (on && hasArchive(source) && !hasInspect(source)) {
-    throw new WafCompileError(
-      "archive_needs_inspect",
-      "waf_archive needs inspectors on the route",
-    );
-  }
-
   /*
-   * Инспекторы нужны той же фазе (archive.md): архив ответа без
-   * `waf_inspect response` -- отказ на `nginx -t`, потому что тело ответа
-   * удерживать некому и нечем решить исход. Превью на это не смотрит -- его
-   * запись уходит и без инспекторов.
+   * Инспекторы архиву не нужны (archive.md, «без инспекторов»): фаза без волн
+   * пишет журнал -- запрос и ответ кладут объекты после прохода, кадр -- по
+   * своей записи (waf_audit_frames). Нужны обменник и сокет агента.
    */
-  if (on && hasArchive(source, "response") && !hasInspect(source, "response")) {
-    throw new WafCompileError(
-      "archive_needs_inspect",
-      "waf_archive response needs waf_inspect response on the route",
-    );
-  }
-
-  /*
-   * То же у кадров: нагрузку держит и исход решает волна кадров, без
-   * `waf_inspect frame` фаза не поднимается вовсе. Сторона проверяется
-   * модулем на `nginx -t`: архив `frame:s2c` при инспекции только `frame:c2s`
-   * -- его отказ, здесь ловится только пустой набор.
-   */
-  if (on && hasArchive(source, "frame") && !hasInspect(source, "frame")) {
-    throw new WafCompileError(
-      "archive_needs_inspect",
-      "waf_archive frame needs waf_inspect frame on the route",
-    );
-  }
 
   for (const ds of source.datasets ?? []) {
     if (ds.active && (ds.entries?.length ?? 0) > 0) {
@@ -129,19 +102,6 @@ function routeOn(source: HttpCompileSource): boolean {
 }
 
 type Phase = "request" | "response" | "frame";
-
-function inspectList(waf: WafRouteSettings | undefined, phase?: Phase): boolean {
-  const lists = [
-    ...(phase === undefined || phase === "request" ? [waf?.requestInspectors] : []),
-    ...(phase === undefined || phase === "response" ? [waf?.responseInspectors] : []),
-    ...(phase === undefined || phase === "frame" ? [waf?.frameInspectors] : []),
-  ];
-  return lists.some((list) => list === "all" || (Array.isArray(list) && list.length > 0));
-}
-
-function hasInspect(source: HttpCompileSource, phase?: Phase): boolean {
-  return allRoutes(source).some((waf) => inspectList(waf, phase));
-}
 
 function archiveOpen(waf: WafRouteSettings | undefined, phase?: Phase): boolean {
   return (waf?.archive ?? []).some((tail) => {

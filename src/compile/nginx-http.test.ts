@@ -1182,28 +1182,29 @@ test("пустой набор снимает обе фазы", () => {
   assert.match(text, /waf_preview response none;/);
 });
 
-test("archive response без инспекторов фазы ответа -- ошибка компиляции", () => {
-  assert.throws(
-    () =>
-      compileHttp({
-        wafHttp: { ...BUS, agentSocket: "/tmp/waf.sock" },
-        bodyStores: [{ id: "bs1", httpSpaceId: SPACE, name: "hot", driver: "redis", spec: { ttl: "1m" } }],
-        infra: { redisUrl: "redis://redis:6379" },
-        inspectors: [inspector()],
-        waf: { inspectors: { modsec: {} } },
-        servers: [
-          server({
-            waf: {
-              enabled: true,
-              requestInspectors: [{ name: "modsec" }],
-              capture: ["response body=64k"],
-              archive: ["response body"],
-            },
-          }),
-        ],
+/*
+ * Фаза без инспекторов пишет журнал: архив ответа кладёт объекты после отдачи,
+ * инспекторы фазы ответа ему не нужны (archive.md).
+ */
+test("archive response без инспекторов фазы ответа -- журнал, печатается", () => {
+  const { text } = compileHttp({
+    wafHttp: { ...BUS, agentSocket: "/tmp/waf.sock" },
+    bodyStores: [{ id: "bs1", httpSpaceId: SPACE, name: "hot", driver: "redis", spec: { ttl: "1m" } }],
+    infra: { redisUrl: "redis://redis:6379" },
+    inspectors: [inspector()],
+    waf: { inspectors: { modsec: {} } },
+    servers: [
+      server({
+        waf: {
+          enabled: true,
+          requestInspectors: [{ name: "modsec" }],
+          capture: ["response body=64k"],
+          archive: ["response body"],
+        },
       }),
-    (err: unknown) => err instanceof WafCompileError && err.code === "archive_needs_inspect",
-  );
+    ],
+  });
+  assert.match(text, /waf_archive response body;/);
 });
 
 test("фаза кадра в capture: обе стороны одним словом, только на websocket-пути", () => {
@@ -1222,10 +1223,10 @@ test("фаза кадра в capture: обе стороны одним слов�
 
 /*
  * Архив и превью кадров печатаются так же, как у запроса и ответа: фаза
- * первым словом, сторона -- частью слова. Архив требует инспекторов кадров
- * на маршруте -- нагрузку держит и исход решает их волна.
+ * первым словом, сторона -- частью слова. Инспекторы кадров архиву не нужны:
+ * сторона без волн пишет журнал.
  */
-test("архив и превью кадров: печатаются по сторонам, архив требует инспекторов кадров", () => {
+test("архив и превью кадров: печатаются по сторонам, с инспекторами и без", () => {
   const json = inspector("json");
   json.id = "00000000-0000-4000-8000-0000000000f1";
   json.subject = "waf.req.json";
@@ -1337,22 +1338,22 @@ test("архив и превью кадров: печатаются по сто�
     (err: unknown) => err instanceof WafCompileError && err.code === "send_object",
   );
 
-  assert.throws(
-    () =>
-      compileHttp({
-        ...stand,
-        servers: [
-          server({}, [
-            location(
-              { enabled: true, capture: ["frame body=64k"], archive: ["frame body ttl=1h"] },
-              "/ws/",
-              "websocket",
-            ),
-          ]),
-        ],
-      }),
-    (err: unknown) => err instanceof WafCompileError && err.code === "archive_needs_inspect",
-  );
+  // Без инспекторов кадров архив печатается так же: сторона пишет журнал.
+  {
+    const journal = compileHttp({
+      ...stand,
+      servers: [
+        server({}, [
+          location(
+            { enabled: true, capture: ["frame body=64k"], archive: ["frame body ttl=1h"] },
+            "/ws/",
+            "websocket",
+          ),
+        ]),
+      ],
+    });
+    assert.match(journal.text, /waf_archive frame body ttl=1h;/);
+  }
 
   // На сервере -- та же граница, что у снимка.
   assert.throws(

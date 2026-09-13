@@ -122,10 +122,12 @@ import type { InheritFrom } from "../api.ts";
  * у запертых полей ядра ([InheritedRow]). Уровень у каждой ячейки свой: сервер
  * наследует у http, путь -- у server или у http, смотря где ключ задан.
  *
- * Строки идут двумя группами -- запрос и ответ: у каждой фазы свой словарь
- * объектов и своё наследование в модуле, а оси у них общие. Группа ответа
- * стоит всегда, даже пустая: без `waf_inspect response` она бесполезна, и
- * подсказка об этом должна быть там, где оператор ищет тело ответа.
+ * Строки идут группами по фазам -- запрос и ответ, у websocket-пути кадры
+ * клиента и приложения: у каждой фазы свой словарь объектов и своё
+ * наследование в модуле, а оси у них общие. Группа стоит всегда, даже пустая:
+ * подсказка о фазе должна быть там, где оператор ищет её объекты. Фаза без
+ * инспекторов пишет журнал -- сверок со снимком у неё нет (checkTail), а у
+ * кадров рядом стоит «Запись кадров»: без неё срез и архив кадра не уходят.
  *
  * На сервере и пути каждая ось -- свой ключ документа с тремя состояниями.
  * Таблица показывает действующий набор -- своё поверх родительского, как его
@@ -477,6 +479,26 @@ export function CaptureTable({
   const bodyLimitText = typeof bodyLimit === "string" ? bodyLimit : undefined;
 
   /*
+   * Спрашивают ли на фазе. Без инспекторов фаза пишет журнал (archive.md, «без
+   * инспекторов»): снимка у неё нет, и сверок архива и записи со снимком тоже
+   * -- объект берётся из трафика в своём размере.
+   */
+  const inspected = useMemo(() => {
+    const on = (key: string) => {
+      const list = resolve(waf, key, parents).value;
+      return list === "all" || (Array.isArray(list) && list.length > 0);
+    };
+    const frame = on("frameInspectors");
+    return {
+      request: on("requestInspectors"),
+      response: on("responseInspectors"),
+      "frame:c2s": frame,
+      "frame:s2c": frame,
+      frame,
+    } as Record<TailPhase, boolean>;
+  }, [waf, parents]);
+
+  /*
    * Предел тела -- у фазы запроса: `waf_body_limit response` форма не ведёт,
    * а у ответа потолок удержания задаёт сам снимок (hold.md).
    */
@@ -491,6 +513,7 @@ export function CaptureTable({
           bodyLimit: phase === "request" ? bodyLimitText : undefined,
           clientMaxBody: phase === "request" ? clientMaxBody : undefined,
           phase,
+          inspected: inspected[phase],
         };
         return [
           ...KINDS.flatMap((kind) =>
@@ -499,8 +522,44 @@ export function CaptureTable({
           ...checkStoreCross(models, phase).map((p) => ({ ...p, phase })),
         ];
       }),
-    [axes, bodyLimitText, clientMaxBody],
+    [axes, bodyLimitText, clientMaxBody, inspected],
   );
+
+  /*
+   * Запись кадров (waf_audit_frames) -- рядом с «В запись»: срез и архив кадра
+   * уходят только вместе с записью кадра, и без политики рядом не понять,
+   * почему настроенный архив молчит. Политика одна на путь, обе стороны.
+   */
+  const frameAudit = resolve(waf, "frameAudit", parents);
+  const frameAuditPolicy = typeof frameAudit.value === "string" ? frameAudit.value : "deny";
+  const frameAuditSample = resolve(waf, "frameAuditSample", parents).value;
+
+  const setFrameAudit = (policy: string, sample?: number) => {
+    const doc = { ...waf };
+    if (policy === "inherit") {
+      delete doc.frameAudit;
+      delete doc.frameAuditSample;
+    } else {
+      doc.frameAudit = policy;
+      if (policy === "all" && sample !== undefined && sample > 1) {
+        doc.frameAuditSample = sample;
+      } else {
+        delete doc.frameAuditSample;
+      }
+    }
+    onChange(doc);
+  };
+
+  /** Предупреждение стороны кадров: срез и архив настроены, а записи не будет. */
+  const frameWarning = (phase: TailPhase): string | undefined => {
+    if (phase !== "frame:c2s" && phase !== "frame:s2c") return undefined;
+    const wants =
+      axes.preview.effective[phase].objects.body.on || axes.archive.effective[phase].objects.body.on;
+    if (!wants) return undefined;
+    if (frameAuditPolicy === "off") return t("tail.frameAuditWarn.off");
+    if (frameAuditPolicy === "deny" && !inspected[phase]) return t("tail.frameAuditWarn.deny");
+    return undefined;
+  };
 
   /** Какой объект открыт окном (или добавляется), какая ось -- диалогом. */
   const [editRow, setEditRow] = useState<{ phase: TailPhase; name: ObjectName } | null>(null);
@@ -622,6 +681,21 @@ export function CaptureTable({
               rows={rowsOf(phase)}
               unused={unusedOf(phase)}
               onAdd={(name) => setAdding({ phase, name })}
+              /*
+                Политика одна на обе стороны -- селектор у первой группы
+                кадров, предупреждение -- у каждой своё.
+              */
+              audit={
+                phase === phases.find((p) => p === "frame:c2s" || p === "frame:s2c")
+                  ? {
+                      state: frameAudit.state,
+                      policy: frameAuditPolicy,
+                      sample: typeof frameAuditSample === "number" ? frameAuditSample : undefined,
+                      onChange: setFrameAudit,
+                    }
+                  : undefined
+              }
+              warning={frameWarning(phase)}
             >
               {rowsOf(phase).map((name) => (
                 /*
@@ -713,6 +787,7 @@ export function CaptureTable({
           axes={axes}
           bodyLimit={(editRow?.phase ?? adding?.phase) === "request" ? bodyLimitText : undefined}
           clientMaxBody={(editRow?.phase ?? adding?.phase) === "request" ? clientMaxBody : undefined}
+          inspected={inspected[editRow?.phase ?? adding?.phase ?? "request"]}
           onClose={() => {
             setEditRow(null);
             setAdding(null);
@@ -734,14 +809,73 @@ export function CaptureTable({
  * Кнопка «+» у фазы, а не в шапке таблицы: объект добавляют в конкретную
  * фазу, и одна кнопка на две группы спрашивала бы, в какую. Открывает то же
  * окно объекта ([ObjectDialog]), которым строка потом правится: одна запись --
- * одно окно. Пустая группа ответа говорит, чего ей не хватает, -- инспекторов
- * фазы ответа.
+ * одно окно. Пустая группа говорит, что видят инспекторы фазы без её объектов;
+ * у кадров в подзаголовке -- «Запись кадров» и предупреждение, если срез и
+ * архив стороны настроены, а записи, с которой они уходят, не будет.
  */
+/** Политика записи кадров пути, как её показывает подзаголовок группы кадров. */
+interface FrameAudit {
+  state: FieldState;
+  /** Действующее значение: своё либо пришедшее сверху, умолчание модуля -- deny. */
+  policy: string;
+  sample?: number;
+  onChange: (policy: string, sample?: number) => void;
+}
+
+const FRAME_AUDIT_SAMPLES = [1, 2, 5, 10, 100] as const;
+
+/**
+ * «Запись кадров» в подзаголовке группы кадров -- рядом с «В запись»: срез и
+ * архив кадра уходят только вместе с записью кадра, и политика, спрятанная в
+ * другой секции, делала настроенный архив молчащим без объяснений. Селектор
+ * тот же, что у осей в шапке; «наследует» показывает действующее значение.
+ */
+function FrameAuditPick({ audit }: { audit: FrameAudit }) {
+  const t = useT();
+  const inherited = audit.state === "inherit";
+  const options = [
+    {
+      value: "inherit",
+      label: t("tail.frameAuditOptions.inherit", {
+        value: t(`tail.frameAuditOptions.${audit.policy}`),
+      }),
+    },
+    { value: "off", label: t("tail.frameAuditOptions.off") },
+    { value: "deny", label: t("tail.frameAuditOptions.deny") },
+    { value: "all", label: t("tail.frameAuditOptions.all") },
+  ];
+
+  return (
+    <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", pl: 1.5, flexShrink: 0 }}>
+      <HintLabel text={t("tail.frameAudit")} hint={t("tail.frameAuditHint")} sx={dialogLabelSx} />
+      <BlockSelect
+        value={inherited ? "inherit" : audit.policy}
+        options={options}
+        onChange={(next) => audit.onChange(next, audit.sample)}
+        ariaLabel={t("tail.frameAudit")}
+      />
+      {audit.policy === "all" && (
+        <BlockSelect
+          value={String(audit.sample ?? 1)}
+          options={FRAME_AUDIT_SAMPLES.map((n) => ({
+            value: String(n),
+            label: n === 1 ? t("tail.frameAuditEveryOne") : t("tail.frameAuditEvery", { n }),
+          }))}
+          onChange={(next) => audit.onChange("all", Number(next))}
+          ariaLabel={`${t("tail.frameAudit")}: sample=`}
+        />
+      )}
+    </Stack>
+  );
+}
+
 function PhaseRows({
   phase,
   rows,
   unused,
   onAdd,
+  audit,
+  warning,
   children,
 }: {
   phase: TailPhase;
@@ -749,6 +883,10 @@ function PhaseRows({
   unused: readonly ObjectName[];
   /** Выбранный в меню «+» объект: окно открывается уже на нём. */
   onAdd: (name: ObjectName) => void;
+  /** Запись кадров -- только у первой группы кадров. */
+  audit?: FrameAudit;
+  /** Срез и архив группы настроены, а записи, с которой они уходят, не будет. */
+  warning?: string;
   children: ReactNode;
 }) {
   const t = useT();
@@ -776,7 +914,16 @@ function PhaseRows({
                 {t(`tail.phaseEmpty.${phase}`)}
               </Typography>
             )}
+            {audit !== undefined && <FrameAuditPick audit={audit} />}
           </Stack>
+          {warning !== undefined && (
+            <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", minWidth: 0, pt: 0.25 }}>
+              <WarningAmberIcon color="warning" sx={{ fontSize: 15, flexShrink: 0 }} />
+              <Typography sx={{ ...dialogLabelSx, color: "warning.main", whiteSpace: "normal" }}>
+                {warning}
+              </Typography>
+            </Stack>
+          )}
         </TableCell>
         {/*
           Правая ячейка захватывает колонку отдачи: «+» фазы стоит у правого
@@ -1157,6 +1304,7 @@ function ObjectDialog({
   axes,
   bodyLimit,
   clientMaxBody,
+  inspected = true,
   onClose,
   onApply,
 }: {
@@ -1169,6 +1317,8 @@ function ObjectDialog({
   axes: Record<TailKind, Axis>;
   bodyLimit?: string;
   clientMaxBody?: string;
+  /** Есть ли у фазы инспекторы: без них сверок со снимком нет, фаза -- журнал. */
+  inspected?: boolean;
   onClose: () => void;
   onApply: (patch: Partial<Record<TailKind, Partial<PhaseModels>>>) => void;
 }) {
@@ -1303,6 +1453,7 @@ function ObjectDialog({
         bodyLimit,
         clientMaxBody,
         phase,
+        inspected,
       }).map((p) => ({ ...p, kind })),
     ),
     ...checkStoreCross(models, phase),

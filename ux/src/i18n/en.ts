@@ -3464,9 +3464,9 @@ export const en: DeepString<typeof ru> = {
       wsStripExtensions:
         "Extensions removed from the client offer on the handshake: a negotiated extension means frames with rsv bits the module does not parse. Empty — `permessage-deflate`; an empty list — strip nothing; `all` — everything.",
       frameAudit:
-        "Which frames become security event records. `deny` — only a frame with a deny, a rewrite or a score; `all` — every inspected frame; `off` — neither frames nor the session summary. Empty — `deny`. The session summary is a separate record written when the connection closes.",
+        "Which frames become security event records, and with them the frame slice and archive. `deny` — only a frame with a deny, a rewrite or a score; `all` — every frame of both sides, a side without inspectors is journaled; `off` — neither frames nor the session summary. Empty — `deny`. The session summary is a separate record written when the connection closes, on a path without frame inspectors too. The same is editable in the “Capture & deliver” table.",
       frameAuditSample:
-        "Only with `all`: record every n-th inspected frame. Empty or 1 — every frame.",
+        "Only with `all`: record every n-th frame. Empty or 1 — every frame.",
       frameReassemble:
         "Fragment reassembly: a message split into fin=false frames is glued in the buffer and judged whole — a signature cannot hide between frames. The receiver gets it as a single frame, so leave it off for applications that rely on fragment boundaries. The ceiling is `waf_body_limit frame`. Empty — off.",
       frameControlRate:
@@ -4483,13 +4483,30 @@ export const en: DeepString<typeof ru> = {
       "frame:s2c": "application frames",
     },
     phaseHint: {
-      request: "Request-phase objects: headers, query string, body. Module default is headers and args in full.",
+      request:
+        "Request-phase objects: headers, query string, body. Module default is headers and args in full. Without inspectors the phase keeps a journal: the record and the archive take the object from the request, no capture needed for that.",
       response:
-        "Response-phase objects: upstream headers and body. Default is nothing. The body size here also caps how much of the response is held (waf_hold). Archiving a response needs response-phase inspectors.",
+        "Response-phase objects: upstream headers and body. Default is nothing. The body size here also caps how much of the response is held (waf_hold). Without response-phase inspectors the response is not held: the record and the archive get a copy of the body prefix, the client gets the response at once.",
       "frame:c2s":
-        "Payload of a WebSocket frame from the client. Default is nothing: frame inspectors see only the framing. Capture, archive and preview are three independent sizes into one frame buffer — archive and preview may be wider than capture (up to waf_body_limit). Which frames reach the journal and the archive follows waf_audit_frames (default: denied, rewritten, scored).",
+        "Payload of a WebSocket frame from the client. Default is nothing: frame inspectors see only the framing. Capture, archive and preview are three independent sizes into one frame buffer — archive and preview may be wider than capture (up to waf_body_limit). Which frames reach the journal and the archive follows “Frame records”; without inspectors — only with “all”.",
       "frame:s2c":
-        "Payload of a WebSocket frame from the application. Default is nothing. Capture, archive and preview are independent sizes into one frame buffer, archive and preview may be wider than capture (up to waf_body_limit). Which frames reach the journal and the archive follows waf_audit_frames.",
+        "Payload of a WebSocket frame from the application. Default is nothing. Capture, archive and preview are independent sizes into one frame buffer, archive and preview may be wider than capture (up to waf_body_limit). Which frames reach the journal and the archive follows “Frame records”; without inspectors — only with “all”.",
+    },
+    frameAudit: "Frame records",
+    frameAuditHint:
+      "waf_audit_frames — which frames reach the journal, and with them the slice (“To record”) and the archive. **denied** — a frame with a deny, a rewrite or a score; **all** — every frame of both sides, a side without inspectors is journaled, the frame goes to the receiver without waiting for the record; **off** — neither frames nor the session summary. The session summary is written on close with any value but “off”. One policy per path, both sides.",
+    frameAuditOptions: {
+      inherit: "inherits: {value}",
+      off: "off",
+      deny: "denied",
+      all: "all",
+    },
+    frameAuditEvery: "every {n}th",
+    frameAuditEveryOne: "every",
+    frameAuditWarn: {
+      off: "frame records are off — the frame slice and archive will not go out, and there will be no session summary",
+      deny:
+        "no frame inspectors, and “denied” records only a frame with a deny, a rewrite or a score — this side's slice and archive will not go out; choose “all”",
     },
     phaseEmpty: {
       request: "nothing is captured",
