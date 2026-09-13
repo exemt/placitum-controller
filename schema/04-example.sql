@@ -17,7 +17,11 @@
 -- Что заводится:
 --   сервер example (example.local), выключен: nginx его не собирает, слушателей у него
 --     нет, порт и default_server оператора он не занимает;
---   путь /example/ на нём, return 204: на него указывает профиль капчи default;
+--   путь /waf/captcha на нём, return 204: на него указывает профиль капчи default.
+--     Путь именно этот, тот же, что инспектор капчи берёт по умолчанию: captcha-http
+--     вешает свои маршруты под путь профиля (<path>/healthz), а проба контейнера в
+--     core/compose/waf.yml ходит на /waf/captcha/healthz. С другим путём captcha-http
+--     после первого же издания канала отвечает пробе 404 и становится unhealthy;
 --   объект example-openapi.json — OpenAPI 3.0 с одной операцией GET /example/ для
 --     профиля json default. Без операций документ отвергает сам json-инспектор
 --     («document declares no operation»), хотя контроллер его пропускает. Запрос вне
@@ -40,7 +44,7 @@ VALUES (
     'c3000000-0000-4000-8000-000000000002',
     'c3000000-0000-4000-8000-000000000001',
     'prefix',
-    '/example/',
+    '/waf/captcha',
     10,
     true,
     'return',
@@ -72,7 +76,7 @@ VALUES (
 
 UPDATE public.captcha_profiles
    SET server_id = 'c3000000-0000-4000-8000-000000000001',
-       doc = '{"path": "/example/"}'
+       doc = '{"path": "/waf/captcha"}'
  WHERE name = 'default'
    AND http_space_id = (SELECT id FROM public.http_spaces WHERE name = 'default');
 
