@@ -27,12 +27,10 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
-import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SettingsIcon from "@mui/icons-material/Settings";
 
 import { Form } from "../components/Form.tsx";
-import { CopyNameModal } from "../components/CopyNameModal.tsx";
 import { Modal } from "../components/Modal.tsx";
 import {
   DataTable,
@@ -367,7 +365,6 @@ function RewriteProfileForm({
       : () => {
           void dispatch(restoreRewriteProfileThunk({ scope, id }));
         };
-  const [copyOpen, setCopyOpen] = useState(false);
 
   /*
    * Ответ отказа называется именем каталога: страницу печатает модуль, и имя
@@ -483,14 +480,6 @@ function RewriteProfileForm({
         {registry === null && <Alert severity="warning">{t("rewrite.noRegistry")}</Alert>}
       </Form.Body>
       <Form.Actions>
-        {id !== null && (
-          <Button
-            startIcon={<ContentCopyOutlinedIcon />}
-            onClick={() => setCopyOpen(true)}
-          >
-            {t("copyModal.button")}
-          </Button>
-        )}
         {id !== null && !isDefault && (
           <Button
             color="error"
@@ -504,25 +493,6 @@ function RewriteProfileForm({
           {t("common.save")}
         </Button>
       </Form.Actions>
-      {copyOpen && (
-        <CopyNameModal
-          title={t("copyModal.profileTitle")}
-          source={name.trim()}
-          onClose={() => setCopyOpen(false)}
-          onCopy={(next) => {
-            void dispatch(
-              saveRewriteProfileThunk({
-                scope,
-                id: null,
-                name: next,
-                description,
-                doc: { ...doc, description },
-              }),
-            );
-            setCopyOpen(false);
-          }}
-        />
-      )}
     </Form>
   );
 }

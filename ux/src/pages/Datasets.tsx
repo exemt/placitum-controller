@@ -24,7 +24,6 @@ import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 import FileUploadOutlinedIcon from "@mui/icons-material/FileUploadOutlined";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
-import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
 
 import { Form } from "../components/Form.tsx";
 import { LockedNote, UnderlayTabs, lockedInputSx } from "../components/fields.tsx";
@@ -51,7 +50,6 @@ import {
 } from "./DatasetAddEntryForm.tsx";
 import { onFormClose, onFormOpen } from "../store/forms.ts";
 import { PagePreviewDialog } from "./PagePreview.tsx";
-import { CopyNameModal } from "../components/CopyNameModal.tsx";
 
 import {
   DATASET_TYPES,
@@ -74,7 +72,6 @@ import {
   loadDatasets,
   openPanel,
   copyDatasetRowThunk,
-  copyDatasetThunk,
   parseDraftLines,
   removeDatasetThunk,
   saveDatasetThunk,
@@ -608,7 +605,7 @@ function DatasetForm({
   const searching = query.trim() !== "";
   /*
    * Встроенный набор. Страница отказа (content) заперта целиком: поставочный
-   * образец, свой вариант получают кнопкой «Скопировать». Список-заготовка
+   * образец, свой вариант получают копией из строки таблицы. Список-заготовка
    * заперт только именем: состав, лимит и режим -- рабочее состояние.
    */
   const builtin = row?.builtin === true;
@@ -623,9 +620,6 @@ function DatasetForm({
   );
   const lockedContentHint = t("datasets.builtinHint");
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [copyOpen, setCopyOpen] = useState(false);
-  const [copyBusy, setCopyBusy] = useState(false);
-  const [copyError, setCopyError] = useState<string | null>(null);
   const selectedContent = contentTypes.find((item: ContentType) => item.uuid === contentTypeId);
   const textContent = selectedContent !== undefined && isTextContentType(selectedContent.name);
   const waiting =
@@ -1236,21 +1230,6 @@ function DatasetForm({
         onDismiss={() => setFormError(null)}
       />
       <Form.Actions>
-        {/* Копия -- для любой существующей страницы: от образца
-            отталкиваются, а свою размножают между пространствами. */}
-        {id !== null && kind === "content" && (
-          <Button
-            size="small"
-            startIcon={<ContentCopyOutlinedIcon />}
-            disabled={saving || waiting}
-            onClick={() => {
-              setCopyError(null);
-              setCopyOpen(true);
-            }}
-          >
-            {t("copyModal.button")}
-          </Button>
-        )}
         {id !== null && !builtin && (
           <Button
             size="small"
@@ -1358,44 +1337,6 @@ function DatasetForm({
           setTtl(String(ttlS));
         }}
       />
-      {copyOpen && (
-        <CopyNameModal
-          title={t("copyModal.pageTitle")}
-          source={name.trim()}
-          busy={copyBusy}
-          error={copyError}
-          onClose={() => setCopyOpen(false)}
-          onCopy={(next) => {
-            void (async () => {
-              setCopyBusy(true);
-              setCopyError(null);
-              try {
-                const result = await dispatch(
-                  copyDatasetThunk({
-                    scope,
-                    name: next,
-                    description,
-                    contentTypeId,
-                    fileName: next,
-                    blob: fileBlob ?? "",
-                  }),
-                );
-                if (copyDatasetThunk.rejected.match(result)) {
-                  setCopyError(
-                    typeof result.payload === "string"
-                      ? result.payload
-                      : String(result.error.message ?? result.error),
-                  );
-                  return;
-                }
-                setCopyOpen(false);
-              } finally {
-                setCopyBusy(false);
-              }
-            })();
-          }}
-        />
-      )}
       {previewOpen && (
         <PagePreviewDialog
           name={name.trim() === "" ? t("datasets.previewTitle") : name.trim()}

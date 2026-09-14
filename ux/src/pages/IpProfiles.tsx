@@ -5,10 +5,8 @@ import Drawer from "@mui/material/Drawer";
 import TableCell from "@mui/material/TableCell";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
-import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
 
 import { Form } from "../components/Form.tsx";
-import { CopyNameModal } from "../components/CopyNameModal.tsx";
 import {
   DataTable,
   RowActionsHead,
@@ -410,7 +408,6 @@ function IpProfileForm({
       : () => {
           void dispatch(restoreIpProfileThunk({ scope, id }));
         };
-  const [copyOpen, setCopyOpen] = useState(false);
 
   return (
     <Form id="ip-profile">
@@ -602,15 +599,6 @@ function IpProfileForm({
         onDismiss={() => setFormError(null)}
       />
       <Form.Actions>
-        {id !== null && (
-          <Button
-            size="small"
-            startIcon={<ContentCopyOutlinedIcon />}
-            onClick={() => setCopyOpen(true)}
-          >
-            {t("copyModal.button")}
-          </Button>
-        )}
         {id !== null && !isDefault && (
           <Button
             size="small"
@@ -661,29 +649,6 @@ function IpProfileForm({
           {id === null ? t("common.create") : t("common.save")}
         </Button>
       </Form.Actions>
-      {copyOpen && (
-        <CopyNameModal
-          title={t("copyModal.profileTitle")}
-          source={name.trim()}
-          onClose={() => setCopyOpen(false)}
-          onCopy={(next) => {
-            void dispatch(
-              saveIpProfileThunk({
-                scope,
-                id: null,
-                name: next,
-                description,
-                rules: rules.map(({ key: _key, ...rule }) => rule),
-                datasets: declared.map((row) => row.uuid),
-                outcomes,
-                default: fallback,
-                defaultCode: "",
-              }),
-            );
-            setCopyOpen(false);
-          }}
-        />
-      )}
       {editing !== null && (
         <RuleDialog
           section={editing.section}

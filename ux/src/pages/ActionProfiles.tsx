@@ -32,10 +32,8 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
 
 import { Form } from "../components/Form.tsx";
-import { CopyNameModal } from "../components/CopyNameModal.tsx";
 import { Modal } from "../components/Modal.tsx";
 import {
   DataTable,
@@ -506,7 +504,6 @@ function ActionProfileForm({
       : () => {
           void dispatch(restoreActionProfileThunk({ scope, id }));
         };
-  const [copyOpen, setCopyOpen] = useState(false);
 
   return (
     <Form id="action-profile">
@@ -592,14 +589,6 @@ function ActionProfileForm({
         )}
       </Form.Body>
       <Form.Actions>
-        {id !== null && (
-          <Button
-            startIcon={<ContentCopyOutlinedIcon />}
-            onClick={() => setCopyOpen(true)}
-          >
-            {t("copyModal.button")}
-          </Button>
-        )}
         {id !== null && !isDefault && (
           <Button
             color="error"
@@ -613,25 +602,6 @@ function ActionProfileForm({
           {t("common.save")}
         </Button>
       </Form.Actions>
-      {copyOpen && (
-        <CopyNameModal
-          title={t("copyModal.profileTitle")}
-          source={name.trim()}
-          onClose={() => setCopyOpen(false)}
-          onCopy={(next) => {
-            void dispatch(
-              saveActionProfileThunk({
-                scope,
-                id: null,
-                name: next,
-                description,
-                doc: { description, conditions, rules: rulesOf(asks) },
-              }),
-            );
-            setCopyOpen(false);
-          }}
-        />
-      )}
       {editing !== undefined && (
         <AskDialog
           row={editing === null ? null : (asks[editing] ?? null)}

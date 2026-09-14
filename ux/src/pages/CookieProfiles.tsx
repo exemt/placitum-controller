@@ -35,10 +35,8 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
 
 import { Form } from "../components/Form.tsx";
-import { CopyNameModal } from "../components/CopyNameModal.tsx";
 import { Modal } from "../components/Modal.tsx";
 import {
   DataTable,
@@ -673,7 +671,6 @@ function CookieProfileForm({
       : () => {
           void dispatch(restoreCookieProfileThunk({ scope, id }));
         };
-  const [copyOpen, setCopyOpen] = useState(false);
 
   return (
     <Form id="action-profile">
@@ -780,14 +777,6 @@ function CookieProfileForm({
         )}
       </Form.Body>
       <Form.Actions>
-        {id !== null && (
-          <Button
-            startIcon={<ContentCopyOutlinedIcon />}
-            onClick={() => setCopyOpen(true)}
-          >
-            {t("copyModal.button")}
-          </Button>
-        )}
         {id !== null && !isDefault && (
           <Button
             color="error"
@@ -801,25 +790,6 @@ function CookieProfileForm({
           {t("common.save")}
         </Button>
       </Form.Actions>
-      {copyOpen && (
-        <CopyNameModal
-          title={t("copyModal.profileTitle")}
-          source={name.trim()}
-          onClose={() => setCopyOpen(false)}
-          onCopy={(next) => {
-            void dispatch(
-              saveCookieProfileThunk({
-                scope,
-                id: null,
-                name: next,
-                description,
-                doc: { description, cookies, conditions, rules: rulesOf(asks) },
-              }),
-            );
-            setCopyOpen(false);
-          }}
-        />
-      )}
       {editingCookie !== undefined && (
         <CookieDialog
           decl={editingCookie === null ? null : (cookies[editingCookie] ?? null)}

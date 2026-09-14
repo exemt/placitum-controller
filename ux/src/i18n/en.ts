@@ -880,7 +880,6 @@ export const en: DeepString<typeof ru> = {
   },
   copyModal: {
     button: "Copy",
-    pageTitle: "Copy page",
     profileTitle: "Copy profile",
     sourceTitle: "Copy source",
     hint: "A new object with the same content. It lives its own life: later edits of the original do not follow.",
@@ -947,7 +946,7 @@ export const en: DeepString<typeof ru> = {
     empty: "No lists yet — create the first one.",
     emptyPages: "No files yet — create the first one.",
     builtinHint:
-      "Shipped with the release and fully locked: not editable, not deletable, not renamable. Get your own variant with Copy.",
+      "Shipped with the release and fully locked: not editable, not deletable, not renamable. Get your own variant with Copy in the table row.",
     builtinNameHint:
       "A built-in page is named after its waf_deny_response catalog entry — that is how try_files finds it. Locked.",
     builtinListHint:

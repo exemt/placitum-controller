@@ -12,11 +12,9 @@ import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
-import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
 import SettingsIcon from "@mui/icons-material/Settings";
 
 import { Form } from "../components/Form.tsx";
-import { CopyNameModal } from "../components/CopyNameModal.tsx";
 import { Modal } from "../components/Modal.tsx";
 import {
   DataTable,
@@ -557,7 +555,6 @@ function CaptchaProfileForm({
       : () => {
           void dispatch(restoreCaptchaProfileThunk({ scope, id }));
         };
-  const [copyOpen, setCopyOpen] = useState(false);
 
   return (
     <Form id="captcha-profile">
@@ -906,15 +903,6 @@ function CaptchaProfileForm({
         </Section>
       </Form.Body>
       <Form.Actions>
-        {id !== null && (
-          <Button
-            size="small"
-            startIcon={<ContentCopyOutlinedIcon />}
-            onClick={() => setCopyOpen(true)}
-          >
-            {t("copyModal.button")}
-          </Button>
-        )}
         {id !== null && !isDefault && (
           <Button
             size="small"
@@ -940,19 +928,6 @@ function CaptchaProfileForm({
           {id === null ? t("common.create") : t("common.save")}
         </Button>
       </Form.Actions>
-      {copyOpen && (
-        <CopyNameModal
-          title={t("copyModal.profileTitle")}
-          source={name.trim()}
-          onClose={() => setCopyOpen(false)}
-          onCopy={(next) => {
-            void dispatch(
-              saveCaptchaProfileThunk({ scope, id: null, name: next, description, serverId, doc }),
-            );
-            setCopyOpen(false);
-          }}
-        />
-      )}
     </Form>
   );
 }

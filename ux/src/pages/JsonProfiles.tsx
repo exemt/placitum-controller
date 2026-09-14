@@ -12,7 +12,6 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 
 import { Form } from "../components/Form.tsx";
-import { CopyNameModal } from "../components/CopyNameModal.tsx";
 import {
   DataTable,
   DraftCell,
@@ -34,7 +33,6 @@ import { OutcomesBlock } from "../components/outcomes-block.tsx";
 import { SignalsBlock } from "../components/signals-block.tsx";
 import { Bytes, Chips, Flag, Num, Pick, Section, Text } from "../components/fields.tsx";
 import DeleteIcon from "@mui/icons-material/Delete";
-import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
 import AddIcon from "@mui/icons-material/Add";
 import type {
   ActionRegistry,
@@ -529,7 +527,6 @@ function JsonProfileForm({
       : () => {
           void dispatch(restoreJsonProfileThunk({ scope, id }));
         };
-  const [copyOpen, setCopyOpen] = useState(false);
 
   return (
     <Form id="json-profile">
@@ -904,14 +901,6 @@ function JsonProfileForm({
         </Section>
       </Form.Body>
       <Form.Actions>
-        {id !== null && (
-          <Button
-            startIcon={<ContentCopyOutlinedIcon />}
-            onClick={() => setCopyOpen(true)}
-          >
-            {t("copyModal.button")}
-          </Button>
-        )}
         {id !== null && !isDefault && (
           <Button
             color="error"
@@ -925,19 +914,6 @@ function JsonProfileForm({
           {t("common.save")}
         </Button>
       </Form.Actions>
-      {copyOpen && (
-        <CopyNameModal
-          title={t("copyModal.profileTitle")}
-          source={name.trim()}
-          onClose={() => setCopyOpen(false)}
-          onCopy={(next) => {
-            void dispatch(
-              saveJsonProfileThunk({ scope, id: null, name: next, description, doc }),
-            );
-            setCopyOpen(false);
-          }}
-        />
-      )}
     </Form>
   );
 }

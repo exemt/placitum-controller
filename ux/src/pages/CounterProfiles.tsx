@@ -15,12 +15,10 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import AttachFileOutlinedIcon from "@mui/icons-material/AttachFileOutlined";
-import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SettingsIcon from "@mui/icons-material/Settings";
 
 import { Form } from "../components/Form.tsx";
-import { CopyNameModal } from "../components/CopyNameModal.tsx";
 import { Modal } from "../components/Modal.tsx";
 import {
   DataTable,
@@ -1280,7 +1278,6 @@ function CounterProfileForm({
       : () => {
           void dispatch(restoreCounterProfileThunk({ scope, id }));
         };
-  const [copyOpen, setCopyOpen] = useState(false);
 
   return (
     <Form id="counter-profile">
@@ -1490,14 +1487,6 @@ function CounterProfileForm({
         </Section>
       </Form.Body>
       <Form.Actions>
-        {id !== null && (
-          <Button
-            startIcon={<ContentCopyOutlinedIcon />}
-            onClick={() => setCopyOpen(true)}
-          >
-            {t("copyModal.button")}
-          </Button>
-        )}
         {id !== null && !isDefault && (
           <Button
             color="error"
@@ -1511,19 +1500,6 @@ function CounterProfileForm({
           {t("common.save")}
         </Button>
       </Form.Actions>
-      {copyOpen && (
-        <CopyNameModal
-          title={t("copyModal.profileTitle")}
-          source={name.trim()}
-          onClose={() => setCopyOpen(false)}
-          onCopy={(next) => {
-            void dispatch(
-              saveCounterProfileThunk({ scope, id: null, name: next, description, doc }),
-            );
-            setCopyOpen(false);
-          }}
-        />
-      )}
     </Form>
   );
 }

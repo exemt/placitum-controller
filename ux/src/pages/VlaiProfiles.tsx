@@ -18,10 +18,8 @@ import Drawer from "@mui/material/Drawer";
 import TableCell from "@mui/material/TableCell";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
-import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
 
 import { Form } from "../components/Form.tsx";
-import { CopyNameModal } from "../components/CopyNameModal.tsx";
 import {
   DataTable,
   RowActionsHead,
@@ -300,7 +298,6 @@ function VlaiProfileForm({
       : () => {
           void dispatch(restoreVlaiProfileThunk({ scope, id }));
         };
-  const [copyOpen, setCopyOpen] = useState(false);
 
   return (
     <Form id="vlai-profile">
@@ -416,14 +413,6 @@ function VlaiProfileForm({
         )}
       </Form.Body>
       <Form.Actions>
-        {id !== null && (
-          <Button
-            startIcon={<ContentCopyOutlinedIcon />}
-            onClick={() => setCopyOpen(true)}
-          >
-            {t("copyModal.button")}
-          </Button>
-        )}
         {id !== null && !isDefault && (
           <Button
             color="error"
@@ -437,25 +426,6 @@ function VlaiProfileForm({
           {t("common.save")}
         </Button>
       </Form.Actions>
-      {copyOpen && (
-        <CopyNameModal
-          title={t("copyModal.profileTitle")}
-          source={name.trim()}
-          onClose={() => setCopyOpen(false)}
-          onCopy={(next) => {
-            void dispatch(
-              saveVlaiProfileThunk({
-                scope,
-                id: null,
-                name: next,
-                description,
-                doc: { ...doc, description },
-              }),
-            );
-            setCopyOpen(false);
-          }}
-        />
-      )}
     </Form>
   );
 }

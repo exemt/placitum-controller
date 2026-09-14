@@ -11,11 +11,9 @@ import TableCell from "@mui/material/TableCell";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 
 import { Form } from "../components/Form.tsx";
-import { CopyNameModal } from "../components/CopyNameModal.tsx";
 import {
   DataTable,
   RowActionsHead,
@@ -913,8 +911,6 @@ function AuthSourceForm({
       setProvider(next === "own" ? "local" : next);
     }
   };
-
-  const [copyOpen, setCopyOpen] = useState(false);
 
   /*
    * Форма входа у своего способа и страница входа приложения у внешних --
@@ -1824,15 +1820,6 @@ function AuthSourceForm({
         {id !== null && (
           <Button
             size="small"
-            startIcon={<ContentCopyOutlinedIcon />}
-            onClick={() => setCopyOpen(true)}
-          >
-            {t("copyModal.button")}
-          </Button>
-        )}
-        {id !== null && (
-          <Button
-            size="small"
             color="error"
             onClick={() => void dispatch(removeAuthSource({ scope, id }))}
           >
@@ -1862,26 +1849,6 @@ function AuthSourceForm({
           {id === null ? t("common.create") : t("common.save")}
         </Button>
       </Form.Actions>
-      {copyOpen && (
-        <CopyNameModal
-          title={t("copyModal.sourceTitle")}
-          source={name.trim()}
-          onClose={() => setCopyOpen(false)}
-          onCopy={(next) => {
-            void dispatch(
-              saveAuthSourceThunk({
-                scope,
-                id: null,
-                name: next,
-                description,
-                serverId,
-                doc,
-              }),
-            );
-            setCopyOpen(false);
-          }}
-        />
-      )}
       {/* Пользователи выбранного списка: окно живёт в сторе, открывает его
           шестерёнка у селектора. */}
       <AuthUsersDialog />
@@ -2045,7 +2012,6 @@ function AuthProfileForm({
       : () => {
           void dispatch(restoreAuthProfileThunk({ scope, id }));
         };
-  const [copyOpen, setCopyOpen] = useState(false);
 
   return (
     <Form id="auth-profile">
@@ -2319,15 +2285,6 @@ function AuthProfileForm({
         </Section>
       </Form.Body>
       <Form.Actions>
-        {id !== null && (
-          <Button
-            size="small"
-            startIcon={<ContentCopyOutlinedIcon />}
-            onClick={() => setCopyOpen(true)}
-          >
-            {t("copyModal.button")}
-          </Button>
-        )}
         {id !== null && !isDefault && (
           <Button
             size="small"
@@ -2353,25 +2310,6 @@ function AuthProfileForm({
           {id === null ? t("common.create") : t("common.save")}
         </Button>
       </Form.Actions>
-      {copyOpen && (
-        <CopyNameModal
-          title={t("copyModal.profileTitle")}
-          source={name.trim()}
-          onClose={() => setCopyOpen(false)}
-          onCopy={(next) => {
-            void dispatch(
-              saveAuthProfileThunk({
-                scope,
-                id: null,
-                name: next,
-                description,
-                doc,
-              }),
-            );
-            setCopyOpen(false);
-          }}
-        />
-      )}
     </Form>
   );
 }

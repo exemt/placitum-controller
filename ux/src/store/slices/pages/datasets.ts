@@ -275,52 +275,12 @@ export const saveDatasetThunk = createAsyncThunk(
   },
 );
 
-/*
- * Копия страницы под новым именем: тем, кто отталкивается от запертого
- * образца. Существующими ручками -- create + put content: отдельная ручка
- * копирования значила бы вторую дорогу к тому же состоянию.
- */
-export const copyDatasetThunk = createAsyncThunk(
-  "pages/datasets/copy",
-  async (
-    input: {
-      scope: string;
-      name: string;
-      description: string;
-      contentTypeId: string;
-      fileName: string;
-      blob: string;
-    },
-    { rejectWithValue },
-  ) => {
-    try {
-      const created = await createDataset(input.scope, {
-        name: input.name,
-        description: input.description,
-        kind: "content",
-        content_type_id: input.contentTypeId,
-        mode: "internal",
-      });
-      if (input.blob.length > 0) {
-        await putDatasetContent(input.scope, created.uuid, {
-          name: input.name,
-          blob: input.blob,
-        });
-      }
-      return { rows: await fetchDatasets(input.scope), created: created.uuid };
-    } catch (err: unknown) {
-      return rejectWithValue(String(err));
-    }
-  },
-);
-
 /**
  * Копия набора из строки списка.
  *
  * Двумя дорогами, потому что состав у видов лежит по-разному: у списка адреса
  * копирует сервер (`copy_from` в `POST`), у страницы тело приезжает отдельной
- * ручкой и уходит вторым запросом. Окно копии в карточке (`copyDatasetThunk`)
- * берёт тело из полей формы -- здесь его сперва надо прочитать.
+ * ручкой: его сперва читают, а записывают вторым запросом.
  *
  * Образец приходит строкой, а не идентификатором: список отдаёт набор целиком,
  * и второй запрос за тем, что уже лежит в сторе, ничего бы не уточнил.
@@ -447,16 +407,6 @@ const datasetsSlice = createSlice({
     builder.addCase(loadContent.rejected, (state, action) => {
       state.error =
         typeof action.payload === "string" ? action.payload : String(action.error);
-    });
-    builder.addCase(copyDatasetThunk.fulfilled, (state, action) => {
-      state.rows = action.payload.rows;
-      // Открываем копию: оператор пришёл сюда её править.
-      state.panelId = action.payload.created;
-      state.addresses = [];
-      state.addressesId = null;
-      state.content = null;
-      state.contentId = null;
-      state.error = null;
     });
     builder.addCase(addAddressThunk.fulfilled, (state, action) => {
       state.addresses = action.payload.addresses;
