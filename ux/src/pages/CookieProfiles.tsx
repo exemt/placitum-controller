@@ -125,7 +125,14 @@ import {
   sendCookie,
 } from "../store/slices/pages/cookie-profiles.ts";
 
-const PANEL_WIDTH = 720;
+/*
+ * Ящик шире, чем у профилей автодействий: у правил куки есть своя колонка
+ * «Кука», и в 720 таблица не влезала -- секция срезала справа «Параметры» и
+ * «+», и завести правило было нечем. 908 -- как у счётчика.
+ */
+const PANEL_WIDTH = 908;
+/** Раздел справки про условия профиля куки: пример и грабли -- там. */
+const COOKIE_CONDS_HELP = "06-cookie#условия";
 const NAME_RE = /^[a-z_][a-z0-9_-]{0,63}$/;
 
 /**
@@ -339,24 +346,33 @@ function opLabel(t: Translate, row: AskRow, cookies: CookieDecl[]): string {
   return named === "" ? "—" : named;
 }
 
-/** Когда строка работает: фаза и состояние куки на входе. */
-function stateLabel(t: Translate, row: AskRow): string {
-  /* Строка перегрузки -- не про куку: её «когда» в первой колонке. */
+/**
+ * «Когда» строки одной фразой: условие профиля, фаза и состояние куки на входе.
+ *
+ * Всё это -- отбор запроса, и в одной колонке оно читается одним «когда»:
+ * «если from_ads · на запросе · куки нет». Отдельные колонки условия и
+ * состояния не помещались в ящик рядом с просьбой и срезали «+».
+ */
+function whenText(t: Translate, row: AskRow): string {
   if (row.on === "overload") {
-    return "—";
+    return `${t("outcomes.ons.overload")} ${overloadAtLabel(row.at)}`;
   }
 
   const parts: string[] = [];
 
+  if (row.cond !== "") {
+    parts.push(whenLabel(t, row.cond, row.negate));
+  }
+
   if (row.phase !== "") {
-    parts.push(t(`cookieProfiles.phases.${row.phase}`));
+    parts.push(t(`cookieProfiles.phasesAt.${row.phase}`));
   }
 
   if (row.on !== "") {
     parts.push(t(`cookieProfiles.states.${row.on}`));
   }
 
-  return parts.length === 0 ? t("cookieProfiles.anyState") : parts.join(" · ");
+  return parts.length === 0 ? whenLabel(t, "", false) : parts.join(" · ");
 }
 
 export default function CookieProfiles() {
@@ -843,6 +859,7 @@ function CookieProfileForm({
       {editingCond !== undefined && (
         <ConditionDialog
           t={t}
+          help={COOKIE_CONDS_HELP}
           cond={editingCond === null ? null : (conditions[editingCond] ?? null)}
           taken={conditions
             .filter((_row, i) => i !== editingCond)
@@ -970,20 +987,16 @@ function AsksTable({
   onEdit: (index: number) => void;
   onRemove: (index: number) => void;
 }) {
+  /* Шапки у блока нет: имя и подсказка -- в заголовке секции «Правила». */
   return (
-    <TableBlock
-      title={t("cookieProfiles.sectionRules")}
-      label={t("cookieProfiles.rulesHint")}
-      last
-    >
+    <TableBlock last>
       <Table size="small" sx={flushTableSx}>
         <TableHead>
           <TableRow>
-            <HeadCell label={t("cookieProfiles.when")} width={130} />
-            <HeadCell label={t("cookieProfiles.state")} width={140} />
-            <HeadCell label={t("cookieProfiles.operation")} width={150} />
-            <HeadCell label={t("cookieProfiles.to")} width={120} />
-            <HeadCell label={t("cookieProfiles.verb")} width={150} />
+            <HeadCell label={t("cookieProfiles.when")} width={220} />
+            <HeadCell label={t("cookieProfiles.cookie")} width={140} />
+            <HeadCell label={t("cookieProfiles.to")} width={130} />
+            <HeadCell label={t("cookieProfiles.verb")} width={130} />
             <HeadCell label={t("cookieProfiles.params")} />
             <AddCell label={t("cookieProfiles.addRule")} onAdd={onAdd} />
           </TableRow>
@@ -991,9 +1004,11 @@ function AsksTable({
         <TableBody>
           {asks.length === 0 && (
             <TableNoticeRow
-              colSpan={7}
+              colSpan={6}
               kind="empty"
               message={t("cookieProfiles.rulesEmpty")}
+              actionLabel={t("cookieProfiles.addRule")}
+              onAction={onAdd}
             />
           )}
           {asks.map((row, index) => {
@@ -1002,16 +1017,8 @@ function AsksTable({
             return (
               <TableRow key={index} hover>
                 <TextCell
-                  text={
-                    row.on === "overload"
-                      ? `${t("outcomes.ons.overload")} ${overloadAtLabel(row.at)}`
-                      : whenLabel(t, row.cond, row.negate)
-                  }
-                  muted={row.cond === "" && row.on !== "overload"}
-                />
-                <TextCell
-                  text={stateLabel(t, row)}
-                  muted={row.phase === "" && row.on === ""}
+                  text={whenText(t, row)}
+                  muted={row.cond === "" && row.phase === "" && row.on === ""}
                 />
                 <TextCell
                   text={opLabel(t, row, cookies)}
@@ -1095,12 +1102,9 @@ function CookiesTable({
   onEdit: (index: number) => void;
   onRemove: (index: number) => void;
 }) {
+  /* Шапки у блока нет: имя и подсказка -- в заголовке секции «Куки». */
   return (
-    <TableBlock
-      title={t("cookieProfiles.sectionCookies")}
-      label={t("cookieProfiles.cookiesHint")}
-      last
-    >
+    <TableBlock last>
       <Table size="small" sx={flushTableSx}>
         <TableHead>
           <TableRow>
@@ -1118,6 +1122,8 @@ function CookiesTable({
               colSpan={6}
               kind="empty"
               message={t("cookieProfiles.cookiesEmpty")}
+              actionLabel={t("cookieProfiles.addCookie")}
+              onAction={onAdd}
             />
           )}
           {cookies.map((decl, index) => (
@@ -1569,16 +1575,43 @@ function AskDialog({
   const verbs = fields.target === "" ? [] : verbsOf(registry, inspectors, fields.target);
   const axes = axesFor(registry, fields.verb === "" ? [] : [fields.verb]);
 
-  const ready = (): boolean => {
+  const codeOk = fields.code === "" || ACTION_CODE_RE.test(fields.code);
+
+  /*
+   * Что мешает сохранить -- словами, null -- ничего. Та же проверка, что гасит
+   * кнопку, только с причиной: погашенная «Добавить» без объяснений оставляла
+   * гадать, какое из десятка полей не так.
+   */
+  const blocker = (): string | null => {
+    const overload = when === OVERLOAD_WHEN;
+
     /* Строка перегрузки: порог в шкале и действие обязательно -- куки у неё нет. */
-    if (when === OVERLOAD_WHEN && (!overloadAtOk(atDraft) || fields.target === "")) {
-      return false;
+    if (overload && !overloadAtOk(atDraft)) {
+      return t("cookieProfiles.needOverloadAt", {
+        min: String(OVERLOAD_AT_MIN),
+        max: String(OVERLOAD_AT_MAX),
+      });
+    }
+
+    if (overload && fields.target === "") {
+      return t("cookieProfiles.needOverloadAsk");
+    }
+
+    /*
+     * Операция названа, а кука -- нет (объявлено несколько, ни одна не
+     * выбрана): такое правило сохранялось бы без операции, молча.
+     */
+    if (!overload && op !== "" && named === "") {
+      return t("cookieProfiles.needCookie");
     }
 
     /* Очки: глагола нет, есть величина 1..100 и направление. */
     if (fields.target === TO_SCORE) {
-      return numberOk(fields.scorePoints, 1, POINTS_MAX)
-        && (fields.code === "" || ACTION_CODE_RE.test(fields.code));
+      if (!numberOk(fields.scorePoints, 1, POINTS_MAX)) {
+        return t("cookieProfiles.needPoints", { max: String(POINTS_MAX) });
+      }
+
+      return codeOk ? null : t("cookieProfiles.needCode");
     }
 
     /*
@@ -1586,58 +1619,66 @@ function AskDialog({
      * снятия его нет вовсе, и значение куки требует объявления.
      */
     if (fields.target === TO_DATASET) {
-      if (fields.write === "cookie" && named === "") {
-        return false;
+      if (fields.list === "") {
+        return t("cookieProfiles.needList");
       }
 
-      return fields.list !== ""
-        && (fields.op === "remove" || ttlSeconds(fields.ttl) > 0)
-        && (fields.code === "" || ACTION_CODE_RE.test(fields.code));
+      if (fields.write === "cookie" && named === "" && fields.listCookie === "") {
+        return t("cookieProfiles.needCookie");
+      }
+
+      if (fields.op !== "remove" && ttlSeconds(fields.ttl) <= 0) {
+        return t("cookieProfiles.needTtl");
+      }
+
+      return codeOk ? null : t("cookieProfiles.needCode");
     }
 
     /* Просьбы нет: строка только выдаёт или снимает куку -- это правило. */
-    if (fields.target === "" && op !== "") {
-      return true;
+    if (fields.target === "") {
+      return op !== "" ? null : t("cookieProfiles.needSomething");
     }
 
-    if (fields.target === "" || fields.verb === "") {
-      return false;
+    if (fields.verb === "") {
+      return t("cookieProfiles.needVerb");
     }
 
     if (fields.verb === "threshold") {
       const cap = fields.direction === "softer" ? 100 : 900;
 
       if (!numberOk(fields.percent, 1, cap)) {
-        return false;
+        return t("cookieProfiles.needPercent");
       }
     }
 
     if (fields.verb === "note" && !numberOk(fields.notePercent, 1, 100)) {
-      return false;
+      return t("cookieProfiles.needPercent");
     }
 
     if (fields.verb === "mutate" && !GROUP_NAME_RE.test(fields.group.trim())) {
-      return false;
+      return t("cookieProfiles.needGroup");
     }
 
     /* Пометить: без метки просьбы нет, и битую метку модуль не примет. */
     if (fields.verb === "mark" && markerError(fields.marker) !== null) {
-      return false;
+      return t("cookieProfiles.needMarker");
     }
 
     /* Журнал и архив: срок и размеры объектов обязаны читаться. */
     if (isAuditVerb(fields.verb) && fields.set === "on") {
       if (fields.verb === "archive" && fields.archiveTtl.trim() !== "" && ttlSeconds(fields.archiveTtl) <= 0) {
-        return false;
+        return t("cookieProfiles.needTtl");
       }
 
       if (!recordDraftsReady(fields.verb, fields.record)) {
-        return false;
+        return t("cookieProfiles.needRecord");
       }
     }
 
-    return fields.code === "" || ACTION_CODE_RE.test(fields.code);
+    return codeOk ? null : t("cookieProfiles.needCode");
   };
+
+  const blocked = blocker();
 
   const save = () => {
     const overload = when === OVERLOAD_WHEN;
@@ -1733,23 +1774,69 @@ function AskDialog({
     onSave({ ...head, ask: out });
   };
 
+  /*
+   * Новое правило или правка -- по строке, а не по просьбе: правило, которое
+   * только выдаёт куку, просьбы не несёт, и его правка называлась «Добавить».
+   */
   return (
     <Modal
       onClose={onClose}
       size="xs"
       title={
-        ask === null ? t("cookieProfiles.addRule") : t("cookieProfiles.editRule")
+        row === null ? t("cookieProfiles.addRule") : t("cookieProfiles.editRule")
       }
       actions={
         <>
           <Modal.Cancel />
-          <Modal.Submit disabled={!ready()} onClick={save}>
-            {ask === null ? t("common.add") : t("common.save")}
+          <Modal.Submit disabled={blocked !== null} onClick={save}>
+            {row === null ? t("common.add") : t("common.save")}
           </Modal.Submit>
         </>
       }
     >
         <Stack spacing={2}>
+          {/*
+            Когда: всегда, если А, если не А -- первым полем, как колонка
+            таблицы. Условия заводятся в секции профиля. Перегрузка снимает
+            поля куки под собой, а не над тем местом, где её выбрали.
+          */}
+          <TextField
+            select
+            size="small"
+            label={t("cookieProfiles.when")}
+            value={when}
+            onChange={(e) => setWhen(e.target.value)}
+            helperText={
+              conditions.length === 0
+                ? t("cookieProfiles.whenNoConditions")
+                : t("cookieProfiles.whenHint")
+            }
+            slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
+          >
+            {whenOptions.map((option) => (
+              <MenuItem key={option.key} value={option.key}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          {/*
+            Порог перегрузки: с какого заполнения очереди инспектора строка
+            срабатывает. Пусто -- край: запрос уже сброшен (src/overload.ts).
+          */}
+          {when === OVERLOAD_WHEN && (
+            <TextField
+              size="small"
+              label={t("outcomes.overloadAt")}
+              value={atDraft}
+              placeholder={String(OVERLOAD_AT_MAX)}
+              onChange={(e) => setAtDraft(e.target.value)}
+              error={!overloadAtOk(atDraft)}
+              helperText={t("outcomes.overloadAtHint")}
+              slotProps={{ htmlInput: { inputMode: "numeric", min: OVERLOAD_AT_MIN, max: OVERLOAD_AT_MAX } }}
+            />
+          )}
+
           {/*
             Что сделать с кукой. «Ничего» -- законный выбор: правило вправе
             только рассказать соседям про состояние куки, ничего не выдавая.
@@ -1849,44 +1936,6 @@ function AskDialog({
             </TextField>
           </Stack>
           </>
-          )}
-
-          {/* Когда: всегда, если А, если не А. Условия заводятся в секции профиля. */}
-          <TextField
-            select
-            size="small"
-            label={t("cookieProfiles.when")}
-            value={when}
-            onChange={(e) => setWhen(e.target.value)}
-            helperText={
-              conditions.length === 0
-                ? t("cookieProfiles.whenNoConditions")
-                : t("cookieProfiles.whenHint")
-            }
-            slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
-          >
-            {whenOptions.map((option) => (
-              <MenuItem key={option.key} value={option.key}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </TextField>
-
-          {/*
-            Порог перегрузки: с какого заполнения очереди инспектора строка
-            срабатывает. Пусто -- край: запрос уже сброшен (src/overload.ts).
-          */}
-          {when === OVERLOAD_WHEN && (
-            <TextField
-              size="small"
-              label={t("outcomes.overloadAt")}
-              value={atDraft}
-              placeholder={String(OVERLOAD_AT_MAX)}
-              onChange={(e) => setAtDraft(e.target.value)}
-              error={!overloadAtOk(atDraft)}
-              helperText={t("outcomes.overloadAtHint")}
-              slotProps={{ htmlInput: { inputMode: "numeric", min: OVERLOAD_AT_MIN, max: OVERLOAD_AT_MAX } }}
-            />
           )}
 
           <TextField
@@ -2272,6 +2321,15 @@ function AskDialog({
                   : t("cookieProfiles.codeHint")
               }
             />
+          )}
+
+          {/* Что мешает сохранить -- словами, а не одной погашенной кнопкой. */}
+          {blocked !== null && (
+            <Typography sx={{ fontSize: "0.75rem", color: "text.secondary" }}>
+              {row === null
+                ? t("common.blockedAdd", { what: blocked })
+                : t("common.blockedSave", { what: blocked })}
+            </Typography>
           )}
         </Stack>
     </Modal>

@@ -8,6 +8,7 @@ import TableBody from "@mui/material/TableBody";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 
@@ -198,12 +199,12 @@ export function ConditionsTable({
   onEdit: (index: number) => void;
   onRemove: (index: number) => void;
 }) {
+  /*
+   * Шапки у блока нет: он единственный в секции «Условия», и имя с подсказкой
+   * уже стоят в её заголовке -- повтор читался вторым уровнем.
+   */
   return (
-    <TableBlock
-      title={t("actionProfiles.sectionConditions")}
-      label={t("actionProfiles.conditionsHint")}
-      last
-    >
+    <TableBlock last>
       <Table size="small" sx={flushTableSx}>
         <TableHead>
           <TableRow>
@@ -235,7 +236,12 @@ export function ConditionsTable({
 
 /* --- окно условия ------------------------------------------------------------ */
 
-const NEW_CLAUSE: ActionClause = { value: "$uri", op: "in", dataset: "", text: "", cond: "" };
+/*
+ * Новая строка сравнивает с текстом, а не с набором: текст впишет кто угодно,
+ * а активного списка в пространстве может не быть вовсе -- строка с `in` тогда
+ * не заполнялась ничем, и «Добавить» стояла погашенной без объяснений.
+ */
+const NEW_CLAUSE: ActionClause = { value: "$uri", op: "eq", dataset: "", text: "", cond: "" };
 const NEW_REF: ActionClause = { value: "", op: "is", dataset: "", text: "", cond: "" };
 
 const ACTIONS_W = 56;
@@ -313,7 +319,10 @@ function ClausesTable({
   }));
 
   const datasetOptions = (current: string): FilterOption<string>[] => {
-    const options: FilterOption<string>[] = [{ value: "", label: t("cond.pickList") }];
+    /* Выбирать не из чего -- так и сказано в самой ячейке, а не пустым меню. */
+    const options: FilterOption<string>[] = [
+      { value: "", label: names.length === 0 ? t("actionProfiles.condNoLists") : t("cond.pickList") },
+    ];
 
     for (const name of names) {
       options.push({ value: name, label: name });
@@ -362,9 +371,9 @@ function ClausesTable({
       <Table size="small" sx={flushTableSx}>
         <TableHead>
           <TableRow>
-            <HeadCell label="" width={96} />
+            <HeadCell label={t("actionProfiles.clauseKind")} width={96} />
             <HeadCell label={t("cond.value")} />
-            <HeadCell label="" width={96} />
+            <HeadCell label={t("actionProfiles.clauseOp")} width={96} />
             <HeadCell label={t("actionProfiles.clauseOperand")} width={160} />
             <ActionCell
               color="success"
@@ -427,7 +436,7 @@ function ClausesTable({
                   value={clause.op}
                   width={96}
                   options={ref ? refOps : valueOps}
-                  unset={ref ? "is" : "in"}
+                  unset={ref ? "is" : "eq"}
                   onChange={(op) =>
                     patch(index, (next) => {
                       next.op = op;
@@ -491,6 +500,7 @@ export function ConditionDialog({
   cond,
   taken,
   datasets,
+  help = ACTION_CONDS_HELP,
   onClose,
   onSave,
 }: {
@@ -500,6 +510,8 @@ export function ConditionDialog({
   /** Имена остальных условий профиля: имя обязано быть единственным, ссылки -- на них. */
   taken: string[];
   datasets: Dataset[];
+  /** Раздел справки `<файл>#<якорь>`: пример у каждого инспектора свой. */
+  help?: string;
   onClose: () => void;
   onSave: (next: ActionCondition) => void;
 }) {
@@ -510,15 +522,57 @@ export function ConditionDialog({
   );
 
   const trimmed = name.trim();
-  const nameOk = COND_NAME_RE.test(trimmed) && !taken.includes(trimmed);
+  const nameTaken = taken.includes(trimmed);
+  const nameOk = COND_NAME_RE.test(trimmed) && !nameTaken;
   const done = clauses.filter(clauseReady);
   const ready = nameOk && done.length > 0 && done.length === clauses.length;
+
+  /*
+   * Что мешает сохранить -- словами под таблицей. Погашенная кнопка без причины
+   * оставляла гадать, какое из полей не так; чаще всего это была строка с
+   * `in` при пустом каталоге активных списков, которую заполнить нечем.
+   */
+  const blocker = (): string => {
+    if (trimmed === "") {
+      return t("actionProfiles.condNeedName");
+    }
+
+    if (!nameOk) {
+      return t("actionProfiles.condFixName");
+    }
+
+    const index = clauses.findIndex((clause) => !clauseReady(clause));
+
+    if (index < 0) {
+      return t("actionProfiles.clauseNeedRow");
+    }
+
+    const clause = clauses[index];
+    const n = String(index + 1);
+
+    if (opIsRef(clause.op)) {
+      return t("actionProfiles.clauseNeedCond", { n });
+    }
+
+    if (clause.value.trim() === "") {
+      return t("actionProfiles.clauseNeedValue", { n });
+    }
+
+    if (!opTakesDataset(clause.op)) {
+      return t("actionProfiles.clauseNeedText", { n });
+    }
+
+    return datasets.length === 0
+      ? t("actionProfiles.clauseNoLists", { n })
+      : t("actionProfiles.clauseNeedList", { n });
+  };
 
   return (
     <Modal
       onClose={onClose}
       size="md"
       title={cond === null ? t("actionProfiles.addCondition") : t("actionProfiles.editCondition")}
+      hint={t("actionProfiles.condPurpose")}
       actions={
         <>
           <Modal.Cancel />
@@ -532,7 +586,7 @@ export function ConditionDialog({
       }
     >
       <Stack spacing={2}>
-        <DialogAlert text={t("actionProfiles.condAlert")} help={ACTION_CONDS_HELP} />
+        <DialogAlert text={t("actionProfiles.condAlert")} help={help} />
         <Stack direction="row" spacing={1}>
           <TextField
             size="small"
@@ -542,9 +596,11 @@ export function ConditionDialog({
             required
             error={name !== "" && !nameOk}
             helperText={
-              trimmed !== "" && taken.includes(trimmed)
-                ? t("actionProfiles.condNameTaken")
-                : t("actionProfiles.condNameHint")
+              trimmed === "" || nameOk
+                ? t("actionProfiles.condNameHint")
+                : nameTaken
+                  ? t("actionProfiles.condNameTaken")
+                  : t("actionProfiles.condNameBad")
             }
             sx={{ flex: 1.4 }}
           />
@@ -569,6 +625,13 @@ export function ConditionDialog({
           others={taken}
           onChange={setClauses}
         />
+        {!ready && (
+          <Typography sx={{ fontSize: "0.75rem", color: "text.secondary" }}>
+            {cond === null
+              ? t("common.blockedAdd", { what: blocker() })
+              : t("common.blockedSave", { what: blocker() })}
+          </Typography>
+        )}
       </Stack>
     </Modal>
   );

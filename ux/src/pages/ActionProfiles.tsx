@@ -771,11 +771,8 @@ function AsksTable({
   onRemove: (index: number) => void;
 }) {
   return (
-    <TableBlock
-      title={t("actionProfiles.sectionRules")}
-      label={t("actionProfiles.rulesHint")}
-      last
-    >
+    /* Шапки у блока нет: имя и подсказка -- в заголовке секции «Правила». */
+    <TableBlock last>
       <Table size="small" sx={flushTableSx}>
         <TableHead>
           <TableRow>
