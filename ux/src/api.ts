@@ -737,6 +737,10 @@ export interface AuditFinding {
   length?: number;
   confidence?: number;
   evidence?: string;
+  /** Что правило говорит о находке (msg у SecLang); у находок без правила пусто. */
+  message?: string;
+  /** Метки правила словами движка: attack-sqli, paranoia-level/1. */
+  tags?: string[];
   engine?: unknown;
   clean?: boolean;
 }
@@ -4022,10 +4026,11 @@ export interface JsonPriorRule {
 /**
  * Триггер инициатора: собственный решённый вердикт фазы. `level` есть только
  * у счётчика (уровень корзины), `overload` -- только у vlai (запрос снят на
- * входе из-за полной очереди); чьи триггеры предлагать, решает страница
- * пропсом `ons` блока инициаторов.
+ * входе из-за полной очереди), `rule` -- только у modsec (сработало правило:
+ * номер из `rules` и метка из `tags`); чьи триггеры предлагать, решает
+ * страница пропсом `ons` блока инициаторов.
  */
-export type JsonOn = "deny" | "allow" | "score" | "level" | "overload";
+export type JsonOn = "deny" | "allow" | "score" | "level" | "overload" | "rule";
 
 /**
  * Инициатор по исходу: «когда → что сделать». Действие ровно одно -- просьба
@@ -4052,6 +4057,12 @@ export interface JsonOutcome {
   if?: OutcomeIf | null;
   /** Точное сравнение: score == at. С below взаимоисключимы. */
   eq: boolean;
+  /**
+   * Только при on: rule (modsec): номера и диапазоны правил ("942100",
+   * "942000-942999") и метки словами движка. Поля сужают друг друга.
+   */
+  rules?: string[];
+  tags?: string[];
   to: string;
   do: string;
   apply: string;
@@ -4655,6 +4666,8 @@ export interface CookieProfileRule {
   at?: number | null;
   /** Чьё состояние смотреть; у правила с операцией -- она же. */
   cookie?: string;
+  /** Метки предъявленной куки: хватает одной; пусто -- любая. */
+  tags?: string[];
   /** Операция: имя объявленной куки. Одно из двух, не оба. */
   issue?: string;
   drop?: string;

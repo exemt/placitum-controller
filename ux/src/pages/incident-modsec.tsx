@@ -70,9 +70,11 @@ function AttackRow({
       })}
     >
       <FindingHead finding={finding} family={family} tone={tone} t={t} />
+      <FindingMessage message={finding.message} />
       {quote !== null && (
         <EvidenceBody quote={quote} tone={tone} t={t} finding={finding} />
       )}
+      <FindingTags tags={finding.tags} />
     </Box>
   );
 }
@@ -92,7 +94,43 @@ function MetaRow({
         tone="default"
         t={t}
       />
+      <FindingMessage message={finding.message} />
+      <FindingTags tags={finding.tags} />
     </Box>
+  );
+}
+
+/**
+ * Сообщение правила -- его собственные слова о находке (msg). Семейство в
+ * шапке называет класс атак, сообщение -- что именно нашло правило.
+ */
+function FindingMessage({ message }: { message: string | undefined }) {
+  if (message === undefined || message === "") {
+    return null;
+  }
+
+  return (
+    <Typography variant="caption" sx={{ display: "block", mt: 0.4 }}>
+      {message}
+    </Typography>
+  );
+}
+
+/**
+ * Метки правила словами движка. По ним же выбирает повод «Сработало правило»
+ * в правилах профиля, поэтому они показываются как есть, без перевода.
+ */
+function FindingTags({ tags }: { tags: string[] | undefined }) {
+  if (tags === undefined || tags.length === 0) {
+    return null;
+  }
+
+  return (
+    <Stack direction="row" sx={{ flexWrap: "wrap", gap: 0.5, mt: 0.6 }}>
+      {tags.map((tag) => (
+        <Chip key={tag} size="small" variant="outlined" label={tag} sx={{ fontFamily: "monospace" }} />
+      ))}
+    </Stack>
   );
 }
 

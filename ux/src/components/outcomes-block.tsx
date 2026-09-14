@@ -9,15 +9,20 @@
  */
 
 import { useState } from "react";
+import Autocomplete from "@mui/material/Autocomplete";
+import Chip from "@mui/material/Chip";
 import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
+import CloseIcon from "@mui/icons-material/Close";
 
-import { DialogSection } from "./dialog-kit.tsx";
+import { DIALOG_FIELD_H, DialogSection } from "./dialog-kit.tsx";
+import { valueChipSx } from "./fields.tsx";
 import { Modal } from "./Modal.tsx";
 import { TableBlock } from "./table-block.tsx";
 import { ActionRulesTable } from "./rules-table.tsx";
 import type { ActionRegistry, InspectorMeta, OutcomeRule } from "../api.ts";
+import { CRS_TAGS } from "../crs-tags.ts";
 import {
   ActionPart,
   actionReady,
@@ -194,6 +199,11 @@ function whenOf(t: Translate, o: OutcomeRule): string {
     return `${t("outcomes.ons.overload")} ≥ ${o.at ?? OVERLOAD_AT_MAX}%`;
   }
 
+  /* Сработало правило: фильтры словами строки -- номера, потом метки. */
+  if (o.on === "rule") {
+    return `${t("outcomes.ons.rule")}: ${ruleFilterSummary(o.rules ?? [], o.tags ?? [])}`;
+  }
+
   if (o.on !== "score") {
     return t(`outcomes.ons.${o.on}`);
   }
@@ -281,6 +291,9 @@ interface Fields {
   /** Только при on: level — какую корзину смотреть. */
   bucket: string;
   bucketAxis: string;
+  /** Только при on: rule — номера и диапазоны правил и метки находок. */
+  rules: string[];
+  tags: string[];
   draft: ActionDraft;
 }
 
@@ -293,6 +306,8 @@ function fieldsOf(outcome: OutcomeRule | null, writable: boolean): Fields {
       cmp: "above",
       bucket: "",
       bucketAxis: "",
+      rules: [],
+      tags: [],
       /* У отправителя без записей в наборы стартовая цель пуста: «в набор»
        * ему не предлагается вовсе. */
       draft: { ...emptyActionDraft(), target: writable ? TO_DATASET : "" },
@@ -306,6 +321,8 @@ function fieldsOf(outcome: OutcomeRule | null, writable: boolean): Fields {
     cmp: outcome.eq ? "eq" : outcome.below ? "below" : "above",
     bucket: outcome.if?.counter ?? "",
     bucketAxis: outcome.if?.axis ?? "",
+    rules: outcome.rules ?? [],
+    tags: outcome.tags ?? [],
     draft: outcome.do !== "" ? draftOfAsk(outcome) : draftOfList(outcome),
   };
 }
@@ -381,6 +398,16 @@ function OutcomeDialog({
       return false;
     }
 
+    /* Сработало правило: хоть один фильтр, и ни одного негодного чипа. */
+    if (
+      fields.on === "rule" &&
+      ((fields.rules.length === 0 && fields.tags.length === 0) ||
+        !fields.rules.every(ruleOk) ||
+        !fields.tags.every(tagOk))
+    ) {
+      return false;
+    }
+
     return actionReady(fields.draft, {
       askable: asks || fields.draft.target === TO_MODULE,
     });
@@ -405,6 +432,8 @@ function OutcomeDialog({
       parts.push(`${t("outcomes.ons.score")} ${sign} ${fields.at || "?"}`);
     } else if (fields.on === "overload") {
       parts.push(`${t("outcomes.ons.overload")} ≥ ${fields.at.trim() || OVERLOAD_AT_MAX}%`);
+    } else if (fields.on === "rule") {
+      parts.push(`${t("outcomes.ons.rule")}: ${ruleFilterSummary(fields.rules, fields.tags) || "?"}`);
     } else {
       parts.push(t(`outcomes.ons.${fields.on}`));
     }
@@ -455,6 +484,12 @@ function OutcomeDialog({
 
     if (fields.on === "overload") {
       out.at = overloadAtOf(fields.at);
+    }
+
+    /* Фильтры -- только у своего повода: у прочих строк этих ключей нет вовсе. */
+    if (fields.on === "rule") {
+      out.rules = fields.rules;
+      out.tags = fields.tags;
     }
 
     if (fields.draft.target === TO_DATASET) {
@@ -681,6 +716,35 @@ function OutcomeDialog({
             )}
 
             {/*
+              Сработало правило: номера и метки находок фазы. Поля сужают друг
+              друга, внутри поля хватает любого совпадения -- как у загрузчика
+              инспектора. Подстановка меток -- словарь поставляемого CRS.
+            */}
+            {fields.on === "rule" && (
+              <>
+                <FilterChips
+                  label={t("outcomes.outcomeRules")}
+                  hint={t("outcomes.outcomeRulesHint")}
+                  bad={t("outcomes.outcomeRulesBad")}
+                  value={fields.rules}
+                  valid={ruleOk}
+                  split={/[\s,]+/}
+                  onChange={(rules) => set({ rules })}
+                />
+                <FilterChips
+                  label={t("outcomes.outcomeTags")}
+                  hint={t("outcomes.outcomeTagsHint")}
+                  bad={t("outcomes.outcomeTagsHint")}
+                  value={fields.tags}
+                  options={CRS_TAGS}
+                  valid={tagOk}
+                  split={/,/}
+                  onChange={(tags) => set({ tags })}
+                />
+              </>
+            )}
+
+            {/*
               Порог перегрузки: с какого заполнения очереди инспектора строка
               срабатывает. Пусто -- край: запрос уже сброшен (src/overload.ts).
             */}
@@ -731,5 +795,111 @@ function OutcomeDialog({
           </DialogSection>
         </Stack>
     </Modal>
+  );
+}
+
+/* --- повод «Сработало правило» ---------------------------------------------- */
+
+/*
+ * Номер правила либо диапазон -- то, что разбирает загрузчик инспектора
+ * (engine.ParseRanges): «942100», «942000-942999», нижний край не выше верхнего.
+ */
+const RULE_RE = /^(\d+)(?:-(\d+))?$/;
+
+function ruleOk(item: string): boolean {
+  const m = RULE_RE.exec(item);
+
+  return m !== null && (m[2] === undefined || Number(m[1]) <= Number(m[2]));
+}
+
+/* Метка -- слово движка: без крайних пробелов и не длиннее предела загрузчика. */
+function tagOk(tag: string): boolean {
+  return tag !== "" && tag.trim() === tag && new TextEncoder().encode(tag).length <= 128;
+}
+
+/** Фильтры строки словами: номера через запятую, за точкой -- метки. */
+function ruleFilterSummary(rules: readonly string[], tags: readonly string[]): string {
+  return [rules.join(", "), tags.join(", ")].filter((part) => part !== "").join(" · ");
+}
+
+/**
+ * Поле фильтра строки «Сработало правило»: чипы со свободным вводом. Значение
+ * не приводится ни к регистру, ни к словарю -- метку движок сравнивает байт в
+ * байт, -- а негодный чип красится, и главная кнопка окна гаснет. Вставленный
+ * список раскладывается на чипы по `split`: номера так и копируют -- списком.
+ */
+function FilterChips({
+  label,
+  hint,
+  bad,
+  value,
+  options = [],
+  valid,
+  split,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  /** Отказ под полем, когда есть негодный чип. */
+  bad: string;
+  value: string[];
+  options?: readonly string[];
+  valid: (item: string) => boolean;
+  split: RegExp;
+  onChange: (next: string[]) => void;
+}) {
+  const wrong = value.filter((item) => !valid(item));
+
+  return (
+    <Autocomplete<string, true, false, true>
+      multiple
+      freeSolo
+      autoSelect
+      fullWidth
+      size="small"
+      options={options.filter((option) => !value.includes(option))}
+      value={value}
+      onChange={(_e, next) =>
+        onChange([
+          ...new Set(
+            next
+              .flatMap((item) => item.split(split))
+              .map((item) => item.trim())
+              .filter((item) => item !== ""),
+          ),
+        ])
+      }
+      renderValue={(items, getItemProps) =>
+        items.map((item, index) => (
+          <Chip
+            {...getItemProps({ index })}
+            key={`${item}-${index}`}
+            size="small"
+            label={item}
+            color={valid(item) ? "default" : "error"}
+            deleteIcon={<CloseIcon />}
+            sx={valueChipSx}
+          />
+        ))
+      }
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label={label}
+          error={wrong.length > 0}
+          helperText={wrong.length > 0 ? `${bad}: ${wrong.join(", ")}` : hint}
+          slotProps={{ ...params.slotProps, inputLabel: { shrink: true } }}
+          sx={{
+            "& .MuiOutlinedInput-root": { minHeight: DIALOG_FIELD_H, py: 0.5 },
+            "& .MuiInputBase-input": {
+              fontFamily: "monospace",
+              fontSize: "0.78rem",
+              py: 0,
+              minWidth: 48,
+            },
+          }}
+        />
+      )}
+    />
   );
 }

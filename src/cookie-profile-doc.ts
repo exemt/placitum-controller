@@ -47,6 +47,8 @@ const METHOD_RE = /^[A-Z]+$/;
 const COOKIE_NAME_RE = /^[A-Za-z0-9_.-]{1,64}$/;
 /* Алфавит метки: тем же сводит значение инспектор (sanitizeTag). */
 const TAG_RE = /^[A-Za-z0-9_-]*$/;
+/* Метка правила: тот же алфавит, но пустой не бывает, и предел -- MAX_LEN_LIMIT. */
+const RULE_TAG_RE = /^[A-Za-z0-9_-]{1,128}$/;
 const RANDOM_MAX = 32;
 const MAX_LEN_LIMIT = 128;
 
@@ -330,6 +332,7 @@ function normalizeRule(raw: unknown, path: string): CookieRule {
     on: str(row.on, `${path}.on`).trim() as CookieRule["on"],
     at: intOrNull(row.at, `${path}.at`),
     cookie: str(row.cookie, `${path}.cookie`).trim(),
+    tags: strings(row.tags, `${path}.tags`).map((tag) => tag.trim()),
     issue: str(row.issue, `${path}.issue`).trim(),
     drop: str(row.drop, `${path}.drop`).trim(),
     cond,
@@ -639,7 +642,8 @@ function checkRule(
     if (
       rule.match.pathPrefix !== "" || rule.match.suffixes.length > 0 || rule.match.static ||
       rule.match.methods.length > 0 || rule.phase !== "" || rule.status.length > 0 ||
-      rule.cookie !== "" || rule.issue !== "" || rule.drop !== "" || rule.cond !== ""
+      rule.cookie !== "" || rule.tags.length > 0 || rule.issue !== "" || rule.drop !== "" ||
+      rule.cond !== ""
     ) {
       fail(`${at}: on: overload takes only at and actions`);
     }
@@ -723,6 +727,27 @@ function checkRuleCookie(rule: CookieRule, at: string, cookies: Map<string, Cook
   for (const name of [rule.issue, rule.drop, rule.cookie]) {
     if (name !== "" && !cookies.has(name)) {
       fail(`${at}: cookie ${JSON.stringify(name)} is not declared in cookies`);
+    }
+  }
+
+  /*
+   * Метки -- читаемая половина значения, алфавит sanitizeTag загрузчика:
+   * метка вне него не совпала бы ни с одной выданной. Метка бывает только у
+   * куки, которая есть, -- на absent и invalid правило с ней молчало бы.
+   */
+  for (const tag of rule.tags) {
+    if (!RULE_TAG_RE.test(tag)) {
+      fail(`${at}: tag ${JSON.stringify(tag)} is not [A-Za-z0-9_-]{1,128}`);
+    }
+  }
+
+  if (rule.tags.length > 0) {
+    if (ruleCookie(rule, cookies) === "") {
+      fail(`${at}: tags need cookie: which one`);
+    }
+
+    if (rule.on === "absent" || rule.on === "invalid") {
+      fail(`${at}: tags never match on ${rule.on} -- such a cookie carries no tag`);
     }
   }
 
@@ -1082,14 +1107,25 @@ export function renderProfileYaml(
       if (rule.at !== null && rule.at !== undefined) {
         lines.push(`at: ${rule.at}`);
       }
-    } else if (rule.on !== "") {
-      lines.push(`on: ${rule.on}`);
+    } else if (
+      rule.on !== "" ||
+      rule.tags.length > 0 ||
+      (rule.cookie !== "" && rule.issue === "" && rule.drop === "")
+    ) {
+      if (rule.on !== "") {
+        lines.push(`on: ${rule.on}`);
+      }
 
       const named = ruleCookie(rule, new Map(doc.cookies.map((c) => [c.name, c])));
 
       if (named !== "") {
         lines.push(`cookie: ${q(named)}`);
       }
+    }
+
+    /* Метки -- после имени куки: «у этой куки -- одна из этих меток». */
+    if (rule.tags.length > 0) {
+      lines.push(`tags: ${seq(rule.tags)}`);
     }
 
     if (rule.issue !== "") {

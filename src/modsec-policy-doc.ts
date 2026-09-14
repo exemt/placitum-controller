@@ -25,12 +25,13 @@ function fail(message: string): never {
 export const MODSEC_ACCEPT = ["threshold", "skip"] as const;
 
 /**
- * Триггер инициатора: собственный решённый вердикт запроса либо `overload` --
+ * Триггер инициатора: собственный решённый вердикт запроса; `overload` --
  * запрос снят на входе из-за полной очереди (MODSEC_QUEUE_LIMIT), оценка не
- * начиналась. Протухший дедлайн инициаторов не дёргает: он бывает и у короткой
- * волны, и банить за латентность контура нельзя.
+ * начиналась; `rule` -- среди находок фазы есть правило с номером из `rules`
+ * и меткой из `tags`. Протухший дедлайн инициаторов не дёргает: он бывает и у
+ * короткой волны, и банить за латентность контура нельзя.
  */
-export type ModsecOn = "deny" | "allow" | "score" | "overload";
+export type ModsecOn = "deny" | "allow" | "score" | "overload" | "rule";
 
 /**
  * Кого писать в набор: адрес; эффективный анонс, самый узкий (net); все
@@ -39,7 +40,7 @@ export type ModsecOn = "deny" | "allow" | "score" | "overload";
  */
 export type ModsecWrite = "addr" | "net" | "net_all" | "asn";
 
-const ONS = new Set<ModsecOn>(["deny", "allow", "score", "overload"]);
+const ONS = new Set<ModsecOn>(["deny", "allow", "score", "overload", "rule"]);
 const WRITES = new Set<ModsecWrite>(["addr", "net", "net_all", "asn"]);
 const CODE_RE = /^[A-Z][A-Z0-9_]{0,63}$/;
 const NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
@@ -65,6 +66,13 @@ export interface ModsecOutcome {
   below: boolean;
   /** Точное сравнение: счёт == at. С below взаимоисключимы. */
   eq: boolean;
+  /**
+   * Только `on: rule`: номера и диапазоны правил ("942100", "942000-942999")
+   * и метки, как их отдаёт движок. Названный фильтр сужает, неназванный не
+   * мешает; хоть один обязателен.
+   */
+  rules: string[];
+  tags: string[];
 
   /* Просьба соседу -- форма канала действий. */
   to: string;
@@ -266,6 +274,8 @@ export function normalizePolicy(raw: unknown): ModsecPolicy {
         at,
         below: bool(row.below, `${where}.below`, false),
         eq: bool(row.eq, `${where}.eq`, false),
+        rules: strings(row.rules, `${where}.rules`),
+        tags: strings(row.tags, `${where}.tags`),
         to: str(row.to, `${where}.to`),
         do: str(row.do, `${where}.do`),
         apply: str(row.apply, `${where}.apply`),
@@ -331,11 +341,53 @@ function checkPrior(rule: ModsecPriorRule, i: number): void {
   }
 }
 
+/** Номер правила либо диапазон: «942100», «942000-942999». */
+const RULE_RE = /^(\d+)(?:-(\d+))?$/;
+
+/** Предел длины метки, байт: тот же, что у загрузчика (engine.TagMax). */
+const TAG_MAX = 128;
+
+/**
+ * Фильтры строки `on: rule`: номера и метки принадлежат ей, и хоть один
+ * обязателен -- строка без фильтра дёргалась бы любой находкой. Метку движок
+ * сравнивает байт в байт, поэтому пустая или с управляющим символом -- строка,
+ * которая не сработает никогда, и загрузчик её отвергает.
+ */
+function checkRuleFilter(outcome: ModsecOutcome, where: string): void {
+  if (outcome.on !== "rule") {
+    if (outcome.rules.length > 0 || outcome.tags.length > 0) {
+      fail(`${where}: rules and tags are only for on: rule`);
+    }
+
+    return;
+  }
+
+  if (outcome.rules.length === 0 && outcome.tags.length === 0) {
+    fail(`${where}: on: rule needs rules or tags`);
+  }
+
+  for (const rule of outcome.rules) {
+    const m = RULE_RE.exec(rule);
+
+    if (m === null || (m[2] !== undefined && Number(m[1]) > Number(m[2]))) {
+      fail(`${where}: invalid rule id or range: ${JSON.stringify(rule)}`);
+    }
+  }
+
+  for (const tag of outcome.tags) {
+    const control = [...tag].some((ch) => ch.charCodeAt(0) < 0x20 || ch.charCodeAt(0) === 0x7f);
+
+    if (tag === "" || tag.trim() !== tag || Buffer.byteLength(tag, "utf8") > TAG_MAX || control) {
+      fail(`${where}: bad tag ${JSON.stringify(tag)}`);
+    }
+  }
+}
+
 function checkOutcome(outcome: ModsecOutcome, i: number): void {
   const where = `outcomes[${i}]`;
 
   if (!ONS.has(outcome.on)) {
-    fail(`${where}.on must be deny, allow, score or overload`);
+    fail(`${where}.on must be deny, allow, score, overload or rule`);
   }
 
   if (outcome.on === "score") {
@@ -359,6 +411,8 @@ function checkOutcome(outcome: ModsecOutcome, i: number): void {
   } else if (outcome.at !== null || outcome.below || outcome.eq) {
     fail(`${where}: at, below and eq are only for on: score`);
   }
+
+  checkRuleFilter(outcome, where);
 
   if (outcome.code !== "" && !CODE_RE.test(outcome.code)) {
     fail(`${where}.code is not a valid reason code`);
@@ -483,6 +537,16 @@ export function renderPolicyYaml(name: string, policy: ModsecPolicy): string {
 
     for (const o of policy.outcomes) {
       out.push(`  - on: ${o.on}`);
+
+      if (o.on === "rule") {
+        if (o.rules.length > 0) {
+          out.push(`    rules: ${seq(o.rules)}`);
+        }
+
+        if (o.tags.length > 0) {
+          out.push(`    tags: ${seq(o.tags)}`);
+        }
+      }
 
       if (o.on === "overload" && o.at !== null) {
         out.push(`    at: ${o.at}`);

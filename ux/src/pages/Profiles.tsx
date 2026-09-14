@@ -722,9 +722,10 @@ function ProfileForm({
               /*
                * «Перегрузка» -- запрос снят на входе из-за полной очереди
                * (MODSEC_QUEUE_LIMIT): оценка не начиналась, но профиль вправе
-               * сбросить клиента в набор либо рассказать соседям.
+               * сбросить клиента в набор либо рассказать соседям. «Сработало
+               * правило» -- номера и метки находок фазы, есть только здесь.
                */
-              ons={["deny", "allow", "score", "overload"]}
+              ons={["deny", "allow", "score", "overload", "rule"]}
               onChange={(outcomes) => setPolicy((current) => ({ ...current, outcomes }))}
             />
           </Section>

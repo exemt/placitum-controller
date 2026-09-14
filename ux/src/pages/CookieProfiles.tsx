@@ -24,6 +24,7 @@
 
 import { useEffect, useState } from "react";
 import Alert from "@mui/material/Alert";
+import Autocomplete from "@mui/material/Autocomplete";
 import Button from "@mui/material/Button";
 import MenuItem from "@mui/material/MenuItem";
 import Drawer from "@mui/material/Drawer";
@@ -38,6 +39,7 @@ import Typography from "@mui/material/Typography";
 
 import { Form } from "../components/Form.tsx";
 import { Modal } from "../components/Modal.tsx";
+import { DialogSection } from "../components/dialog-kit.tsx";
 import {
   DataTable,
   RowActionsHead,
@@ -52,7 +54,6 @@ import { Section, Text } from "../components/fields.tsx";
 import {
   COOKIE_PHASES,
   COOKIE_SIGNS,
-  COOKIE_STATES,
   COOKIE_WRITES,
   MARKER_MAX_BYTES,
   axesFor,
@@ -133,20 +134,27 @@ const PANEL_WIDTH = 908;
 const COOKIE_CONDS_HELP = "06-cookie#условия";
 const NAME_RE = /^[a-z_][a-z0-9_-]{0,63}$/;
 
+/** «Кому» у строки «себе»: операция над кукой профиля, а не просьба соседу. */
+const TO_SELF = "@self";
+
 /**
- * Строка секции «Правила»: когда, что сделать с кукой и одна просьба.
+ * Строка секции «Правила» -- как у остальных отправителей: когда, кому, что
+ * сделать. Одна строка -- одно действие: либо операция над кукой («себе»:
+ * выдать, снять), либо просьба -- соседу, записи маршрута, очкам, набору.
  *
- * Просьбы может не быть вовсе -- правило, которое только выдаёт куку,
- * нормальное. Операции тоже: правило, которое только рассказывает про
- * состояние куки, -- тоже.
+ * «Когда» здесь про куку: что клиент предъявил (нет, есть, пора продлить,
+ * подделана) и какая у неё метка, -- плюс фаза и условие профиля по запросу.
  */
 interface AskRow {
+  /** Просьба; null -- строка «себе», её действие -- issue либо drop. */
   ask: CookieProfileAsk | null;
   cond: string;
   negate: boolean;
   phase: CookiePhase | "";
   /** Состояние куки на входе; overload -- строка перегрузки, не про куку. */
   on: CookieState | "overload" | "";
+  /** Метки предъявленной куки: строка срабатывает на любой из них. */
+  tags: string[];
   cookie: string;
   issue: string;
   drop: string;
@@ -154,7 +162,12 @@ interface AskRow {
   at?: number | null;
 }
 
-/** Правила профиля одним списком: правило с двумя просьбами разложится на две строки. */
+/**
+ * Правила профиля одним списком. Правило загрузчика вправе и выдать куку, и
+ * рассказать соседям -- в таблице это разные строки с одним «когда»: у строки
+ * одно действие. Смысл не меняется: выдача, снятие и значение для подстановок
+ * считаются на запрос целиком, а не на правило.
+ */
 function asksOf(doc: CookieProfileDoc | undefined): AskRow[] {
   return (doc?.rules ?? []).flatMap((rule) => {
     const head = {
@@ -162,17 +175,28 @@ function asksOf(doc: CookieProfileDoc | undefined): AskRow[] {
       negate: rule.cond !== undefined && rule.cond !== "" && rule.negate === true,
       phase: rule.phase ?? "",
       on: rule.on ?? "",
+      tags: rule.tags ?? [],
       cookie: rule.cookie ?? "",
-      issue: rule.issue ?? "",
-      drop: rule.drop ?? "",
+      issue: "",
+      drop: "",
       at: rule.at ?? null,
     };
 
-    if (rule.actions.length === 0) {
-      return [{ ...head, ask: null } as AskRow];
+    const rows: AskRow[] = [];
+
+    if ((rule.issue ?? "") !== "" || (rule.drop ?? "") !== "") {
+      rows.push({ ...head, issue: rule.issue ?? "", drop: rule.drop ?? "", ask: null });
     }
 
-    return rule.actions.map((ask): AskRow => ({ ...head, ask }));
+    /*
+     * Просьба уходит своей строкой, но кука правила остаётся при ней: по ней
+     * сверяется состояние и разворачиваются {tag} и {value} маркера.
+     */
+    for (const ask of rule.actions) {
+      rows.push({ ...head, cookie: head.cookie || rule.issue || rule.drop || "", ask });
+    }
+
+    return rows;
   });
 }
 
@@ -324,53 +348,71 @@ function rowCookie(row: AskRow, cookies: CookieDecl[]): string {
   return cookies.length === 1 ? cookies[0].name : "";
 }
 
-/** Что строка делает с кукой одним словом. */
-function opLabel(t: Translate, row: AskRow, cookies: CookieDecl[]): string {
-  /* Строка перегрузки куку не трогает. */
+/*
+ * «Когда» правила куки -- что клиент предъявил. Порядок -- от отсутствия куки
+ * к её метке: сначала есть ли она вообще, потом своя ли, потом какая.
+ */
+type Trigger = "always" | "absent" | "present" | "expired" | "invalid" | "tag" | "overload";
+
+const TRIGGERS: readonly Trigger[] = [
+  "always",
+  "absent",
+  "present",
+  "expired",
+  "invalid",
+  "tag",
+  /* Не про куку, а про сам инспектор: очередь подошла к порогу. */
+  "overload",
+];
+
+/** Триггер строки: метки сильнее состояния -- «метка = …» и есть её «когда». */
+function triggerOf(row: AskRow): Trigger {
   if (row.on === "overload") {
-    return "—";
+    return "overload";
   }
 
-  const named = rowCookie(row, cookies);
-
-  if (row.issue !== "") {
-    return `${t("cookieProfiles.opIssue")} · ${row.issue}`;
+  if (row.tags.length > 0) {
+    return "tag";
   }
 
-  if (row.drop !== "") {
-    return `${t("cookieProfiles.opDrop")} · ${row.drop}`;
-  }
-
-  return named === "" ? "—" : named;
+  return row.on === "" ? "always" : row.on;
 }
 
+/** Метка правила: алфавит sanitizeTag инспектора, пустой не бывает. */
+const RULE_TAG_RE = /^[A-Za-z0-9_-]{1,128}$/;
+
 /**
- * «Когда» строки одной фразой: условие профиля, фаза и состояние куки на входе.
- *
- * Всё это -- отбор запроса, и в одной колонке оно читается одним «когда»:
- * «если from_ads · на запросе · куки нет». Отдельные колонки условия и
- * состояния не помещались в ящик рядом с просьбой и срезали «+».
+ * «Когда» строки одной фразой: что клиент предъявил, фаза и условие профиля --
+ * «метка = google · на запросе · если from_ads». Имя куки -- только когда их
+ * объявлено несколько: с одной оно лишнее слово в каждой строке.
  */
-function whenText(t: Translate, row: AskRow): string {
+function whenText(t: Translate, row: AskRow, cookies: CookieDecl[]): string {
   if (row.on === "overload") {
     return `${t("outcomes.ons.overload")} ${overloadAtLabel(row.at)}`;
   }
 
   const parts: string[] = [];
+  const trigger = triggerOf(row);
 
-  if (row.cond !== "") {
-    parts.push(whenLabel(t, row.cond, row.negate));
+  if (trigger !== "always") {
+    const said =
+      trigger === "tag"
+        ? t("cookieProfiles.triggerTag", { tags: row.tags.join(", ") })
+        : t(`cookieProfiles.triggers.${trigger}`);
+    const named = rowCookie(row, cookies);
+
+    parts.push(cookies.length > 1 && named !== "" ? `${named}: ${said}` : said);
   }
 
   if (row.phase !== "") {
     parts.push(t(`cookieProfiles.phasesAt.${row.phase}`));
   }
 
-  if (row.on !== "") {
-    parts.push(t(`cookieProfiles.states.${row.on}`));
+  if (row.cond !== "") {
+    parts.push(whenLabel(t, row.cond, row.negate));
   }
 
-  return parts.length === 0 ? whenLabel(t, "", false) : parts.join(" · ");
+  return parts.length === 0 ? t("cookieProfiles.triggers.always") : parts.join(" · ");
 }
 
 export default function CookieProfiles() {
@@ -957,16 +999,20 @@ function AsksTable({
   onEdit: (index: number) => void;
   onRemove: (index: number) => void;
 }) {
-  /* Шапки у блока нет: имя и подсказка -- в заголовке секции «Правила». */
+  /*
+   * Колонки те же, что у остальных отправителей: когда, кому, что сделать,
+   * параметры. Строка «себе» -- операция над кукой: кому -- «себе», что --
+   * выдать или снять, параметры -- какая кука. Шапки у блока нет: имя и
+   * подсказка -- в заголовке секции «Правила».
+   */
   return (
     <TableBlock last>
       <Table size="small" sx={flushTableSx}>
         <TableHead>
           <TableRow>
-            <HeadCell label={t("cookieProfiles.when")} width={220} />
-            <HeadCell label={t("cookieProfiles.cookie")} width={140} />
-            <HeadCell label={t("cookieProfiles.to")} width={130} />
-            <HeadCell label={t("cookieProfiles.verb")} width={130} />
+            <HeadCell label={t("cookieProfiles.when")} width={280} />
+            <HeadCell label={t("cookieProfiles.to")} width={150} />
+            <HeadCell label={t("cookieProfiles.verb")} width={150} />
             <HeadCell label={t("cookieProfiles.params")} />
             <AddCell label={t("cookieProfiles.addRule")} onAdd={onAdd} />
           </TableRow>
@@ -974,7 +1020,7 @@ function AsksTable({
         <TableBody>
           {asks.length === 0 && (
             <TableNoticeRow
-              colSpan={6}
+              colSpan={5}
               kind="empty"
               message={t("cookieProfiles.rulesEmpty")}
               actionLabel={t("cookieProfiles.addRule")}
@@ -987,22 +1033,17 @@ function AsksTable({
             return (
               <TableRow key={index} hover>
                 <TextCell
-                  text={whenText(t, row)}
-                  muted={row.cond === "" && row.phase === "" && row.on === ""}
-                />
-                <TextCell
-                  text={opLabel(t, row, cookies)}
-                  muted={row.issue === "" && row.drop === ""}
+                  text={whenText(t, row, cookies)}
+                  muted={triggerOf(row) === "always" && row.phase === "" && row.cond === ""}
                 />
                 {/*
                   Запись маршрута, очки и запись в набор адресата на проводе не
-                  несут: у каждого свой пункт «Кому». Строки без просьбы тут
-                  пусто -- правило только выдаёт или снимает.
+                  несут: у каждого свой пункт «Кому», как и у строки «себе».
                 */}
                 <TextCell
                   text={
                     ask === null
-                      ? "—"
+                      ? t("cookieProfiles.toSelf")
                       : writesList(ask)
                         ? t("outcomes.toDataset")
                         : ask.do === "score"
@@ -1011,18 +1052,23 @@ function AsksTable({
                             ? t("cookieProfiles.toModule")
                             : ask.to
                   }
-                  muted={ask === null || writesList(ask)}
+                  muted={ask !== null && writesList(ask)}
                 />
                 <TextCell
                   text={
                     ask === null
-                      ? ""
+                      ? row.drop !== ""
+                        ? t("cookieProfiles.opDrop")
+                        : t("cookieProfiles.opIssue")
                       : writesList(ask)
                         ? t("outcomes.outcomeWrite")
                         : verbLabel(t, ask.do)
                   }
                 />
-                <TextCell text={summaryOf(t, ask)} muted />
+                <TextCell
+                  text={ask === null ? rowCookie(row, cookies) : summaryOf(t, ask)}
+                  muted
+                />
                 <RowActions onEdit={() => onEdit(index)} onRemove={() => onRemove(index)} />
               </TableRow>
             );
@@ -1448,6 +1494,79 @@ function numberOk(raw: string, min: number, max: number): boolean {
   return Number.isInteger(n) && n >= min && n <= max;
 }
 
+/**
+ * Метки «Когда»: чипы, как у повода «Сработало правило» в правилах трафика.
+ * Enter, запятая или пробел добавляют метку; пустых и повторов не бывает.
+ * Подсказки -- умолчания объявленных кук: чаще всего метку правила выдал этот
+ * же профиль.
+ */
+function TagsField({
+  t,
+  value,
+  options,
+  onChange,
+}: {
+  t: Translate;
+  value: string[];
+  options: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const bad = value.find((tag) => !RULE_TAG_RE.test(tag));
+
+  const commit = (next: string[]) => {
+    onChange([...new Set(next.map((tag) => tag.trim()).filter((tag) => tag !== ""))]);
+    setDraft("");
+  };
+
+  return (
+    <Autocomplete
+      multiple
+      freeSolo
+      autoSelect
+      size="small"
+      options={[...new Set(options)].filter((option) => !value.includes(option))}
+      value={value}
+      inputValue={draft}
+      onInputChange={(_e, next, reason) => {
+        const why: string = reason;
+
+        /* Запятая и пробел -- тот же Enter: в алфавите метки их нет. */
+        if (why === "input" && /[,\s]$/.test(next)) {
+          commit([...value, next.slice(0, -1)]);
+
+          return;
+        }
+
+        if (why !== "reset") {
+          setDraft(next);
+        }
+      }}
+      onChange={(_e, next) => commit(next)}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          size="small"
+          label={t("cookieProfiles.tags")}
+          required
+          error={bad !== undefined}
+          helperText={
+            bad === undefined
+              ? t("cookieProfiles.tagsHint")
+              : t("cookieProfiles.tagsBad", { tag: bad })
+          }
+        />
+      )}
+    />
+  );
+}
+
+/*
+ * Окно строки -- как у правил трафика и IP фильтра: «когда» и «действие» двумя
+ * блоками. «Когда» -- что клиент предъявил (есть ли кука, своя ли, какая
+ * метка), на какой фазе и при каком условии профиля. «Действие» -- кому и что:
+ * себе (выдать, снять куку) либо соседу, записи маршрута, очкам, набору.
+ */
 function AskDialog({
   row,
   cookies,
@@ -1460,9 +1579,9 @@ function AskDialog({
 }: {
   /** null -- заводим новое правило. */
   row: AskRow | null;
-  /** Объявления профиля: из них собираются «Кука» и «Что сделать с кукой». */
+  /** Объявления профиля: из них собираются «Кука» и триггеры по куке. */
   cookies: CookieDecl[];
-  /** Условия профиля: из них собирается «Когда». */
+  /** Условия профиля: из них собирается «И если». */
   conditions: ActionCondition[];
   inspectors: InspectorMeta[];
   registry: ActionRegistry | null;
@@ -1473,61 +1592,103 @@ function AskDialog({
 }) {
   const t = useT();
   const ask = row === null ? null : row.ask;
-  const [fields, setFields] = useState<AskFields>(() => fieldsOf(ask));
   /*
-   * «Когда»: всегда, если А, если не А. Условие, которого в профиле уже нет
-   * (сняли, пока окно было закрыто), остаётся пунктом -- иначе строка выглядела
-   * бы «всегда», не будучи им.
+   * Новая строка стартует с самого частого правила -- «куки нет → себе:
+   * выдать», первое касание. Без объявлений выдавать нечего: тогда «кому»
+   * пусто, и его выбирают.
    */
-  const [when, setWhen] = useState<string>(() => (row === null ? "" : whenKey(row)));
+  const [fields, setFields] = useState<AskFields>(() => {
+    const init = fieldsOf(ask);
+
+    if (row === null ? cookies.length > 0 : ask === null) {
+      init.target = TO_SELF;
+    }
+
+    return init;
+  });
+  const [trigger, setTrigger] = useState<Trigger>(() =>
+    row === null ? (cookies.length > 0 ? "absent" : "always") : triggerOf(row),
+  );
+  const [tags, setTags] = useState<string[]>(() => row?.tags ?? []);
+  /*
+   * «И если»: условие профиля по запросу. Условие, которого в профиле уже нет
+   * (сняли, пока окно было закрыто), остаётся пунктом -- иначе строка выглядела
+   * бы безусловной, не будучи ей.
+   */
+  const [andIf, setAndIf] = useState<string>(() =>
+    row === null || row.on === "overload" ? "" : whenKey(row),
+  );
   /* Порог строки перегрузки: пусто -- край, запрос сброшен. */
   const [atDraft, setAtDraft] = useState<string>(() =>
     row?.at === null || row?.at === undefined ? "" : String(row.at),
   );
-  /* Фаза, состояние куки на входе и операция -- свойства правила, не просьбы. */
   const [phase, setPhase] = useState<CookiePhase | "">(() => row?.phase ?? "");
-  const [on, setOn] = useState<CookieState | "">(() => (row?.on === "overload" ? "" : (row?.on ?? "")));
-  const [cookie, setCookie] = useState<string>(() => row?.cookie ?? "");
-  const [op, setOp] = useState<"" | "issue" | "drop">(() => {
-    if (row === null) {
-      return "";
-    }
+  const [cookie, setCookie] = useState<string>(
+    () => row?.cookie || row?.issue || row?.drop || "",
+  );
+  const [op, setOp] = useState<"issue" | "drop">(() =>
+    row !== null && row.drop !== "" ? "drop" : "issue",
+  );
 
-    if (row.issue !== "") {
-      return "issue";
-    }
-
-    return row.drop !== "" ? "drop" : "";
-  });
+  /*
+   * Метки ловят и свою куку, и ту, которой пора продлиться. Профиль, писанный
+   * руками, мог сузить их до одного состояния -- оно переживает правку.
+   */
+  const tagOn =
+    row !== null && row.tags.length > 0 && (row.on === "present" || row.on === "expired")
+      ? row.on
+      : "";
+  const overload = trigger === "overload";
+  const self = fields.target === TO_SELF;
 
   /* Кука правила: названная явно либо единственная объявленная. */
   const named = cookie || (cookies.length === 1 ? cookies[0].name : "");
   const decl = cookies.find((item) => item.name === named);
+  /* Строке нужна кука: по ней сверяется «когда» либо с ней что-то делают. */
+  const needsCookie = !overload && (trigger !== "always" || self);
 
   /*
-   * Состояния, которых у неподписанной куки не бывает: сверять предъявленное
-   * значение не с чем, а времени выдачи в нём нет. Правило с ними не
-   * сохранится, поэтому и предлагать их незачем.
+   * Триггеры, которых у этой куки не бывает: без объявлений -- ни одного про
+   * куку; без подписи -- ни «подпись не сошлась», ни «пора продлить»; без
+   * срока продления -- последнего. Правило с ними не сохранится, поэтому и
+   * предлагать их незачем; уже выбранный остаётся пунктом, а не стирается.
    */
-  const states = COOKIE_STATES.filter(
-    (state) =>
-      (state !== "invalid" && state !== "expired") ||
-      (decl?.sign === "hmac" && (state !== "expired" || (decl?.renewAfterS ?? 0) > 0)),
-  );
-  const whenOptions: { key: string; label: string }[] = [
-    { key: "", label: whenLabel(t, "", false) },
+  const triggers = TRIGGERS.filter((item) => {
+    if (item === "always" || item === "overload") {
+      return true;
+    }
+
+    if (cookies.length === 0) {
+      return false;
+    }
+
+    if (item === "invalid") {
+      return decl === undefined || decl.sign === "hmac";
+    }
+
+    if (item === "expired") {
+      return decl === undefined || (decl.sign === "hmac" && decl.renewAfterS > 0);
+    }
+
+    return true;
+  });
+
+  if (!triggers.includes(trigger)) {
+    triggers.push(trigger);
+  }
+
+  const andIfOptions: { key: string; label: string }[] = [
+    { key: "", label: t("cookieProfiles.andIfNone") },
     ...conditions.flatMap((cond) => [
       { key: `if:${cond.name}`, label: whenLabel(t, cond.name, false) },
       { key: `unless:${cond.name}`, label: whenLabel(t, cond.name, true) },
     ]),
-    /* Перегрузка -- не условие профиля, а состояние инспектора: свой пункт. */
-    { key: OVERLOAD_WHEN, label: t("outcomes.ons.overload") },
   ];
 
-  if (when !== "" && !whenOptions.some((option) => option.key === when)) {
-    const current = whenOf(when);
+  if (andIf !== "" && !andIfOptions.some((option) => option.key === andIf)) {
+    const current = whenOf(andIf);
 
-    whenOptions.push({ key: when, label: whenLabel(t, current.cond, current.negate) });
+    andIfOptions.push({ key: andIf, label: whenLabel(t, current.cond, current.negate) });
   }
 
   const set = (patch: Partial<AskFields>) =>
@@ -1542,10 +1703,12 @@ function AskDialog({
    * Модулю -- глаголы записи из словаря и очки: строка своя, потому что
    * очки -- не глагол канала, а вердикт, и словарь их не знает.
    */
-  const verbs = fields.target === "" ? [] : verbsOf(registry, inspectors, fields.target);
+  const verbs =
+    fields.target === "" || self ? [] : verbsOf(registry, inspectors, fields.target);
   const axes = axesFor(registry, fields.verb === "" ? [] : [fields.verb]);
 
   const codeOk = fields.code === "" || ACTION_CODE_RE.test(fields.code);
+  const badTag = tags.find((tag) => !RULE_TAG_RE.test(tag));
 
   /*
    * Что мешает сохранить -- словами, null -- ничего. Та же проверка, что гасит
@@ -1553,8 +1716,6 @@ function AskDialog({
    * гадать, какое из десятка полей не так.
    */
   const blocker = (): string | null => {
-    const overload = when === OVERLOAD_WHEN;
-
     /* Строка перегрузки: порог в шкале и действие обязательно -- куки у неё нет. */
     if (overload && !overloadAtOk(atDraft)) {
       return t("cookieProfiles.needOverloadAt", {
@@ -1563,16 +1724,35 @@ function AskDialog({
       });
     }
 
-    if (overload && fields.target === "") {
+    if (overload && (fields.target === "" || self)) {
       return t("cookieProfiles.needOverloadAsk");
     }
 
+    if (trigger === "tag" && tags.length === 0) {
+      return t("cookieProfiles.needTags");
+    }
+
+    if (trigger === "tag" && badTag !== undefined) {
+      return t("cookieProfiles.needTagsFix", { tag: badTag });
+    }
+
     /*
-     * Операция названа, а кука -- нет (объявлено несколько, ни одна не
-     * выбрана): такое правило сохранялось бы без операции, молча.
+     * Строке нужна кука, а её нет: объявлений нет вовсе либо их несколько и ни
+     * одна не выбрана -- такое правило загрузчик не примет.
      */
-    if (!overload && op !== "" && named === "") {
-      return t("cookieProfiles.needCookie");
+    if (needsCookie && named === "") {
+      return cookies.length === 0
+        ? t("cookieProfiles.needCookieDecl")
+        : t("cookieProfiles.needCookie");
+    }
+
+    /* Себе: выдать либо снять -- выбрано всегда, других полей нет. */
+    if (self) {
+      return null;
+    }
+
+    if (fields.target === "") {
+      return t("cookieProfiles.needTarget");
     }
 
     /* Очки: глагола нет, есть величина 1..100 и направление. */
@@ -1602,11 +1782,6 @@ function AskDialog({
       }
 
       return codeOk ? null : t("cookieProfiles.needCode");
-    }
-
-    /* Просьбы нет: строка только выдаёт или снимает куку -- это правило. */
-    if (fields.target === "") {
-      return op !== "" ? null : t("cookieProfiles.needSomething");
     }
 
     if (fields.verb === "") {
@@ -1650,26 +1825,53 @@ function AskDialog({
 
   const blocked = blocker();
 
+  /* Общая половина строки: когда она работает и что делает с кукой. */
+  const head: Omit<AskRow, "ask"> = overload
+    ? {
+        cond: "",
+        negate: false,
+        phase: "",
+        on: "overload",
+        tags: [],
+        cookie: "",
+        issue: "",
+        drop: "",
+        at: overloadAtOf(atDraft),
+      }
+    : {
+        ...whenOf(andIf),
+        phase,
+        on: trigger === "always" ? "" : trigger === "tag" ? tagOn : trigger,
+        tags: trigger === "tag" ? tags : [],
+        cookie: needsCookie ? cookie : "",
+        issue: self && op === "issue" ? named : "",
+        drop: self && op === "drop" ? named : "",
+      };
+
+  /* Свёрнутые блоки словами: «когда» -- той же фразой, что в таблице. */
+  const whenSummary = whenText(t, { ...head, cookie: named, ask: null }, cookies);
+  const doSummary = self
+    ? [
+        t("cookieProfiles.toSelf"),
+        op === "drop" ? t("cookieProfiles.opDrop") : t("cookieProfiles.opIssue"),
+        named,
+      ]
+        .filter((part) => part !== "")
+        .join(" · ")
+    : fields.target === TO_DATASET
+      ? [t("outcomes.toDataset"), fields.list].filter((part) => part !== "").join(" · ")
+      : fields.target === TO_SCORE
+        ? t("outcomes.toScore")
+        : [
+            fields.target === TO_MODULE ? t("cookieProfiles.toModule") : fields.target,
+            fields.verb === "" ? "" : verbLabel(t, fields.verb),
+          ]
+            .filter((part) => part !== "")
+            .join(" · ");
+
   const save = () => {
-    const overload = when === OVERLOAD_WHEN;
-    const { cond, negate } = overload ? { cond: "", negate: false } : whenOf(when);
-    const at = overload ? overloadAtOf(atDraft) : null;
-
-    /* Общая половина строки: когда она работает и что делает с кукой. */
-    const head: Omit<AskRow, "ask"> = overload
-      ? { cond: "", negate: false, phase: "", on: "overload", cookie: "", issue: "", drop: "", at }
-      : {
-          cond,
-          negate,
-          phase,
-          on,
-          cookie,
-          issue: op === "issue" ? named : "",
-          drop: op === "drop" ? named : "",
-        };
-
-    /* Просьбы нет: правило только выдаёт или снимает. */
-    if (fields.target === "") {
+    /* Себе: операция над кукой, просьбы у строки нет. */
+    if (self) {
       onSave({ ...head, ask: null });
 
       return;
@@ -1751,7 +1953,6 @@ function AskDialog({
   return (
     <Modal
       onClose={onClose}
-      size="xs"
       title={
         row === null ? t("cookieProfiles.addRule") : t("cookieProfiles.editRule")
       }
@@ -1764,534 +1965,548 @@ function AskDialog({
         </>
       }
     >
-        <Stack spacing={2}>
-          {/*
-            Когда: всегда, если А, если не А -- первым полем, как колонка
-            таблицы. Условия заводятся в секции профиля. Перегрузка снимает
-            поля куки под собой, а не над тем местом, где её выбрали.
-          */}
-          <TextField
-            select
-            size="small"
-            label={t("cookieProfiles.when")}
-            value={when}
-            onChange={(e) => setWhen(e.target.value)}
-            helperText={
-              conditions.length === 0
-                ? t("cookieProfiles.whenNoConditions")
-                : t("cookieProfiles.whenHint")
-            }
-            slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
+        <Stack spacing={1}>
+          <DialogSection
+            title={t("outcomes.sectionWhen")}
+            hint={t("cookieProfiles.sectionWhenHint")}
+            summary={whenSummary}
           >
-            {whenOptions.map((option) => (
-              <MenuItem key={option.key} value={option.key}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </TextField>
-
-          {/*
-            Порог перегрузки: с какого заполнения очереди инспектора строка
-            срабатывает. Пусто -- край: запрос уже сброшен (src/overload.ts).
-          */}
-          {when === OVERLOAD_WHEN && (
-            <TextField
-              size="small"
-              label={t("outcomes.overloadAt")}
-              value={atDraft}
-              placeholder={String(OVERLOAD_AT_MAX)}
-              onChange={(e) => setAtDraft(e.target.value)}
-              error={!overloadAtOk(atDraft)}
-              helperText={t("outcomes.overloadAtHint")}
-              slotProps={{ htmlInput: { inputMode: "numeric", min: OVERLOAD_AT_MIN, max: OVERLOAD_AT_MAX } }}
-            />
-          )}
-
-          {/*
-            Что сделать с кукой. «Ничего» -- законный выбор: правило вправе
-            только рассказать соседям про состояние куки, ничего не выдавая.
-          */}
-          {when !== OVERLOAD_WHEN && (
-          <>
-          <Stack direction="row" spacing={1}>
             <TextField
               select
               size="small"
-              label={t("cookieProfiles.operation")}
-              value={op}
-              onChange={(e) => setOp(e.target.value as "" | "issue" | "drop")}
-              helperText={t("cookieProfiles.operationHint")}
-              slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
-              sx={{ flex: 1 }}
-            >
-              <MenuItem value="">{t("cookieProfiles.opNone")}</MenuItem>
-              <MenuItem value="issue">{t("cookieProfiles.opIssue")}</MenuItem>
-              <MenuItem value="drop">{t("cookieProfiles.opDrop")}</MenuItem>
-            </TextField>
-            <TextField
-              select
-              size="small"
-              label={t("cookieProfiles.cookie")}
-              value={cookie}
-              onChange={(e) => setCookie(e.target.value)}
+              label={t("cookieProfiles.when")}
+              value={trigger}
+              onChange={(e) => {
+                const next = e.target.value as Trigger;
+
+                setTrigger(next);
+
+                /* У строки перегрузки куки нет: «себе» ей не адресат. */
+                if (next === "overload" && self) {
+                  set({ target: "", verb: "", axis: "" });
+                }
+              }}
               helperText={
                 cookies.length === 0
                   ? t("cookieProfiles.noCookies")
-                  : t("cookieProfiles.cookieHint")
+                  : trigger === "absent"
+                    ? t("cookieProfiles.stateAbsentHint")
+                    : t("cookieProfiles.triggerHint")
               }
-              error={op !== "" && named === ""}
-              slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
-              sx={{ flex: 1 }}
             >
-              <MenuItem value="">
-                {cookies.length === 1
-                  ? t("cookieProfiles.cookieOnly", { name: cookies[0].name })
-                  : t("cookieProfiles.cookieAny")}
-              </MenuItem>
-              {cookies.map((item) => (
-                <MenuItem key={item.name} value={item.name}>
-                  {item.name}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Stack>
-
-          {/* Когда работает: фаза маршрута и состояние куки на входе. */}
-          <Stack direction="row" spacing={1}>
-            <TextField
-              select
-              size="small"
-              label={t("cookieProfiles.phase")}
-              value={phase}
-              onChange={(e) => setPhase(e.target.value as CookiePhase | "")}
-              helperText={t("cookieProfiles.phaseHint")}
-              slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
-              sx={{ flex: 1 }}
-            >
-              <MenuItem value="">{t("cookieProfiles.phaseBoth")}</MenuItem>
-              {COOKIE_PHASES.map((item) => (
+              {triggers.map((item) => (
                 <MenuItem key={item} value={item}>
-                  {t(`cookieProfiles.phases.${item}`)}
+                  {item === "overload"
+                    ? t("outcomes.ons.overload")
+                    : t(`cookieProfiles.triggers.${item}`)}
                 </MenuItem>
               ))}
             </TextField>
-            <TextField
-              select
-              size="small"
-              label={t("cookieProfiles.state")}
-              value={on}
-              onChange={(e) => setOn(e.target.value as CookieState | "")}
-              helperText={
-                on === "absent"
-                  ? t("cookieProfiles.stateAbsentHint")
-                  : t("cookieProfiles.stateHint")
-              }
-              slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
-              sx={{ flex: 1 }}
-            >
-              <MenuItem value="">{t("cookieProfiles.anyState")}</MenuItem>
-              {states.map((item) => (
-                <MenuItem key={item} value={item}>
-                  {t(`cookieProfiles.states.${item}`)}
-                </MenuItem>
-              ))}
-              {/*
-                Состояние, которое объявлению уже не подходит (сняли подпись,
-                пока окно было закрыто), остаётся пунктом: иначе селектор молча
-                стёр бы записанное.
-              */}
-              {on !== "" && !states.some((item) => item === on) && (
-                <MenuItem value={on}>{t(`cookieProfiles.states.${on}`)}</MenuItem>
-              )}
-            </TextField>
-          </Stack>
-          </>
-          )}
 
-          <TextField
-            select
-            size="small"
-            label={t("cookieProfiles.to")}
-            value={fields.target}
-            onChange={(e) => {
-              const target = e.target.value;
-
-              /*
-               * Сменили адресата -- прежнее действие могло стать ему не
-               * адресованным. Оставляем, только если новый его слушает.
-               */
-              const still = verbsOf(registry, inspectors, target).includes(fields.verb);
-
-              set({
-                target,
-                verb: still ? fields.verb : "",
-                axis: still ? fields.axis : "",
-              });
-            }}
-            helperText={t("cookieProfiles.toHint")}
-            slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
-          >
-            {/* Правило без просьбы: только выдать или снять куку. */}
-            <MenuItem value="">{t("cookieProfiles.toNobody")}</MenuItem>
-            {targets.map((row) => (
-              <MenuItem key={row.uuid} value={row.name}>
-                {row.name}
-              </MenuItem>
-            ))}
-            {/* Запись маршрута -- глаголы из словаря; очки -- своим пунктом. */}
-            {verbsOf(registry, inspectors, TO_MODULE).length > 0 && (
-              <MenuItem value={TO_MODULE}>{t("cookieProfiles.toModule")}</MenuItem>
+            {trigger === "tag" && (
+              <TagsField
+                t={t}
+                value={tags}
+                options={cookies.map((item) => item.value.default).filter((tag) => tag !== "")}
+                onChange={setTags}
+              />
             )}
-            <MenuItem value={TO_SCORE}>{t("outcomes.toScore")}</MenuItem>
-            {/* Запись в набор: пишет сам инспектор, режет по набору тот, кто стоит перед маршрутом. */}
-            <MenuItem value={TO_DATASET}>{t("outcomes.toDataset")}</MenuItem>
-          </TextField>
 
-          {fields.target === TO_SCORE && (
-            <>
-              <Stack direction="row" spacing={1}>
-                <TextField
-                  select
-                  size="small"
-                  label={t("actions.score.direction")}
-                  value={fields.scoreDir}
-                  onChange={(e) => set({ scoreDir: e.target.value as AskFields["scoreDir"] })}
-                  sx={{ flex: 1.2 }}
-                >
-                  <MenuItem value="add">{t("actions.score.add")}</MenuItem>
-                  <MenuItem value="cut">{t("actions.score.cut")}</MenuItem>
-                </TextField>
-                <TextField
-                  size="small"
-                  label={t("actions.score.points")}
-                  value={fields.scorePoints}
-                  onChange={(e) => set({ scorePoints: e.target.value.trim() })}
-                  required
-                  error={fields.scorePoints !== "" && !numberOk(fields.scorePoints, 1, POINTS_MAX)}
-                  helperText={t("actions.score.pointsHint")}
-                  sx={{ flex: 1 }}
-                />
-              </Stack>
-              <Alert severity="info" icon={false}>{t("actions.verbs.score.hint")}</Alert>
-            </>
-          )}
-
-          {/*
-            Запись в набор: адресата и глагола нет, пишет сам инспектор. Кого
-            писать -- адрес клиента либо то, во что он разворачивается у гео:
-            самый узкий анонс, все накрывающие, система целиком.
-          */}
-          {fields.target === TO_DATASET && (
-            <>
+            {/*
+              Порог перегрузки: с какого заполнения очереди инспектора строка
+              срабатывает. Пусто -- край: запрос уже сброшен (src/overload.ts).
+            */}
+            {overload && (
               <TextField
-                select
                 size="small"
-                label={t("outcomes.outcomeList")}
-                value={fields.list}
-                onChange={(e) => set({ list: e.target.value })}
-                helperText={t("outcomes.outcomeListHint")}
-              >
-                {datasets.map((row) => (
-                  <MenuItem key={row.uuid} value={row.name}>
-                    {row.name}
-                  </MenuItem>
-                ))}
-                {/*
-                  Набор, которого среди активных уже нет, остаётся пунктом:
-                  иначе селектор молча стёр бы записанное.
-                */}
-                {fields.list !== "" && !datasets.some((row) => row.name === fields.list) && (
-                  <MenuItem value={fields.list}>{fields.list}</MenuItem>
-                )}
-                {datasets.length === 0 && (
-                  <MenuItem disabled value="">
-                    {t("outcomes.listEmpty")}
-                  </MenuItem>
-                )}
-              </TextField>
-              <Stack direction="row" spacing={1}>
-                <TextField
-                  select
-                  size="small"
-                  label={t("outcomes.outcomeWriteLabel")}
-                  value={fields.write}
-                  onChange={(e) => set({ write: e.target.value as ListWrite })}
-                  helperText={t("outcomes.outcomeWriteHint")}
-                  sx={{ flex: 1.6 }}
-                >
-                  {LIST_WRITES.map((write) => (
-                    <MenuItem key={write} value={write}>
-                      {t(`cookieProfiles.writes.${write}`)}
-                    </MenuItem>
-                  ))}
-                </TextField>
-                {/*
-                  Снятию срок не нужен и запрещён: записи после него не
-                  остаётся вовсе.
-                */}
-                {fields.op === "add" && (
-                  <TextField
-                    size="small"
-                    label={t("outcomes.outcomeTtl")}
-                    value={fields.ttl}
-                    onChange={(e) => set({ ttl: e.target.value.trim() })}
-                    required
-                    error={fields.ttl !== "" && ttlSeconds(fields.ttl) <= 0}
-                    helperText={t("outcomes.outcomeTtlHint")}
-                    sx={{ flex: 1 }}
-                  />
-                )}
-              </Stack>
-              <Stack direction="row" spacing={1}>
-                <TextField
-                  select
-                  size="small"
-                  label={t("cookieProfiles.listOp")}
-                  value={fields.op}
-                  onChange={(e) => set({ op: e.target.value as AskFields["op"] })}
-                  helperText={t("cookieProfiles.listOpHint")}
-                  sx={{ flex: 1 }}
-                >
-                  <MenuItem value="add">{t("cookieProfiles.opAdd")}</MenuItem>
-                  <MenuItem value="remove">{t("cookieProfiles.opRemove")}</MenuItem>
-                </TextField>
-                {fields.write === "cookie" && (
+                label={t("outcomes.overloadAt")}
+                value={atDraft}
+                placeholder={String(OVERLOAD_AT_MAX)}
+                onChange={(e) => setAtDraft(e.target.value)}
+                error={!overloadAtOk(atDraft)}
+                helperText={t("outcomes.overloadAtHint")}
+                slotProps={{ htmlInput: { inputMode: "numeric", min: OVERLOAD_AT_MIN, max: OVERLOAD_AT_MAX } }}
+              />
+            )}
+
+            {!overload && (
+              <>
+                <Stack direction="row" spacing={1}>
                   <TextField
                     select
                     size="small"
-                    label={t("cookieProfiles.listCookie")}
-                    value={fields.listCookie}
-                    onChange={(e) => set({ listCookie: e.target.value })}
-                    helperText={t("cookieProfiles.listCookieHint")}
-                    error={named === "" && fields.listCookie === ""}
+                    label={t("cookieProfiles.cookie")}
+                    value={cookie}
+                    onChange={(e) => setCookie(e.target.value)}
+                    helperText={
+                      cookies.length === 0
+                        ? t("cookieProfiles.noCookies")
+                        : t("cookieProfiles.cookieHint")
+                    }
+                    error={needsCookie && named === ""}
                     slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
                     sx={{ flex: 1 }}
                   >
                     <MenuItem value="">
-                      {named === ""
-                        ? t("cookieProfiles.cookieAny")
-                        : t("cookieProfiles.cookieOfRule", { name: named })}
+                      {cookies.length === 1
+                        ? t("cookieProfiles.cookieOnly", { name: cookies[0].name })
+                        : t("cookieProfiles.cookieAny")}
                     </MenuItem>
                     {cookies.map((item) => (
                       <MenuItem key={item.name} value={item.name}>
                         {item.name}
                       </MenuItem>
                     ))}
+                    {/* Кука, которой в объявлениях уже нет, остаётся пунктом. */}
+                    {cookie !== "" && !cookies.some((item) => item.name === cookie) && (
+                      <MenuItem value={cookie}>{cookie}</MenuItem>
+                    )}
                   </TextField>
-                )}
-              </Stack>
-            </>
-          )}
+                  <TextField
+                    select
+                    size="small"
+                    label={t("cookieProfiles.phase")}
+                    value={phase}
+                    onChange={(e) => setPhase(e.target.value as CookiePhase | "")}
+                    helperText={t("cookieProfiles.phaseHint")}
+                    slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
+                    sx={{ flex: 1 }}
+                  >
+                    <MenuItem value="">{t("cookieProfiles.phaseBoth")}</MenuItem>
+                    {COOKIE_PHASES.map((item) => (
+                      <MenuItem key={item} value={item}>
+                        {t(`cookieProfiles.phases.${item}`)}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Stack>
+                <TextField
+                  select
+                  size="small"
+                  label={t("cookieProfiles.andIf")}
+                  value={andIf}
+                  onChange={(e) => setAndIf(e.target.value)}
+                  helperText={
+                    conditions.length === 0
+                      ? t("cookieProfiles.whenNoConditions")
+                      : t("cookieProfiles.andIfHint")
+                  }
+                  slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
+                >
+                  {andIfOptions.map((option) => (
+                    <MenuItem key={option.key} value={option.key}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </>
+            )}
+          </DialogSection>
 
-          {fields.target !== "" && fields.target !== TO_SCORE && fields.target !== TO_DATASET && (
+          <DialogSection
+            title={t("outcomes.sectionDo")}
+            hint={t("cookieProfiles.sectionDoHint")}
+            summary={doSummary}
+          >
             <TextField
               select
               size="small"
-              label={t("cookieProfiles.verb")}
-              value={fields.verb}
-              onChange={(e) =>
+              label={t("cookieProfiles.to")}
+              value={fields.target}
+              onChange={(e) => {
+                const target = e.target.value;
+
+                /*
+                 * Сменили адресата -- прежнее действие могло стать ему не
+                 * адресованным. Оставляем, только если новый его слушает.
+                 */
+                const still = verbsOf(registry, inspectors, target).includes(fields.verb);
+
                 set({
-                  verb: e.target.value,
-                  /*
-                   * Баллы копятся в счётчиках адреса и сети -- «этот запрос» у
-                   * накинутых баллов мёртвая пара, и первым по словарю стоять
-                   * она не должна.
-                   */
-                  axis: e.target.value === "note" ? "ip" : "",
-                })
-              }
-              helperText={
-                fields.verb === ""
-                  ? t("cookieProfiles.verbHint")
-                  : t(`actions.verbs.${fields.verb}.hint`)
-              }
-            >
-              {verbMenuItems(t, registry, verbs, fields.verb)}
-            </TextField>
-          )}
-
-          {/*
-            Фаза вызова адресата: у имени на двух фазах вызова два, и режим
-            можно поставить одному. Пусто -- обоим, как без поля на проводе.
-          */}
-          {isControlVerb(fields.verb) && (
-            <TextField
-              select
-              size="small"
-              label={t("actions.phase.label")}
-              value={fields.phase}
-              onChange={(e) => set({ phase: e.target.value })}
-              helperText={t("actions.phase.hint")}
-              /* Пустое значение -- «на всех фазах», а не незаполненное поле: слово показывается. */
+                  target,
+                  verb: still ? fields.verb : "",
+                  axis: still ? fields.axis : "",
+                });
+              }}
+              helperText={t("cookieProfiles.toHint")}
               slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
             >
-              <MenuItem value="">{t("actions.phase.all")}</MenuItem>
-              {ASK_PHASES.map((phase) => (
-                <MenuItem key={phase} value={phase}>
-                  {t(`actions.phase.${phase}`)}
+              {/* Себе: операция над кукой. У строки перегрузки куки нет. */}
+              {!overload && <MenuItem value={TO_SELF}>{t("cookieProfiles.toSelf")}</MenuItem>}
+              {targets.map((row) => (
+                <MenuItem key={row.uuid} value={row.name}>
+                  {row.name}
                 </MenuItem>
               ))}
+              {/* Запись маршрута -- глаголы из словаря; очки -- своим пунктом. */}
+              {verbsOf(registry, inspectors, TO_MODULE).length > 0 && (
+                <MenuItem value={TO_MODULE}>{t("cookieProfiles.toModule")}</MenuItem>
+              )}
+              <MenuItem value={TO_SCORE}>{t("outcomes.toScore")}</MenuItem>
+              {/* Запись в набор: пишет сам инспектор, режет по набору тот, кто стоит перед маршрутом. */}
+              <MenuItem value={TO_DATASET}>{t("outcomes.toDataset")}</MenuItem>
             </TextField>
-          )}
 
-          {fields.target !== "" && fields.verb === "note" && axes.length > 1 && (
-            <TextField
-              select
-              size="small"
-              label={t("actions.counter.label")}
-              value={fields.axis === "" ? "ip" : fields.axis}
-              onChange={(e) => set({ axis: e.target.value })}
-            >
-              {axes
-                .filter((axis) => axis !== "request")
-                .map((axis) => (
-                  <MenuItem key={axis} value={axis}>
-                    {axisLabel(t, axis)}
+            {self && (
+              <TextField
+                select
+                size="small"
+                label={t("cookieProfiles.verb")}
+                value={op}
+                onChange={(e) => setOp(e.target.value as "issue" | "drop")}
+                helperText={t("cookieProfiles.selfHint")}
+              >
+                <MenuItem value="issue">{t("cookieProfiles.opIssue")}</MenuItem>
+                <MenuItem value="drop">{t("cookieProfiles.opDrop")}</MenuItem>
+              </TextField>
+            )}
+
+            {fields.target === TO_SCORE && (
+              <>
+                <Stack direction="row" spacing={1}>
+                  <TextField
+                    select
+                    size="small"
+                    label={t("actions.score.direction")}
+                    value={fields.scoreDir}
+                    onChange={(e) => set({ scoreDir: e.target.value as AskFields["scoreDir"] })}
+                    sx={{ flex: 1.2 }}
+                  >
+                    <MenuItem value="add">{t("actions.score.add")}</MenuItem>
+                    <MenuItem value="cut">{t("actions.score.cut")}</MenuItem>
+                  </TextField>
+                  <TextField
+                    size="small"
+                    label={t("actions.score.points")}
+                    value={fields.scorePoints}
+                    onChange={(e) => set({ scorePoints: e.target.value.trim() })}
+                    required
+                    error={fields.scorePoints !== "" && !numberOk(fields.scorePoints, 1, POINTS_MAX)}
+                    helperText={t("actions.score.pointsHint")}
+                    sx={{ flex: 1 }}
+                  />
+                </Stack>
+                <Alert severity="info" icon={false}>{t("actions.verbs.score.hint")}</Alert>
+              </>
+            )}
+
+            {/*
+              Запись в набор: адресата и глагола нет, пишет сам инспектор. Кого
+              писать -- адрес клиента либо то, во что он разворачивается у гео:
+              самый узкий анонс, все накрывающие, система целиком.
+            */}
+            {fields.target === TO_DATASET && (
+              <>
+                <TextField
+                  select
+                  size="small"
+                  label={t("outcomes.outcomeList")}
+                  value={fields.list}
+                  onChange={(e) => set({ list: e.target.value })}
+                  helperText={t("outcomes.outcomeListHint")}
+                >
+                  {datasets.map((row) => (
+                    <MenuItem key={row.uuid} value={row.name}>
+                      {row.name}
+                    </MenuItem>
+                  ))}
+                  {/*
+                    Набор, которого среди активных уже нет, остаётся пунктом:
+                    иначе селектор молча стёр бы записанное.
+                  */}
+                  {fields.list !== "" && !datasets.some((row) => row.name === fields.list) && (
+                    <MenuItem value={fields.list}>{fields.list}</MenuItem>
+                  )}
+                  {datasets.length === 0 && (
+                    <MenuItem disabled value="">
+                      {t("outcomes.listEmpty")}
+                    </MenuItem>
+                  )}
+                </TextField>
+                <Stack direction="row" spacing={1}>
+                  <TextField
+                    select
+                    size="small"
+                    label={t("outcomes.outcomeWriteLabel")}
+                    value={fields.write}
+                    onChange={(e) => set({ write: e.target.value as ListWrite })}
+                    helperText={t("outcomes.outcomeWriteHint")}
+                    sx={{ flex: 1.6 }}
+                  >
+                    {LIST_WRITES.map((write) => (
+                      <MenuItem key={write} value={write}>
+                        {t(`cookieProfiles.writes.${write}`)}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  {/*
+                    Снятию срок не нужен и запрещён: записи после него не
+                    остаётся вовсе.
+                  */}
+                  {fields.op === "add" && (
+                    <TextField
+                      size="small"
+                      label={t("outcomes.outcomeTtl")}
+                      value={fields.ttl}
+                      onChange={(e) => set({ ttl: e.target.value.trim() })}
+                      required
+                      error={fields.ttl !== "" && ttlSeconds(fields.ttl) <= 0}
+                      helperText={t("outcomes.outcomeTtlHint")}
+                      sx={{ flex: 1 }}
+                    />
+                  )}
+                </Stack>
+                <Stack direction="row" spacing={1}>
+                  <TextField
+                    select
+                    size="small"
+                    label={t("cookieProfiles.listOp")}
+                    value={fields.op}
+                    onChange={(e) => set({ op: e.target.value as AskFields["op"] })}
+                    helperText={t("cookieProfiles.listOpHint")}
+                    sx={{ flex: 1 }}
+                  >
+                    <MenuItem value="add">{t("cookieProfiles.opAdd")}</MenuItem>
+                    <MenuItem value="remove">{t("cookieProfiles.opRemove")}</MenuItem>
+                  </TextField>
+                  {fields.write === "cookie" && (
+                    <TextField
+                      select
+                      size="small"
+                      label={t("cookieProfiles.listCookie")}
+                      value={fields.listCookie}
+                      onChange={(e) => set({ listCookie: e.target.value })}
+                      helperText={t("cookieProfiles.listCookieHint")}
+                      error={named === "" && fields.listCookie === ""}
+                      slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
+                      sx={{ flex: 1 }}
+                    >
+                      <MenuItem value="">
+                        {named === ""
+                          ? t("cookieProfiles.cookieAny")
+                          : t("cookieProfiles.cookieOfRule", { name: named })}
+                      </MenuItem>
+                      {cookies.map((item) => (
+                        <MenuItem key={item.name} value={item.name}>
+                          {item.name}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )}
+                </Stack>
+              </>
+            )}
+
+            {fields.target !== "" && !self && fields.target !== TO_SCORE && fields.target !== TO_DATASET && (
+              <TextField
+                select
+                size="small"
+                label={t("cookieProfiles.verb")}
+                value={fields.verb}
+                onChange={(e) =>
+                  set({
+                    verb: e.target.value,
+                    /*
+                     * Баллы копятся в счётчиках адреса и сети -- «этот запрос» у
+                     * накинутых баллов мёртвая пара, и первым по словарю стоять
+                     * она не должна.
+                     */
+                    axis: e.target.value === "note" ? "ip" : "",
+                  })
+                }
+                helperText={
+                  fields.verb === ""
+                    ? t("cookieProfiles.verbHint")
+                    : t(`actions.verbs.${fields.verb}.hint`)
+                }
+              >
+                {verbMenuItems(t, registry, verbs, fields.verb)}
+              </TextField>
+            )}
+
+            {/*
+              Фаза вызова адресата: у имени на двух фазах вызова два, и режим
+              можно поставить одному. Пусто -- обоим, как без поля на проводе.
+            */}
+            {isControlVerb(fields.verb) && (
+              <TextField
+                select
+                size="small"
+                label={t("actions.phase.label")}
+                value={fields.phase}
+                onChange={(e) => set({ phase: e.target.value })}
+                helperText={t("actions.phase.hint")}
+                /* Пустое значение -- «на всех фазах», а не незаполненное поле: слово показывается. */
+                slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
+              >
+                <MenuItem value="">{t("actions.phase.all")}</MenuItem>
+                {ASK_PHASES.map((phase) => (
+                  <MenuItem key={phase} value={phase}>
+                    {t(`actions.phase.${phase}`)}
                   </MenuItem>
                 ))}
-            </TextField>
-          )}
+              </TextField>
+            )}
 
-          {fields.verb === "threshold" && (
-            <Stack direction="row" spacing={1}>
+            {fields.target !== "" && fields.verb === "note" && axes.length > 1 && (
               <TextField
                 select
                 size="small"
-                label={t("actions.direction.label")}
-                value={fields.direction}
-                onChange={(e) =>
-                  set({ direction: e.target.value as AskFields["direction"] })
-                }
-                sx={{ flex: 1.2 }}
+                label={t("actions.counter.label")}
+                value={fields.axis === "" ? "ip" : fields.axis}
+                onChange={(e) => set({ axis: e.target.value })}
               >
-                <MenuItem value="stricter">{t("actions.direction.stricter")}</MenuItem>
-                <MenuItem value="softer">{t("actions.direction.softer")}</MenuItem>
+                {axes
+                  .filter((axis) => axis !== "request")
+                  .map((axis) => (
+                    <MenuItem key={axis} value={axis}>
+                      {axisLabel(t, axis)}
+                    </MenuItem>
+                  ))}
               </TextField>
+            )}
+
+            {fields.verb === "threshold" && (
+              <Stack direction="row" spacing={1}>
+                <TextField
+                  select
+                  size="small"
+                  label={t("actions.direction.label")}
+                  value={fields.direction}
+                  onChange={(e) =>
+                    set({ direction: e.target.value as AskFields["direction"] })
+                  }
+                  sx={{ flex: 1.2 }}
+                >
+                  <MenuItem value="stricter">{t("actions.direction.stricter")}</MenuItem>
+                  <MenuItem value="softer">{t("actions.direction.softer")}</MenuItem>
+                </TextField>
+                <TextField
+                  size="small"
+                  label={t("actions.direction.percent")}
+                  value={fields.percent}
+                  onChange={(e) => set({ percent: e.target.value })}
+                  required
+                  helperText={t("actions.direction.percentHint")}
+                  sx={{ flex: 1 }}
+                />
+              </Stack>
+            )}
+
+            {/*
+              Метка: свободная строка оператора -- по ней события ищут и
+              группируют в журнале. Подсказок ей взять неоткуда, проверяется
+              только форма.
+            */}
+            {fields.verb === "mark" && (
               <TextField
                 size="small"
-                label={t("actions.direction.percent")}
-                value={fields.percent}
-                onChange={(e) => set({ percent: e.target.value })}
+                label={t("actions.mark.marker")}
+                value={fields.marker}
+                onChange={(e) => set({ marker: e.target.value })}
                 required
-                helperText={t("actions.direction.percentHint")}
-                sx={{ flex: 1 }}
+                error={fields.marker !== "" && markerError(fields.marker) !== null}
+                helperText={t("actions.mark.markerHint", { max: MARKER_MAX_BYTES })}
               />
-            </Stack>
-          )}
+            )}
 
-          {/*
-            Метка: свободная строка оператора -- по ней события ищут и
-            группируют в журнале. Подсказок ей взять неоткуда, проверяется
-            только форма.
-          */}
-          {fields.verb === "mark" && (
-            <TextField
-              size="small"
-              label={t("actions.mark.marker")}
-              value={fields.marker}
-              onChange={(e) => set({ marker: e.target.value })}
-              required
-              error={fields.marker !== "" && markerError(fields.marker) !== null}
-              helperText={t("actions.mark.markerHint", { max: MARKER_MAX_BYTES })}
-            />
-          )}
-
-          {/* Корзина: только для счётчика -- у него шкал несколько. */}
-          {fields.verb === "note" && fields.target === "counter" && (
-            <TextField
-              size="small"
-              label={t("actions.counter.bucket")}
-              value={fields.counter}
-              onChange={(e) => set({ counter: e.target.value.trim() })}
-              helperText={t("actions.counter.bucketHint")}
-            />
-          )}
-
-          {fields.verb === "note" && (
-            <Stack direction="row" spacing={1}>
-              <TextField
-                select
-                size="small"
-                label={t("actions.counter.direction")}
-                value={fields.noteDir}
-                onChange={(e) =>
-                  set({ noteDir: e.target.value as AskFields["noteDir"] })
-                }
-                sx={{ flex: 1.2 }}
-              >
-                <MenuItem value="add">{t("actions.counter.add")}</MenuItem>
-                <MenuItem value="cut">{t("actions.counter.cut")}</MenuItem>
-              </TextField>
+            {/* Корзина: только для счётчика -- у него шкал несколько. */}
+            {fields.verb === "note" && fields.target === "counter" && (
               <TextField
                 size="small"
-                label={t("actions.counter.percent")}
-                value={fields.notePercent}
-                onChange={(e) => set({ notePercent: e.target.value })}
-                required
-                helperText={t("actions.counter.percentHint")}
-                sx={{ flex: 1 }}
+                label={t("actions.counter.bucket")}
+                value={fields.counter}
+                onChange={(e) => set({ counter: e.target.value.trim() })}
+                helperText={t("actions.counter.bucketHint")}
               />
-            </Stack>
-          )}
+            )}
 
-          {/* Переключить группу: что и куда, называет отправитель. */}
-          {fields.verb === "mutate" && (
-            <Stack direction="row" spacing={1}>
-              <TextField
-                size="small"
-                label={t("actions.mutate.group")}
-                value={fields.group}
-                onChange={(e) => set({ group: e.target.value.trim() })}
-                required
-                helperText={t("actions.mutate.groupHint")}
-                sx={{ flex: 1.2 }}
-              />
-              <TextField
-                select
-                size="small"
-                label={t("actions.mutate.set")}
-                value={fields.set}
-                onChange={(e) => set({ set: e.target.value as AskFields["set"] })}
-                sx={{ flex: 1 }}
-              >
-                <MenuItem value="on">{t("actions.mutate.on")}</MenuItem>
-                <MenuItem value="off">{t("actions.mutate.off")}</MenuItem>
-              </TextField>
-            </Stack>
-          )}
+            {fields.verb === "note" && (
+              <Stack direction="row" spacing={1}>
+                <TextField
+                  select
+                  size="small"
+                  label={t("actions.counter.direction")}
+                  value={fields.noteDir}
+                  onChange={(e) =>
+                    set({ noteDir: e.target.value as AskFields["noteDir"] })
+                  }
+                  sx={{ flex: 1.2 }}
+                >
+                  <MenuItem value="add">{t("actions.counter.add")}</MenuItem>
+                  <MenuItem value="cut">{t("actions.counter.cut")}</MenuItem>
+                </TextField>
+                <TextField
+                  size="small"
+                  label={t("actions.counter.percent")}
+                  value={fields.notePercent}
+                  onChange={(e) => set({ notePercent: e.target.value })}
+                  required
+                  helperText={t("actions.counter.percentHint")}
+                  sx={{ flex: 1 }}
+                />
+              </Stack>
+            )}
 
-          {/* Глаголы записи: сторона, у archive -- объекты, срок и предел. */}
-          <AuditFields
-            verb={fields.verb}
-            axis={fields.axis}
-            set={fields.set}
-            record={fields.record}
-            ttl={fields.archiveTtl}
-            when={fields.archiveWhen}
-            onChange={(patch) =>
-              set({
-                ...(patch.axis !== undefined ? { axis: patch.axis } : {}),
-                ...(patch.set !== undefined ? { set: patch.set } : {}),
-                ...(patch.record !== undefined ? { record: patch.record } : {}),
-                ...(patch.ttl !== undefined ? { archiveTtl: patch.ttl } : {}),
-                ...(patch.when !== undefined ? { archiveWhen: patch.when } : {}),
-              })
-            }
-          />
+            {/* Переключить группу: что и куда, называет отправитель. */}
+            {fields.verb === "mutate" && (
+              <Stack direction="row" spacing={1}>
+                <TextField
+                  size="small"
+                  label={t("actions.mutate.group")}
+                  value={fields.group}
+                  onChange={(e) => set({ group: e.target.value.trim() })}
+                  required
+                  helperText={t("actions.mutate.groupHint")}
+                  sx={{ flex: 1.2 }}
+                />
+                <TextField
+                  select
+                  size="small"
+                  label={t("actions.mutate.set")}
+                  value={fields.set}
+                  onChange={(e) => set({ set: e.target.value as AskFields["set"] })}
+                  sx={{ flex: 1 }}
+                >
+                  <MenuItem value="on">{t("actions.mutate.on")}</MenuItem>
+                  <MenuItem value="off">{t("actions.mutate.off")}</MenuItem>
+                </TextField>
+              </Stack>
+            )}
 
-          {(fields.verb !== "" || fields.target === TO_DATASET) && (
-            <TextField
-              size="small"
-              label={t("cookieProfiles.code")}
-              value={fields.code}
-              onChange={(e) => set({ code: e.target.value.toUpperCase() })}
-              helperText={
-                fields.target === TO_DATASET
-                  ? t("cookieProfiles.listCodeHint")
-                  : t("cookieProfiles.codeHint")
+            {/* Глаголы записи: сторона, у archive -- объекты, срок и предел. */}
+            <AuditFields
+              verb={fields.verb}
+              axis={fields.axis}
+              set={fields.set}
+              record={fields.record}
+              ttl={fields.archiveTtl}
+              when={fields.archiveWhen}
+              onChange={(patch) =>
+                set({
+                  ...(patch.axis !== undefined ? { axis: patch.axis } : {}),
+                  ...(patch.set !== undefined ? { set: patch.set } : {}),
+                  ...(patch.record !== undefined ? { record: patch.record } : {}),
+                  ...(patch.ttl !== undefined ? { archiveTtl: patch.ttl } : {}),
+                  ...(patch.when !== undefined ? { archiveWhen: patch.when } : {}),
+                })
               }
             />
-          )}
+
+            {(fields.verb !== "" || fields.target === TO_DATASET) && (
+              <TextField
+                size="small"
+                label={t("cookieProfiles.code")}
+                value={fields.code}
+                onChange={(e) => set({ code: e.target.value.toUpperCase() })}
+                helperText={
+                  fields.target === TO_DATASET
+                    ? t("cookieProfiles.listCodeHint")
+                    : t("cookieProfiles.codeHint")
+                }
+              />
+            )}
+          </DialogSection>
 
           {/* Что мешает сохранить -- словами, а не одной погашенной кнопкой. */}
           {blocked !== null && (

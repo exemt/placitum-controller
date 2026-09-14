@@ -157,3 +157,57 @@ test("renderPolicyYaml of an empty policy carries only the header", () => {
   assert.equal(yaml.includes("prior:"), false);
   assert.equal(yaml.includes("outcomes:"), false);
 });
+
+test("on: rule narrows by numbers and tags, and prints both", () => {
+  const policy = validatePolicy({
+    outcomes: [
+      {
+        on: "rule",
+        rules: ["942100", "942000-942999"],
+        tags: ["paranoia-level/1"],
+        to: "captcha",
+        do: "challenge",
+      },
+      { on: "rule", tags: ["attack-sqli"], list: "hot", write: "addr", ttl_s: 3600 },
+    ],
+  });
+
+  const yaml = renderPolicyYaml("strict", policy);
+
+  assert.match(
+    yaml,
+    / {2}- on: rule\n {4}rules: \["942100", "942000-942999"\]\n {4}tags: \["paranoia-level\/1"\]\n {4}to: "captcha"\n/,
+  );
+  assert.match(yaml, / {2}- on: rule\n {4}tags: \["attack-sqli"\]\n {4}list: "hot"\n/);
+
+  // Фильтры пишутся только у своего повода: у прочих строк их нет вовсе.
+  const plain = renderPolicyYaml(
+    "strict",
+    validatePolicy({ outcomes: [{ on: "score", at: 30, to: "captcha", do: "challenge" }] }),
+  );
+
+  assert.equal(plain.includes("rules:") || plain.includes("tags:"), false);
+});
+
+test("on: rule rejects what the loader rejects", () => {
+  const docs: Record<string, unknown> = {
+    // Строка без фильтра дёргалась бы любой находкой.
+    "no filter": { outcomes: [{ on: "rule", list: "x", ttl_s: 60 }] },
+    "reversed range": {
+      outcomes: [{ on: "rule", rules: ["942999-942000"], list: "x", ttl_s: 60 }],
+    },
+    "not a number": { outcomes: [{ on: "rule", rules: ["sqli"], list: "x", ttl_s: 60 }] },
+    "empty tag": { outcomes: [{ on: "rule", tags: [""], list: "x", ttl_s: 60 }] },
+    "at on rule": {
+      outcomes: [{ on: "rule", at: 30, tags: ["attack-sqli"], list: "x", ttl_s: 60 }],
+    },
+    "rules on score": {
+      outcomes: [{ on: "score", at: 30, rules: ["942100"], list: "x", ttl_s: 60 }],
+    },
+    "tags on allow": { outcomes: [{ on: "allow", tags: ["attack-sqli"], list: "x", ttl_s: 60 }] },
+  };
+
+  for (const [name, doc] of Object.entries(docs)) {
+    assert.throws(() => validatePolicy(doc), PolicyError, name);
+  }
+});
