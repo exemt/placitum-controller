@@ -3,6 +3,7 @@ import type { Theme } from "@mui/material/styles";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
 import Drawer from "@mui/material/Drawer";
 import MenuItem from "@mui/material/MenuItem";
 import Table from "@mui/material/Table";
@@ -13,7 +14,6 @@ import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import DeleteIcon from "@mui/icons-material/Delete";
-import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import EditNoteOutlinedIcon from "@mui/icons-material/EditNoteOutlined";
 
@@ -33,7 +33,6 @@ import {
   weakeningVerbs,
 } from "../api.ts";
 import { Form } from "../components/Form.tsx";
-import { CopyNameModal } from "../components/CopyNameModal.tsx";
 import { RulesEditorModal } from "../components/rules-editor/RulesEditorModal.tsx";
 import { Section, Text } from "../components/fields.tsx";
 import { SettingsTable } from "../components/settings-table.tsx";
@@ -574,8 +573,36 @@ function ProfileForm({
             }
           })();
         };
-  const [copyOpen, setCopyOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
+
+  /*
+   * Редактор открывает наборы профиля в порядке include и пишет их на сервер
+   * сам, вместе с порядком, -- поэтому фишка стоит в шапке порядка, а не среди
+   * кнопок формы. Пустому профилю править нечего; у нового профиля наборов
+   * ещё нет. Обёртка нужна, чтобы подсказка работала и у выключенной фишки.
+   */
+  const editorChip =
+    id === null ? undefined : (
+      <Tooltip
+        title={
+          order.length === 0
+            ? t("rulesEditor.openEmpty")
+            : t("rulesEditor.openHint")
+        }
+      >
+        <span>
+          <Chip
+            size="small"
+            variant="outlined"
+            clickable
+            icon={<EditNoteOutlinedIcon />}
+            label={t("rulesEditor.open")}
+            disabled={waiting || order.length === 0}
+            onClick={() => setEditorOpen(true)}
+          />
+        </span>
+      </Tooltip>
+    );
 
   return (
     <Form id="profile">
@@ -620,6 +647,7 @@ function ProfileForm({
           hint={t("profiles.sectionIncludeHint")}
           flush
           defaultExpanded
+          end={editorChip}
         >
           <IncludeOrder
             lists={lists}
@@ -716,41 +744,6 @@ function ProfileForm({
         }}
       />
       <Form.Actions>
-        {/*
-          Редактор открывает наборы профиля в порядке include и пишет их на
-          сервер сам, вместе с порядком. Пустому профилю править нечего; у
-          нового профиля наборов ещё нет. Обёртка нужна, чтобы подсказка
-          работала и у выключенной кнопки.
-        */}
-        {id !== null && (
-          <Tooltip
-            title={
-              order.length === 0
-                ? t("rulesEditor.openEmpty")
-                : t("rulesEditor.openHint")
-            }
-          >
-            <span>
-              <Button
-                size="small"
-                startIcon={<EditNoteOutlinedIcon />}
-                disabled={waiting || order.length === 0}
-                onClick={() => setEditorOpen(true)}
-              >
-                {t("rulesEditor.open")}
-              </Button>
-            </span>
-          </Tooltip>
-        )}
-        {id !== null && (
-          <Button
-            size="small"
-            startIcon={<ContentCopyOutlinedIcon />}
-            onClick={() => setCopyOpen(true)}
-          >
-            {t("copyModal.button")}
-          </Button>
-        )}
         {id !== null && !isDefault && (
           <Button
             size="small"
@@ -799,26 +792,6 @@ function ProfileForm({
           {id === null ? t("common.create") : t("common.save")}
         </Button>
       </Form.Actions>
-      {copyOpen && (
-        <CopyNameModal
-          title={t("copyModal.profileTitle")}
-          source={name.trim()}
-          onClose={() => setCopyOpen(false)}
-          onCopy={(next) => {
-            void dispatch(
-              saveProfileThunk({
-                scope,
-                id: null,
-                name: next,
-                description,
-                files: order,
-                dataFiles: dataOrder,
-              }),
-            );
-            setCopyOpen(false);
-          }}
-        />
-      )}
       {/*
         Редактор читает наборы по черновику порядка в форме, а не по детали:
         переставленное, но не записанное здесь, в редакторе стоит так же.

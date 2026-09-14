@@ -562,6 +562,7 @@ export function Section({
   expanded,
   onToggle,
   flush,
+  end,
   children,
 }: {
   title: string;
@@ -576,9 +577,16 @@ export function Section({
    * воздухе под шапкой.
    */
   flush?: boolean;
+  /**
+   * Действие в шапке справа, у шеврона: достаётся и у свёрнутой секции. Клик и
+   * фокус до шапки не доходят -- иначе нажатие заодно сворачивало бы секцию, а
+   * фокус подсвечивал бы шапку целиком.
+   */
+  end?: ReactNode;
   children: ReactNode;
 }) {
   const [uncontrolled, setUncontrolled] = useState(defaultExpanded === true);
+  const head = <BlockHead title={title} label={hint} />;
   const open = expanded ?? uncontrolled;
 
   return (
@@ -599,7 +607,24 @@ export function Section({
       }}
     >
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <BlockHead title={title} label={hint} />
+        {end === undefined ? (
+          head
+        ) : (
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{ alignItems: "center", justifyContent: "space-between", pr: 1 }}
+          >
+            {head}
+            <Box
+              onClick={(event) => event.stopPropagation()}
+              onFocus={(event) => event.stopPropagation()}
+              sx={{ display: "flex", alignItems: "center", flexShrink: 0 }}
+            >
+              {end}
+            </Box>
+          </Stack>
+        )}
       </AccordionSummary>
       <AccordionDetails sx={flush === true ? { p: "0 !important" } : undefined}>
         <FlushSectionProvider value={flush === true}>
