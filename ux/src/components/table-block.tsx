@@ -28,9 +28,6 @@ import { dataActionCellSx, SectionBleed, useFlushSection } from "./settings-tabl
  * постоянный текст занимает высоту карточки, а искать его приходят к той
  * строке, к которой он относится, -- в заголовках колонок он остаётся
  * тултипом ([HeadHint]).
- *
- * См. docs/controller/ux/settings-table.md, раздел «Таблицы данных внутри
- * секции».
  */
 
 /**
