@@ -1,0 +1,145 @@
+/* Всплывающая подсказка по ключевому слову: свёрнутая версия и та же
+   подсказка, раскрытая по Alt. Палитра — как у редактора, VS Code Dark+. */
+
+.kw-tooltip {
+  max-width: 340px;
+  padding: 10px 12px;
+  background: #252526;
+  color: #d4d4d4;
+  border: 1px solid #3c3c3c;
+}
+
+/* Развёрнутая версия шире и ограничена по высоте: подсказка не должна
+   закрывать собой весь редактор. */
+.kw-tooltip--expanded {
+  max-width: 560px;
+  max-height: 70vh;
+  overflow: hidden;
+}
+
+.kw-tooltip__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.kw-tooltip__name {
+  font-family: 'Fira Code', 'Cascadia Code', Menlo, Consolas, monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: #9cdcfe;
+}
+
+.kw-tooltip__chip {
+  height: 20px;
+  background: #37373d !important;
+  color: #cccccc !important;
+}
+
+.kw-tooltip__desc {
+  color: #cccccc;
+  line-height: 1.45;
+}
+
+.kw-tooltip__details {
+  margin-top: 10px;
+  border-top: 1px solid #3c3c3c;
+}
+
+.kw-tooltip__section {
+  margin-top: 10px;
+}
+
+.kw-tooltip__title {
+  margin: 0 0 4px;
+  font-family: system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8b8b8b;
+}
+
+.kw-tooltip__code {
+  margin: 0;
+  padding: 6px 8px;
+  background: #1e1e1e;
+  border: 1px solid #333333;
+  border-radius: 3px;
+  color: #d4d4d4;
+  font-family: 'Fira Code', 'Cascadia Code', Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Технические свойства — две колонки: подпись и значение. */
+.kw-tooltip__tech {
+  display: grid;
+  grid-template-columns: minmax(80px, auto) 1fr;
+  gap: 2px 12px;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.kw-tooltip__tech dt {
+  color: #8b8b8b;
+}
+
+.kw-tooltip__tech dd {
+  margin: 0;
+  color: #cccccc;
+}
+
+.kw-tooltip__section--warn .kw-tooltip__title {
+  color: #d7ba7d;
+}
+
+.kw-tooltip__list {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #cccccc;
+}
+
+.kw-tooltip__list li + li {
+  margin-top: 4px;
+}
+
+.kw-tooltip__caption {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #8b8b8b;
+}
+
+.kw-tooltip__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+}
+
+.kw-tooltip__link {
+  padding: 1px 6px;
+  background: #1e1e1e;
+  border: 1px solid #333333;
+  border-radius: 3px;
+  font-family: 'Fira Code', 'Cascadia Code', Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  color: #9cdcfe;
+}
+
+/* Намёк на Alt: виден только у слов, у которых расширенная версия есть. */
+.kw-tooltip__footer {
+  margin-top: 10px;
+  padding-top: 6px;
+  border-top: 1px solid #3c3c3c;
+  font-family: system-ui, sans-serif;
+  font-size: 11px;
+  color: #6e7681;
+}

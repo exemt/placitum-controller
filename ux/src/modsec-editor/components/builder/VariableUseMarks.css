@@ -1,0 +1,43 @@
+/* Квадратные чипы чтения/записи у номера правила в списке связанных. */
+
+.variable-use-marks {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.variable-use-marks__chip {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Та же высота, что у чипа номера рядом; ширина = высота — квадрат. */
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid #3c3c3c;
+  border-radius: 4px;
+  background: #3c3c3c;
+  color: #9aa0a6;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.variable-use-marks__chip--read {
+  color: #9cdcfe;
+}
+
+.variable-use-marks__chip--set,
+.variable-use-marks__chip--add,
+.variable-use-marks__chip--sub {
+  color: #c586c0;
+}
+
+.variable-use-marks__chip--delete {
+  color: #f48771;
+}
+
+.variable-use-marks__chip--expire {
+  color: #d7ba7d;
+}

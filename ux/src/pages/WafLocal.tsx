@@ -1,0 +1,1516 @@
+import { useEffect, useMemo, useState } from "react";
+import Badge from "@mui/material/Badge";
+import Box from "@mui/material/Box";
+import Checkbox from "@mui/material/Checkbox";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import Link from "@mui/material/Link";
+import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import AddIcon from "@mui/icons-material/Add";
+import DeleteIcon from "@mui/icons-material/Delete";
+import FilterAltIcon from "@mui/icons-material/FilterAlt";
+import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
+import { Link as RouterLink } from "react-router-dom";
+
+import { fetchSpaceHttp } from "../api.ts";
+import {
+  DraftCell,
+  FilterCell,
+  FilterSelect,
+  FilterText,
+  HEAD_H,
+  TableIconButton,
+  TableNotice,
+  TableNoticeRow,
+  type FilterOption,
+} from "../components/data-table/index.ts";
+import {
+  DialogFrame,
+  DialogInput,
+  DialogUnit,
+  DialogLines,
+  DialogNote,
+  DialogPick,
+  type DialogOption,
+} from "../components/dialog-kit.tsx";
+import {
+  CELL_PX,
+  flushTableSx,
+  HeadCell,
+  headCellSx,
+  SectionNotice,
+  TableBlock,
+  TableCols,
+} from "../components/table-block.tsx";
+import { Modal } from "../components/Modal.tsx";
+import {
+  dragSx,
+  GripCell,
+  GRIP_W,
+  moveTo,
+  useRowDrag,
+} from "../components/row-drag.tsx";
+import {
+  CondDialog,
+  asConds,
+  condTail,
+  withConds,
+  type Cond,
+} from "../config/CondDialog.tsx";
+import { useCatalog } from "../config/editors.tsx";
+import {
+  isAddressDataset,
+  isAddressVariable,
+  VariableEdit,
+} from "../config/VariableEdit.tsx";
+import type { Translate } from "../i18n/index.ts";
+import { asRecord, asString, setKey, type Doc } from "./config-fields.tsx";
+
+type Level = "server" | "location";
+
+export type CheckAction = "block" | "allow" | "wave";
+
+export interface LocalCheck {
+  dataset: string;
+  variable: string;
+  action: CheckAction;
+  response?: string;
+  conds?: Cond[];
+}
+
+export interface LocalRate {
+  key: string;
+  rate: string;
+  burst: number;
+  count?: "requests" | "waves" | "frames";
+  action?: "block" | "pass";
+  response?: string;
+  hash?: boolean;
+  list?: string;
+  ttl?: string;
+  conds?: Cond[];
+}
+
+type ListKey = "localChecks" | "localRates";
+
+const KINDS = ["inherit", "override"] as const;
+type Kind = (typeof KINDS)[number];
+
+const CHECK_ACTIONS: CheckAction[] = ["allow", "wave", "block"];
+const COUNTS = ["requests", "waves", "frames"] as const;
+const RATE_ACTIONS = ["block", "pass"] as const;
+const RATE_UNITS = ["s", "m"] as const;
+
+const RATE_RE = /^\d+r\/[sm]$/;
+
+type RateUnit = "s" | "m";
+
+function rateParts(value: string): { n: string; unit: RateUnit } {
+  const m = /^(\d*)r\/([sm])$/.exec(value.trim());
+  if (m === null) {
+    return { n: value.replace(/\D/g, ""), unit: "s" };
+  }
+  return { n: m[1] ?? "", unit: (m[2] as RateUnit | undefined) ?? "s" };
+}
+
+function rateOf(n: string, unit: RateUnit): string {
+  return n === "" ? "" : `${n}r/${unit}`;
+}
+
+const ACTIONS_W = 104;
+const DATASET_W = 150;
+const ACTION_W = 96;
+const PAGE_W = 130;
+const RATE_W = 92;
+const BURST_W = 76;
+const OUTCOME_W = 140;
+
+const CHECK_COLS = [GRIP_W, DATASET_W, undefined, ACTION_W, PAGE_W, ACTIONS_W];
+const RATE_COLS = [GRIP_W, undefined, RATE_W, BURST_W, OUTCOME_W, ACTIONS_W];
+const SPAN = 6;
+
+const NEW_CHECK: LocalCheck = {
+  dataset: "",
+  variable: "$binary_remote_addr",
+  action: "block",
+};
+const NEW_RATE: LocalRate = { key: "$binary_remote_addr", rate: "10r/s", burst: 20 };
+
+function colHint(key: string, text: string): string {
+  return `\`${key}\`\n\n${text}`;
+}
+
+function isPass(row: LocalCheck): boolean {
+  return row.action === "allow" || row.action === "wave";
+}
+
+function asChecks(value: unknown): LocalCheck[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const rows: LocalCheck[] = [];
+  for (const item of value) {
+    if (item === null || typeof item !== "object" || Array.isArray(item)) {
+      continue;
+    }
+    const rec = item as Doc;
+    const action: CheckAction =
+      rec.action === "allow" || rec.action === "wave"
+        ? rec.action
+        : "block";
+    const row: LocalCheck = {
+      dataset: asString(rec.dataset),
+      variable: asString(rec.variable),
+      action,
+    };
+    if (action === "block" && asString(rec.response) !== "") {
+      row.response = asString(rec.response);
+    }
+    const conds = asConds(rec.conds);
+    if (conds.length > 0) {
+      row.conds = conds;
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+
+function asRates(value: unknown): LocalRate[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const rows: LocalRate[] = [];
+  for (const item of value) {
+    if (item === null || typeof item !== "object" || Array.isArray(item)) {
+      continue;
+    }
+    const rec = item as Doc;
+    const row: LocalRate = {
+      key: asString(rec.key),
+      rate: asString(rec.rate),
+      burst: typeof rec.burst === "number" && Number.isFinite(rec.burst) ? rec.burst : 0,
+    };
+    if (rec.count === "waves" || rec.count === "requests" || rec.count === "frames") {
+      row.count = rec.count;
+    }
+    if (rec.action === "pass" || rec.action === "block") {
+      row.action = rec.action;
+    }
+    for (const key of ["response", "list", "ttl"] as const) {
+      const text = asString(rec[key]);
+      if (text !== "") {
+        row[key] = text;
+      }
+    }
+    const conds = asConds(rec.conds);
+    if (conds.length > 0) {
+      row.conds = conds;
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+
+function checkLine(row: LocalCheck): string {
+  const parts = ["waf_local_check", row.dataset, row.variable, `action=${row.action}`];
+  if (row.response) {
+    parts.push(`response=${row.response}`);
+  }
+  return `${parts.join(" ")}${condTail(row.conds)};`;
+}
+
+function rateLine(row: LocalRate): string {
+  const parts = ["waf_local_rate", row.key, `rate=${row.rate}`, `burst=${String(row.burst)}`];
+  if (row.count) {
+    parts.push(`count=${row.count}`);
+  }
+  if (row.action) {
+    parts.push(`action=${row.action}`);
+  }
+  if (row.response) {
+    parts.push(`response=${row.response}`);
+  }
+  if (row.hash) {
+    parts.push("hash=md5");
+  }
+  if (row.list) {
+    parts.push(`list=${row.list}`);
+  }
+  if (row.ttl) {
+    parts.push(`ttl=${row.ttl}`);
+  }
+  return `${parts.join(" ")}${condTail(row.conds)};`;
+}
+
+export function WafLocal({
+  t,
+  scope,
+  value,
+  onChange,
+  parent,
+  level = "location",
+}: {
+  t: Translate;
+  scope: string;
+  value: Doc;
+  onChange: (next: Doc) => void;
+  parent?: Doc;
+  level?: Level;
+}) {
+  const [shmZone, setShmZone] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void fetchSpaceHttp(scope)
+      .then((doc) => {
+        if (alive) {
+          const zone = asRecord(doc.waf_http).shmZone;
+          setShmZone(asString(asRecord(zone).name) !== "");
+        }
+      })
+      .catch(() => {
+        if (alive) {
+          setShmZone(null);
+        }
+      });
+    return () => {
+      alive = false;
+    };
+  }, [scope]);
+
+  const parentChecks = useMemo(() => asChecks(parent?.localChecks), [parent]);
+  const parentRates = useMemo(() => asRates(parent?.localRates), [parent]);
+
+  const checksKind = kindOf(value.localChecks, level);
+  const ratesKind = kindOf(value.localRates, level);
+
+  const kindOptions: FilterOption<Kind>[] =
+    level === "server"
+      ? []
+      : KINDS.map((item) => ({ value: item, label: t(`routeSettings.kind.${item}`) }));
+
+  const checks = useMemo(
+    () => (checksKind === "inherit" ? parentChecks : asChecks(value.localChecks)),
+    [checksKind, parentChecks, value.localChecks],
+  );
+  const rates = useMemo(
+    () => (ratesKind === "inherit" ? parentRates : asRates(value.localRates)),
+    [ratesKind, parentRates, value.localRates],
+  );
+
+  const setKind = (key: ListKey, next: Kind) => {
+    if (next === "inherit") {
+      onChange(setKey(value, key, undefined));
+      return;
+    }
+    const own = key === "localChecks" ? asChecks(value.localChecks) : asRates(value.localRates);
+    const from = key === "localChecks" ? parentChecks : parentRates;
+    onChange(setKey(value, key, own.length > 0 ? own : from));
+  };
+
+  const setChecks = (rows: LocalCheck[]) => {
+    onChange(setKey(value, "localChecks", rows));
+  };
+  const setRates = (rows: LocalRate[]) => {
+    onChange(setKey(value, "localRates", rows));
+  };
+
+  const emptyText = (own: boolean, above: number, off: string, none: string, parentless: string) =>
+    !own ? parentless : above > 0 ? off : none;
+
+  const checksEmpty = emptyText(
+    checksKind === "override",
+    parentChecks.length,
+    t("local.off"),
+    t("local.emptyChecks"),
+    t("local.parentEmptyChecks"),
+  );
+  const ratesEmpty = emptyText(
+    ratesKind === "override",
+    parentRates.length,
+    t("local.offRate"),
+    t("local.emptyRates"),
+    t("local.parentEmptyRates"),
+  );
+
+  return (
+    <Stack spacing={0}>
+      {shmZone === false && (checks.length > 0 || rates.length > 0) && (
+        <SectionNotice>
+          <TableNotice
+            kind="error"
+            title={t("local.noShmTitle")}
+            message={t("local.noShm")}
+            action={
+              <Link component={RouterLink} to="/config">
+                {`${t("nav.config")}: ${t("nav.http")}`}
+              </Link>
+            }
+          />
+        </SectionNotice>
+      )}
+
+      <TableBlock
+        title={t("local.checks")}
+        label={t("local.checksHint")}
+        kindLabel={t("local.kind")}
+        kind={checksKind}
+        options={kindOptions}
+        onKind={(next) => setKind("localChecks", next)}
+      >
+        <ChecksTable
+          t={t}
+          rows={checks}
+          empty={checksEmpty}
+          onChange={checksKind === "override" ? setChecks : undefined}
+        />
+      </TableBlock>
+
+      <TableBlock
+        title={t("local.rates")}
+        label={t("local.ratesHint")}
+        kindLabel={t("local.kind")}
+        kind={ratesKind}
+        options={kindOptions}
+        onKind={(next) => setKind("localRates", next)}
+        last
+      >
+        <RatesTable
+          t={t}
+          rows={rates}
+          empty={ratesEmpty}
+          onChange={ratesKind === "override" ? setRates : undefined}
+        />
+      </TableBlock>
+    </Stack>
+  );
+}
+
+function kindOf(value: unknown, level: Level): Kind {
+  if (Array.isArray(value)) {
+    return "override";
+  }
+  return level === "server" ? "override" : "inherit";
+}
+
+function datasetOptions(
+  t: Translate,
+  rows:
+    | {
+        name: string;
+        kind: string;
+        type?: string;
+        in_nginx: boolean;
+        active: boolean;
+        ttl?: string;
+        hash?: boolean;
+      }[]
+    | undefined,
+  current: string,
+  onlyActive = false,
+  emptyLabel?: string,
+): DialogOption<string>[] {
+  const picked = (rows ?? [])
+    .filter((row) => row.kind === "list" && row.in_nginx !== false)
+    .filter((row) => !onlyActive || row.active);
+  const names = picked.map((row) => row.name);
+  const options: DialogOption<string>[] = [
+    { value: "", label: emptyLabel ?? t("local.pickList") },
+  ];
+  for (const row of picked) {
+    const marks = [
+      row.active ? t("local.dynamicList") : t("local.staticList"),
+      row.active && row.ttl !== undefined ? `ttl=${row.ttl}` : "",
+      row.hash === true ? t("local.hashedList") : "",
+    ].filter((item) => item !== "");
+    options.push({
+      value: row.name,
+      label: row.name,
+      tag: row.type,
+      hint: marks.join(" · "),
+    });
+  }
+  if (current !== "" && !names.includes(current)) {
+    options.push({
+      value: current,
+      label: current,
+      tag: t("local.notDeclaredTag"),
+      hint: t("local.notDeclared"),
+      missing: true,
+    });
+  }
+  return options;
+}
+
+function pageOptions(
+  t: Translate,
+  rows: { name: string; type?: string; status?: number; page?: string }[] | undefined,
+  current: string,
+): DialogOption<string>[] {
+  const names = (rows ?? []).map((row) => row.name);
+  const options: DialogOption<string>[] = [{ value: "", label: t("local.defaultPage") }];
+  for (const row of rows ?? []) {
+    const marks = [
+      row.status === undefined ? "" : String(row.status),
+      row.page ?? "",
+    ].filter((item) => item !== "");
+    options.push({
+      value: row.name,
+      label: row.name,
+      tag: row.type,
+      ...(marks.length > 0 ? { hint: marks.join(" · ") } : {}),
+    });
+  }
+  if (current !== "" && !names.includes(current)) {
+    options.push({
+      value: current,
+      label: current,
+      tag: t("local.notDeclaredTag"),
+      hint: t("local.notDeclared"),
+      missing: true,
+    });
+  }
+  return options;
+}
+
+function uniq(items: string[]): string[] {
+  return [...new Set(items.filter((item) => item !== ""))];
+}
+
+function RowActions({
+  t,
+  conds,
+  editable,
+  onSettings,
+  onCond,
+  onDelete,
+}: {
+  t: Translate;
+  conds: Cond[];
+  editable: boolean;
+  onSettings?: () => void;
+  onCond: () => void;
+  onDelete: () => void;
+}) {
+  const count = conds.length;
+  return (
+    <FilterCell width={ACTIONS_W}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: 0.5,
+          width: "100%",
+        }}
+      >
+        {editable && onSettings !== undefined && (
+          <TableIconButton
+            icon={<SettingsOutlinedIcon />}
+            tooltip={t("local.rateConfigure")}
+            onClick={onSettings}
+          />
+        )}
+        {(editable || count > 0) && (
+          <TableIconButton
+            icon={
+              <Badge
+                badgeContent={count}
+                color="primary"
+                sx={{
+                  "& .MuiBadge-badge": {
+                    fontSize: "0.6rem",
+                    height: 14,
+                    minWidth: 14,
+                    px: 0.5,
+                    top: -2,
+                    right: -4,
+                  },
+                }}
+              >
+                <FilterAltIcon />
+              </Badge>
+            }
+            disabled={!editable}
+            tooltip={count === 0 ? t("local.addCond") : `${t("local.conds")}:${condTail(conds)}`}
+            onClick={onCond}
+          />
+        )}
+        {editable && (
+          <TableIconButton
+            color="error"
+            icon={<DeleteIcon />}
+            tooltip={t("common.delete")}
+            onClick={onDelete}
+          />
+        )}
+      </Box>
+    </FilterCell>
+  );
+}
+
+function AddCell({ label, onAdd }: { label: string; onAdd: () => void }) {
+  return (
+    <FilterCell width={ACTIONS_W}>
+      <Box sx={{ display: "flex", justifyContent: "flex-end", width: "100%" }}>
+        <TableIconButton color="success" icon={<AddIcon />} tooltip={label} onClick={onAdd} />
+      </Box>
+    </FilterCell>
+  );
+}
+
+function EmptyCell({ width }: { width: number }) {
+  return <TableCell sx={{ ...headCellSx, width, minWidth: 0 }} />;
+}
+
+function DatasetCells({
+  t,
+  row,
+  editable,
+  onChange,
+}: {
+  t: Translate;
+  row: LocalCheck;
+  editable: boolean;
+  onChange: (next: LocalCheck) => void;
+}) {
+  const catalog = useCatalog();
+  const type = catalog?.datasets.find((item) => item.name === row.dataset)?.type;
+
+  return (
+    <>
+      <FilterSelect
+        value={row.dataset}
+        width={DATASET_W}
+        disabled={!editable}
+        options={datasetOptions(t, catalog?.datasets, row.dataset)}
+        unset=""
+        onChange={(dataset) => onChange({ ...row, dataset })}
+      />
+      <FilterCell active={row.variable !== ""} grow>
+        <VariableEdit
+          value={row.variable}
+          datasetType={type}
+          disabled={!editable}
+          onChange={(variable) => onChange({ ...row, variable })}
+        />
+      </FilterCell>
+    </>
+  );
+}
+
+function ChecksTable({
+  t,
+  rows,
+  empty,
+  onChange,
+}: {
+  t: Translate;
+  rows: LocalCheck[];
+  empty: string;
+  onChange?: (next: LocalCheck[]) => void;
+}) {
+  const catalog = useCatalog();
+  const editable = onChange !== undefined;
+  const drag = useRowDrag(rows.length, (from, to) => onChange?.(moveTo(rows, from, to)));
+  const [condOpen, setCondOpen] = useState<number | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+
+  const actionOptions: FilterOption<CheckAction>[] = CHECK_ACTIONS.map((action) => ({
+    value: action,
+    label: action,
+  }));
+
+  const shadowed = useMemo(() => {
+    let blocked = false;
+    for (const row of rows) {
+      if (isPass(row)) {
+        if (blocked) {
+          return true;
+        }
+        continue;
+      }
+      blocked = true;
+    }
+    return false;
+  }, [rows]);
+
+  const noDataset = rows.some((row) => row.dataset === "");
+
+  const patch = (index: number, edit: (row: LocalCheck) => void) =>
+    onChange?.(
+      rows.map((item, i) => {
+        if (i !== index) {
+          return item;
+        }
+        const next = { ...item };
+        edit(next);
+        return next;
+      }),
+    );
+
+  return (
+    <Box sx={{ minWidth: 0, overflowX: "hidden" }}>
+      <Table
+        size="small"
+        sx={{
+          ...flushTableSx,
+          userSelect: drag.drag === null ? "auto" : "none",
+        }}
+      >
+        <TableCols widths={CHECK_COLS} />
+        <TableHead>
+          <TableRow>
+            <HeadCell label={t("local.dataset")} colSpan={2} />
+            <HeadCell label={t("local.value")} />
+            <HeadCell
+              label={t("local.decision")}
+              help={colHint("action=", t("local.actionHint"))}
+            />
+            <HeadCell
+              label={t("local.page")}
+              help={colHint("response=", t("local.responseHint"))}
+            />
+            {editable ? (
+              <AddCell label={t("local.addCheck")} onAdd={() => setAddOpen(true)} />
+            ) : (
+              <EmptyCell width={ACTIONS_W} />
+            )}
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {rows.length === 0 && (
+            <TableNoticeRow colSpan={SPAN} kind="empty" message={empty} />
+          )}
+          {rows.map((row, index) => {
+            const blocks = row.action === "block";
+            return (
+              <TableRow
+                key={`${row.dataset}-${index}`}
+                data-rule=""
+                sx={editable ? dragSx(drag, index) : undefined}
+              >
+                {editable ? (
+                  <GripCell index={index} drag={drag} title={t("local.drag")} />
+                ) : (
+                  <EmptyCell width={GRIP_W} />
+                )}
+                <DatasetCells
+                  t={t}
+                  row={row}
+                  editable={editable}
+                  onChange={(next) =>
+                    onChange?.(rows.map((item, i) => (i === index ? next : item)))
+                  }
+                />
+                <FilterSelect
+                  value={row.action}
+                  width={ACTION_W}
+                  disabled={!editable}
+                  options={actionOptions}
+                  unset="block"
+                  onChange={(action) =>
+                    patch(index, (next) => {
+                      next.action = action;
+                      if (action !== "block") {
+                        delete next.response;
+                      }
+                    })
+                  }
+                />
+                <FilterSelect
+                  value={blocks ? (row.response ?? "") : ""}
+                  width={PAGE_W}
+                  disabled={!editable || !blocks}
+                  options={
+                    blocks
+                      ? pageOptions(t, catalog?.deny_responses, row.response ?? "")
+                      : [{ value: "", label: "—" }]
+                  }
+                  unset=""
+                  onChange={(response) =>
+                    patch(index, (next) => {
+                      if (response === "") {
+                        delete next.response;
+                      } else {
+                        next.response = response;
+                      }
+                    })
+                  }
+                />
+                <RowActions
+                  t={t}
+                  conds={row.conds ?? []}
+                  editable={editable}
+                  onCond={() => setCondOpen(index)}
+                  onDelete={() => onChange?.(rows.filter((_, i) => i !== index))}
+                />
+              </TableRow>
+            );
+          })}
+          {editable && shadowed && (
+            <TableNoticeRow
+              colSpan={SPAN}
+              severity="warning"
+              title={t("local.orderTitle")}
+              message={t("local.orderHint")}
+            />
+          )}
+          {noDataset && (
+            <TableNoticeRow
+              colSpan={SPAN}
+              severity="warning"
+              title={t("local.badRowTitle")}
+              message={t("local.noDataset")}
+            />
+          )}
+        </TableBody>
+      </Table>
+
+      {editable && condOpen !== null && rows[condOpen] !== undefined && (
+        <CondDialog
+          t={t}
+          title={rows[condOpen].dataset}
+          conds={rows[condOpen].conds ?? []}
+          line={(conds) => checkLine(withConds(rows[condOpen] as LocalCheck, conds))}
+          onClose={() => setCondOpen(null)}
+          onApply={(conds) => {
+            onChange?.(rows.map((item, i) => (i === condOpen ? withConds(item, conds) : item)));
+            setCondOpen(null);
+          }}
+        />
+      )}
+
+      {editable && addOpen && (
+        <CheckDialog
+          t={t}
+          title={t("local.addCheckTitle")}
+          submit={t("common.add")}
+          row={NEW_CHECK}
+          onClose={() => setAddOpen(false)}
+          onApply={(next) => {
+            onChange?.([...rows, next]);
+            setAddOpen(false);
+          }}
+        />
+      )}
+    </Box>
+  );
+}
+
+function rateSummary(t: Translate, row: LocalRate): string {
+  const parts: string[] = [];
+  if (row.count === "waves") {
+    parts.push(t("local.sumWaves"));
+  } else if (row.count === "frames") {
+    parts.push(t("local.sumFrames"));
+  }
+  if (row.action === "pass") {
+    parts.push(t("local.sumPass"));
+    return parts.join(" · ");
+  }
+  parts.push(row.response ? t("local.sumPage", { name: row.response }) : t("local.sumPageDefault"));
+  if (row.hash) {
+    parts.push(t("local.sumHash"));
+  }
+  if (row.list) {
+    parts.push(
+      row.ttl
+        ? t("local.sumBanTtl", { list: row.list, ttl: row.ttl })
+        : t("local.sumBan", { list: row.list }),
+    );
+  }
+  return parts.join(" · ");
+}
+
+function rateSig(row: LocalRate): string {
+  return [row.key.trim(), row.rate.trim(), String(row.burst), row.count ?? "requests"].join("|");
+}
+
+function rateLabel(row: LocalRate, index: number): string {
+  return row.key.trim() === "" ? `#${String(index + 1)}` : row.key.trim();
+}
+
+function RatesTable({
+  t,
+  rows,
+  empty,
+  onChange,
+}: {
+  t: Translate;
+  rows: LocalRate[];
+  empty: string;
+  onChange?: (next: LocalRate[]) => void;
+}) {
+  const catalog = useCatalog();
+  const editable = onChange !== undefined;
+  const drag = useRowDrag(rows.length, (from, to) => onChange?.(moveTo(rows, from, to)));
+  const [open, setOpen] = useState<number | null>(null);
+  const [condOpen, setCondOpen] = useState<number | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+
+  const patch = (index: number, edit: (row: LocalRate) => void) =>
+    onChange?.(
+      rows.map((item, i) => {
+        if (i !== index) {
+          return item;
+        }
+        const next = { ...item };
+        edit(next);
+        return next;
+      }),
+    );
+
+  const broken = uniq(
+    rows
+      .filter((row) => row.key.trim() === "" || !RATE_RE.test(row.rate.trim()))
+      .map(rateLabel),
+  );
+
+  const twins = useMemo(() => {
+    const seen = new Map<string, number>();
+    for (const row of rows) {
+      const sig = rateSig(row);
+      seen.set(sig, (seen.get(sig) ?? 0) + 1);
+    }
+    return uniq(
+      rows.filter((row) => (seen.get(rateSig(row)) ?? 0) > 1).map((row, index) => rateLabel(row, index)),
+    );
+  }, [rows]);
+
+  const banNoTtl = uniq(
+    rows
+      .filter((row) => {
+        if (!row.list || row.ttl) {
+          return false;
+        }
+        const ds = catalog?.datasets.find((item) => item.name === row.list);
+        return ds !== undefined && asString(ds.ttl) === "";
+      })
+      .map((row) => row.list ?? ""),
+  );
+
+  const editing = open === null ? undefined : rows[open];
+
+  return (
+    <Box sx={{ minWidth: 0, overflowX: "hidden" }}>
+      <Table
+        size="small"
+        sx={{
+          ...flushTableSx,
+          userSelect: drag.drag === null ? "auto" : "none",
+        }}
+      >
+        <TableCols widths={RATE_COLS} />
+        <TableHead>
+          <TableRow>
+            <HeadCell label={t("local.key")} colSpan={2} />
+            <HeadCell
+              label={t("local.speed")}
+              help={colHint("rate=", t("local.rateFieldHint"))}
+            />
+            <HeadCell
+              label={t("local.reserve")}
+              help={colHint("burst=", t("local.burstHint"))}
+            />
+            <HeadCell label={t("local.outcome")} help={t("local.rateHint")} />
+            {editable ? (
+              <AddCell label={t("local.addRate")} onAdd={() => setAddOpen(true)} />
+            ) : (
+              <EmptyCell width={ACTIONS_W} />
+            )}
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {rows.length === 0 && (
+            <TableNoticeRow colSpan={SPAN} kind="empty" message={empty} />
+          )}
+          {rows.map((row, index) => (
+            <TableRow
+              key={`${row.key}-${index}`}
+              data-rule=""
+              sx={editable ? dragSx(drag, index) : undefined}
+            >
+              {editable ? (
+                <GripCell index={index} drag={drag} title={t("local.drag")} />
+              ) : (
+                <EmptyCell width={GRIP_W} />
+              )}
+              <FilterCell active={row.key !== ""} grow>
+                <VariableEdit
+                  value={row.key}
+                  disabled={!editable}
+                  onChange={(key) =>
+                    patch(index, (next) => {
+                      next.key = key;
+                    })
+                  }
+                />
+              </FilterCell>
+              <FilterText
+                value={row.rate}
+                placeholder="10r/s"
+                width={RATE_W}
+                mono
+                plain
+                disabled={!editable}
+                onChange={(rate) =>
+                  patch(index, (next) => {
+                    next.rate = rate;
+                  })
+                }
+              />
+              <DraftCell
+                value={String(row.burst)}
+                placeholder="0"
+                width={BURST_W}
+                disabled={!editable}
+                onChange={(raw) =>
+                  patch(index, (next) => {
+                    const n = Number(raw.trim());
+                    next.burst = raw.trim() === "" || !Number.isInteger(n) || n < 0 ? 0 : n;
+                  })
+                }
+              />
+              <TableCell
+                title={rateSummary(t, row)}
+                sx={{
+                  py: 0,
+                  height: HEAD_H,
+                  px: CELL_PX,
+                  maxWidth: 0,
+                  fontSize: "0.75rem",
+                  color: "text.secondary",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {rateSummary(t, row)}
+              </TableCell>
+              <RowActions
+                t={t}
+                conds={row.conds ?? []}
+                editable={editable}
+                onSettings={() => setOpen(index)}
+                onCond={() => setCondOpen(index)}
+                onDelete={() => onChange?.(rows.filter((_, i) => i !== index))}
+              />
+            </TableRow>
+          ))}
+          {broken.length > 0 && (
+            <TableNoticeRow
+              colSpan={SPAN}
+              severity="warning"
+              title={t("local.badRowTitle")}
+              message={t("local.badRate", { keys: broken.join(", ") })}
+            />
+          )}
+          {twins.length > 0 && (
+            <TableNoticeRow
+              colSpan={SPAN}
+              severity="warning"
+              title={t("local.dupRuleTitle")}
+              message={t("local.dupRule", { keys: twins.join(", ") })}
+            />
+          )}
+          {banNoTtl.length > 0 && (
+            <TableNoticeRow
+              colSpan={SPAN}
+              severity="warning"
+              title={t("local.banNoTtlTitle")}
+              message={t("local.banNoTtl", { lists: banNoTtl.join(", ") })}
+            />
+          )}
+        </TableBody>
+      </Table>
+
+      {editable && condOpen !== null && rows[condOpen] !== undefined && (
+        <CondDialog
+          t={t}
+          title={rows[condOpen].key}
+          conds={rows[condOpen].conds ?? []}
+          line={(conds) => rateLine(withConds(rows[condOpen] as LocalRate, conds))}
+          onClose={() => setCondOpen(null)}
+          onApply={(conds) => {
+            onChange?.(rows.map((item, i) => (i === condOpen ? withConds(item, conds) : item)));
+            setCondOpen(null);
+          }}
+        />
+      )}
+
+      {editable && open !== null && editing !== undefined && (
+        <RateDialog
+          t={t}
+          title={t("local.rateSettings", { key: editing.key })}
+          submit={t("common.apply")}
+          row={editing}
+          onClose={() => setOpen(null)}
+          onApply={(next) => {
+            onChange?.(rows.map((item, i) => (i === open ? next : item)));
+            setOpen(null);
+          }}
+        />
+      )}
+
+      {editable && addOpen && (
+        <RateDialog
+          t={t}
+          title={t("local.addRateTitle")}
+          submit={t("common.add")}
+          row={NEW_RATE}
+          onClose={() => setAddOpen(false)}
+          onApply={(next) => {
+            onChange?.([...rows, next]);
+            setAddOpen(false);
+          }}
+        />
+      )}
+    </Box>
+  );
+}
+
+function CheckDialog({
+  t,
+  title,
+  submit,
+  row,
+  onClose,
+  onApply,
+}: {
+  t: Translate;
+  title: string;
+  submit: string;
+  row: LocalCheck;
+  onClose: () => void;
+  onApply: (next: LocalCheck) => void;
+}) {
+  const catalog = useCatalog();
+  const [draft, setDraft] = useState<LocalCheck>(row);
+
+  const type = catalog?.datasets.find((item) => item.name === draft.dataset)?.type;
+  const blocks = draft.action === "block";
+  const variable = draft.variable.trim();
+
+  const mismatch =
+    draft.dataset !== "" &&
+    variable !== "" &&
+    isAddressDataset(type) &&
+    !isAddressVariable(variable);
+
+  const ready = draft.dataset !== "" && variable !== "" && !mismatch;
+
+  const patch = (edit: (next: LocalCheck) => void) => {
+    const next = { ...draft };
+    edit(next);
+    setDraft(next);
+  };
+
+  const value = variable === "" ? t("local.someValue") : variable;
+  const dataset = draft.dataset === "" ? t("local.someList") : draft.dataset;
+  const outcome =
+    draft.action === "allow"
+      ? t("local.outAllow")
+      : draft.action === "wave"
+        ? t("local.outWave")
+        : draft.response
+          ? t("local.outBlock", { page: draft.response })
+          : t("local.outBlockDefault");
+
+  return (
+    <Modal
+      onClose={onClose}
+      title={title}
+      notice={
+        mismatch
+          ? {
+              severity: "warning",
+              title: t("local.mismatchTitle"),
+              text: t("local.mismatchText", {
+                dataset: draft.dataset,
+                type: type ?? "",
+                value: variable,
+              }),
+            }
+          : null
+      }
+      actions={
+        <>
+          <Modal.Cancel />
+          <Modal.Submit disabled={!ready} onClick={() => onApply(draft)}>
+            {submit}
+          </Modal.Submit>
+        </>
+      }
+    >
+        <Stack spacing={2}>
+          <DialogPick
+            mono
+            label={t("local.checkWhere")}
+            hint={t("local.datasetHint")}
+            value={draft.dataset}
+            options={datasetOptions(t, catalog?.datasets, draft.dataset)}
+            onChange={(name) =>
+              patch((next) => {
+                next.dataset = name;
+              })
+            }
+          />
+
+          <DialogFrame label={t("local.checkWhat")} hint={t("local.valueHint")}>
+            <VariableEdit
+              value={draft.variable}
+              datasetType={type}
+              onChange={(variable) =>
+                patch((next) => {
+                  next.variable = variable;
+                })
+              }
+            />
+          </DialogFrame>
+
+          <Stack direction="row" spacing={1.5} sx={{ alignItems: "flex-start" }}>
+            <Box sx={{ width: 180, flexShrink: 0 }}>
+              <DialogPick
+                mono
+                label="action="
+                hint={t("local.actionHint")}
+                value={draft.action}
+                options={CHECK_ACTIONS.map((action) => ({ value: action, label: action }))}
+                onChange={(action) =>
+                  patch((next) => {
+                    next.action = action;
+                    if (action !== "block") {
+                      delete next.response;
+                    }
+                  })
+                }
+              />
+            </Box>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <DialogPick
+                mono
+                label="response="
+                hint={blocks ? t("local.responseHint") : t("local.passNoPageCheck")}
+                disabled={!blocks}
+                value={blocks ? (draft.response ?? "") : ""}
+                options={
+                  blocks
+                    ? pageOptions(t, catalog?.deny_responses, draft.response ?? "")
+                    : [{ value: "", label: t("common.none") }]
+                }
+                onChange={(response) =>
+                  patch((next) => {
+                    if (response === "") {
+                      delete next.response;
+                    } else {
+                      next.response = response;
+                    }
+                  })
+                }
+              />
+            </Box>
+          </Stack>
+
+          <DialogNote
+            title={t("local.meansTitle")}
+            hint={t("local.meansHint")}
+            lines={
+              mismatch
+                ? [{ text: t("local.meansNever", { dataset }), muted: true }]
+                : [
+                    { text: t("local.meansHit", { value, dataset, outcome }) },
+                    { text: t("local.meansMiss", { value, dataset }), muted: true },
+                  ]
+            }
+          />
+
+          <DialogLines title={t("local.lineTitle")} lines={[checkLine(draft)]} />
+        </Stack>
+    </Modal>
+  );
+}
+
+function RateDialog({
+  t,
+  title,
+  submit,
+  row,
+  onClose,
+  onApply,
+}: {
+  t: Translate;
+  title: string;
+  submit: string;
+  row: LocalRate;
+  onClose: () => void;
+  onApply: (next: LocalRate) => void;
+}) {
+  const catalog = useCatalog();
+  const [draft, setDraft] = useState<LocalRate>(row);
+  const [burst, setBurst] = useState(String(row.burst));
+  const [rateNum, setRateNum] = useState(() => rateParts(row.rate).n);
+  const [rateUnit, setRateUnit] = useState<RateUnit>(() => rateParts(row.rate).unit);
+
+  const pass = draft.action === "pass";
+  const list = catalog?.datasets.find((item) => item.name === draft.list);
+  const listTtl = asString(list?.ttl);
+  const key = draft.key.trim();
+  const banned = draft.list !== undefined && draft.list !== "";
+
+  const ttlMissing = banned && (draft.ttl ?? "").trim() === "" && listTtl === "";
+  const listMismatch = banned && isAddressDataset(list?.type) && !isAddressVariable(key);
+
+  const ready =
+    key !== "" && RATE_RE.test(draft.rate.trim()) && !ttlMissing && !listMismatch;
+
+  const notice = ttlMissing
+    ? {
+        severity: "warning" as const,
+        title: t("local.ttlMissingTitle"),
+        text: t("local.ttlMissingText", { list: draft.list ?? "" }),
+      }
+    : listMismatch
+      ? {
+          severity: "warning" as const,
+          title: t("local.listMismatchTitle"),
+          text: t("local.listMismatchText", {
+            list: draft.list ?? "",
+            type: list?.type ?? "",
+            key,
+          }),
+        }
+      : null;
+
+  const patch = (edit: (next: LocalRate) => void) => {
+    const next = { ...draft };
+    edit(next);
+    setDraft(next);
+  };
+
+  return (
+    <Modal
+      onClose={onClose}
+      title={title}
+      notice={notice}
+      actions={
+        <>
+          <Modal.Cancel />
+          <Modal.Submit disabled={!ready} onClick={() => onApply(draft)}>
+            {submit}
+          </Modal.Submit>
+        </>
+      }
+    >
+        <Stack spacing={2}>
+          <DialogFrame label={t("local.key")} hint={t("local.keyHint")}>
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{ alignItems: "center", width: "100%", minWidth: 0 }}
+            >
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <VariableEdit
+                  value={draft.key}
+                  onChange={(key) =>
+                    patch((next) => {
+                      next.key = key;
+                    })
+                  }
+                />
+              </Box>
+              {!isAddressVariable(key) && (
+                <Tooltip arrow placement="top" title={t("local.hashHint")}>
+                  <FormControlLabel
+                    sx={{ mr: 0, flexShrink: 0 }}
+                    label={t("local.hashLabel")}
+                    slotProps={{ typography: { sx: { fontSize: "0.78rem", fontFamily: "monospace" } } }}
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={draft.hash === true}
+                        sx={{ p: 0.5 }}
+                        onChange={(_, checked) =>
+                          patch((next) => {
+                            if (checked) {
+                              next.hash = true;
+                            } else {
+                              delete next.hash;
+                            }
+                          })
+                        }
+                      />
+                    }
+                  />
+                </Tooltip>
+              )}
+            </Stack>
+          </DialogFrame>
+
+          <Stack direction="row" spacing={1.5}>
+            <Box sx={{ flex: 1.4, minWidth: 0 }}>
+              <DialogUnit
+                label="rate="
+                hint={t("local.rateFieldHint")}
+                value={rateNum}
+                unit={rateUnit}
+                units={RATE_UNITS.map((item) => ({
+                  value: item,
+                  label: t(`local.rateUnit.${item}`),
+                }))}
+                placeholder="10"
+                onChange={(n) => {
+                  setRateNum(n);
+                  patch((next) => {
+                    next.rate = rateOf(n, rateUnit);
+                  });
+                }}
+                onUnit={(unit) => {
+                  setRateUnit(unit);
+                  patch((next) => {
+                    next.rate = rateOf(rateNum, unit);
+                  });
+                }}
+              />
+            </Box>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <DialogInput
+                label="burst="
+                hint={t("local.burstHint")}
+                value={burst}
+                placeholder="0"
+                onChange={(raw) => {
+                  setBurst(raw);
+                  patch((next) => {
+                    const n = Number(raw.trim());
+                    next.burst = raw.trim() === "" || !Number.isInteger(n) || n < 0 ? 0 : n;
+                  });
+                }}
+              />
+            </Box>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <DialogPick
+                mono
+                label="count="
+                hint={t("local.countHint")}
+                value={draft.count ?? "requests"}
+                options={COUNTS.map((item) => ({ value: item, label: item }))}
+                onChange={(count) =>
+                  patch((next) => {
+                    if (count === "requests") {
+                      delete next.count;
+                    } else {
+                      next.count = count === "frames" ? "frames" : "waves";
+                    }
+                  })
+                }
+              />
+            </Box>
+          </Stack>
+
+          <Stack direction="row" spacing={1.5}>
+            <Box sx={{ width: 180, flexShrink: 0 }}>
+              <DialogPick
+                mono
+                label="action="
+                hint={t("local.rateActionHint")}
+                value={draft.action ?? "block"}
+                options={RATE_ACTIONS.map((item) => ({ value: item, label: item }))}
+                onChange={(action) =>
+                  patch((next) => {
+                    if (action === "block") {
+                      delete next.action;
+                      return;
+                    }
+                    next.action = "pass";
+                    delete next.list;
+                    delete next.ttl;
+                    delete next.response;
+                  })
+                }
+              />
+            </Box>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <DialogPick
+                mono
+                label="response="
+                hint={pass ? t("local.passNoPage") : t("local.rateResponseHint")}
+                disabled={pass}
+                value={draft.response ?? ""}
+                options={pageOptions(t, catalog?.deny_responses, draft.response ?? "")}
+                onChange={(response) =>
+                  patch((next) => {
+                    if (response === "") {
+                      delete next.response;
+                    } else {
+                      next.response = response;
+                    }
+                  })
+                }
+              />
+            </Box>
+          </Stack>
+
+          <Stack direction="row" spacing={1.5}>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <DialogPick
+                mono
+                label="list="
+                hint={pass ? t("local.passNoBan") : t("local.listHint")}
+                disabled={pass}
+                value={draft.list ?? ""}
+                options={datasetOptions(
+                  t,
+                  catalog?.datasets,
+                  draft.list ?? "",
+                  true,
+                  t("local.noBan"),
+                )}
+                onChange={(list) =>
+                  patch((next) => {
+                    if (list === "") {
+                      delete next.list;
+                      delete next.ttl;
+                    } else {
+                      next.list = list;
+                    }
+                  })
+                }
+              />
+            </Box>
+            <Box sx={{ width: 180, flexShrink: 0 }}>
+              <DialogInput
+                label="ttl="
+                hint={t("local.ttlHint")}
+                value={draft.ttl ?? ""}
+                disabled={draft.list === undefined}
+                placeholder={
+                  draft.list === undefined
+                    ? "—"
+                    : listTtl !== ""
+                      ? listTtl
+                      : t("local.ttlNeeded")
+                }
+                onChange={(raw) =>
+                  patch((next) => {
+                    const ttl = raw.trim();
+                    if (ttl === "") {
+                      delete next.ttl;
+                    } else {
+                      next.ttl = ttl;
+                    }
+                  })
+                }
+              />
+            </Box>
+          </Stack>
+
+          <DialogLines title={t("local.lineTitle")} lines={[rateLine(draft)]} />
+        </Stack>
+    </Modal>
+  );
+}

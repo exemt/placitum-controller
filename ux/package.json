@@ -1,0 +1,44 @@
+{
+  "name": "placitum-panel",
+  "version": "1.0.0-rc.1",
+  "private": true,
+  "description": "Placitum admin panel",
+  "license": "SEE LICENSE IN help/license.md",
+  "homepage": "https://github.com/exemt/placitum-controller#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/exemt/placitum-controller.git",
+    "directory": "ux"
+  },
+  "type": "module",
+  "scripts": {
+    "predev": "node scripts/license-sync.mjs",
+    "dev": "vite",
+    "prebuild": "node scripts/license-sync.mjs",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "i18n": "npx tsx scripts/i18n-check.mjs"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^9.3.1",
+    "@mui/material": "^9.3.1",
+    "@reduxjs/toolkit": "^2.12.0",
+    "fflate": "^0.8.3",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-markdown": "^10.1.0",
+    "react-redux": "^9.3.0",
+    "react-router-dom": "^7.18.2",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.1"
+  }
+}

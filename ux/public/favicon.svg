@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-labelledby="t">
+  <title id="t">Placitum</title>
+  <style>
+    .ink { fill: #13202c }
+    .sub { fill: #4a5c70 }
+    .rule { stroke: #13202c; stroke-opacity: .32 }
+    .accent { stroke: #1b5fb8 }
+    @media (prefers-color-scheme: dark) {
+      .ink { fill: #d6e2f0 }
+      .sub { fill: #8496ad }
+      .rule { stroke: #d6e2f0; stroke-opacity: .30 }
+      .accent { stroke: #6aa8ff }
+    }
+  </style>
+  <path class="ink" d="M24.86 44.00H19.03V8.00H34.50Q37.80 8.00 40.15 9.34Q42.50 10.68 43.73 13.11Q44.97 15.53 44.97 18.83Q44.97 22.08 43.73 24.50Q42.50 26.93 40.15 28.30Q37.80 29.66 34.50 29.66H24.86ZM24.86 13.11V24.56H34.14Q35.58 24.56 36.64 24.04Q37.70 23.52 38.27 22.52Q38.83 21.51 38.83 20.07V17.59Q38.83 16.10 38.27 15.12Q37.70 14.14 36.64 13.62Q35.58 13.11 34.14 13.11Z" />
+  <path class="accent" d="M 19.03 54.00 H 44.97" stroke-width="7.0" />
+</svg>

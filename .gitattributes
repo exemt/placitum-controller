@@ -1,0 +1,2 @@
+# LF everywhere: CRLF breaks shell scripts in the image.
+* text=auto eol=lf

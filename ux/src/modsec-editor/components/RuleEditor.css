@@ -1,0 +1,180 @@
+/* Область кода растягивается на всю высоту вкладки: органы управления
+   текстовым режимом стоят выше, в строке вкладок, и к редактору не
+   относятся. */
+.rule-editor-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.rule-editor {
+  flex: 1 1 auto;
+  min-height: 0;
+  /* Единственный скролл-контейнер: textarea, подсветка и нумерация
+     скроллятся вместе нативно, без JS-синхронизации (и без лагов). */
+  overflow: auto;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  font-family: 'Fira Code', 'Cascadia Code', Menlo, Consolas, 'Courier New',
+    monospace;
+  /* Кегль переменной, потому что редактор живёт в двух размерах: своим окном
+     во весь экран и полем внутри карточки, где строка кода стоит рядом с
+     полями формы и обязана совпадать с ними по плотности. Умолчание --
+     размер самостоятельного редактора; кто ужимает, ставит переменную на
+     обёртке. Отступы и нумерация считаются от него же. */
+  font-size: var(--rule-editor-font-size, 13px);
+  line-height: 1.5;
+  /* MUI задаёт body letter-spacing ~0.15px, из-за чего подсветка и каретка
+     textarea расходятся по горизонтали. Гасим для всего редактора. */
+  letter-spacing: normal;
+  /* textarea — один текстовый ран, подсветка разбита на <span>: лигатуры
+     могут отрендериться по-разному и сместить каретку. Отключаем. */
+  font-variant-ligatures: none;
+  font-feature-settings: 'liga' 0, 'calt' 0;
+  font-kerning: none;
+}
+
+.rule-editor__inner {
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+  min-height: 100%;
+}
+
+.rule-editor__gutter {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  /* Отступы в em: поле вокруг кода набирается строками, а не пикселями, и
+     ужатый кегль не должен оставлять вокруг себя прежнюю рамку пустоты.
+     Верхний отступ обязан совпадать с отступом кода до пикселя -- кегль у
+     них общий, поэтому em сходятся. */
+  padding: 0.9em 0.6em 0.9em 0.9em;
+  text-align: right;
+  color: #6e7681;
+  background: #1e1e1e;
+  user-select: none;
+  white-space: pre;
+}
+
+/* Номер строки, у которой есть замечание. Точка слева заметна боковым
+   зрением, а цифра меняет цвет — вместе они читаются и без цвета. */
+.rule-editor__lineno {
+  position: relative;
+}
+.rule-editor__lineno--error,
+.rule-editor__lineno--warning,
+.rule-editor__lineno--advice {
+  font-weight: 600;
+}
+.rule-editor__lineno--error {
+  color: #f48771;
+}
+.rule-editor__lineno--warning {
+  color: #cca700;
+}
+.rule-editor__lineno--advice {
+  color: #9aa0a6;
+}
+.rule-editor__lineno--error::before,
+.rule-editor__lineno--warning::before,
+.rule-editor__lineno--advice::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  margin-top: -2px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.rule-editor__code {
+  position: relative;
+  flex: 1 0 auto;
+}
+
+.rule-editor__highlight,
+.rule-editor__textarea {
+  box-sizing: border-box;
+  margin: 0;
+  /* Тот же отступ, что у нумерации: строка кода и её номер стоят на одной
+     линии, и считаются оба от общего кегля. */
+  padding: 0.9em;
+  border: 0;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  white-space: pre;
+  tab-size: 4;
+}
+
+.rule-editor__highlight {
+  min-height: 100%;
+  pointer-events: none;
+}
+
+/* UA-стиль ставит <code> generic monospace — принудительно наследуем
+   шрифт от pre, чтобы глифы совпадали с textarea пиксель в пиксель. */
+.rule-editor__highlight code {
+  font: inherit;
+  letter-spacing: inherit;
+}
+
+.rule-editor__textarea {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  color: transparent;
+  background: transparent;
+  caret-color: #d4d4d4;
+  resize: none;
+  outline: none;
+}
+
+/* Токены подсветки (палитра VS Code Dark+) */
+.tok-comment {
+  color: #6a9955;
+  font-style: italic;
+}
+.tok-macro {
+  color: #d7ba7d;
+}
+.tok-string {
+  color: #ce9178;
+}
+.tok-directive {
+  color: #569cd6;
+  font-weight: 600;
+}
+.tok-transform {
+  color: #4ec9b0;
+}
+.tok-operator {
+  color: #dcdcaa;
+}
+.tok-action {
+  color: #c586c0;
+}
+.tok-variable {
+  color: #9cdcfe;
+}
+.tok-number {
+  color: #b5cea8;
+}
+.tok-text {
+  color: #d4d4d4;
+}
+
+/* Слова, для которых есть подсказка: едва заметное подчёркивание-намёк. */
+.tok--doc {
+  text-decoration: underline dotted rgba(255, 255, 255, 0.25);
+  text-underline-offset: 3px;
+}
+
+/* Сам попап подсказки живёт в KeywordTooltip.css. */
