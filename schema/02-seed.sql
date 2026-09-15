@@ -1,17 +1,13 @@
 --
--- Поставочные данные Placitum 1.0: с чем установка поднимается на пустом томе.
+-- Данные поставки Placitum: с чем установка поднимается на пустой базе.
 --
--- Что здесь есть: пространство http, справочник типов содержимого, формат
--- журнала, обменник тел, каталог отказов, страницы отказа и две заготовки
--- (виджет капчи, форма входа), пресеты списков адресов, CRS с наборами правил,
--- каталог процессов-инспекторов и неуничтожимый default каждой подсистемы.
+-- Пространство default, справочник типов содержимого, формат журнала, обменник
+-- тел, каталог отказов, страницы отказа и две заготовки (виджет капчи, форма
+-- входа), пресеты списков адресов, CRS с наборами правил, каталог инспекторов,
+-- порт узла http-8080 и неуничтожимый default каждой подсистемы профилей.
 --
--- Чего здесь нет: серверов, путей, апстримов, сертификатов, чьих-то списков
--- адресов и объявлений инспекторов. Пустая установка не слушает ничего --
--- конфигурацию заводит оператор. Стендовое дерево лежит в stand/stand.sql.
---
--- Файл машинный, пересобирается build/baseline.mjs. Пространство везде ищется
--- по имени 'default', а не по uuid: файл переживает базу, заведённую раньше.
+-- Серверов, путей, апстримов, сертификатов и чьих-то списков адресов здесь нет:
+-- их заводит оператор. Пространство в строках ищется по имени 'default'.
 --
 
 -- http_spaces: 1
@@ -132,6 +128,9 @@ INSERT INTO public.json_profiles (id, http_space_id, name, description, doc, cre
 
 -- log_formats: 1
 INSERT INTO public.log_formats (id, http_space_id, name, fields, kind, format) VALUES ('bf7ae59f-159f-40bf-8dbf-5440e58216ad', (select id from public.http_spaces where name = 'default'), 'main', '{}', 'nginx', '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" rt=$request_time urt=$upstream_response_time') ON CONFLICT DO NOTHING;
+
+-- ports: 1
+INSERT INTO public.ports (id, http_space_id, name, address, port, ssl, http2, proxy_protocol) VALUES ('efa4b6ec-fe54-47f2-b9aa-fbe1be6de12f', (select id from public.http_spaces where name = 'default'), 'http-8080', '0.0.0.0', 8080, false, false, false) ON CONFLICT DO NOTHING;
 
 -- rewrite_profiles: 1
 INSERT INTO public.rewrite_profiles (id, http_space_id, name, description, doc, created_at, updated_at) VALUES ('3f27aec0-496e-4aea-9d34-40df23ae9b98', (select id from public.http_spaces where name = 'default'), 'default', 'Профиль по умолчанию', '{}', '2026-09-12 15:27:35.086708+00', '2026-09-12 15:27:35.086708+00') ON CONFLICT DO NOTHING;
@@ -5071,109 +5070,4 @@ INSERT INTO public.rule_set_files (id, rule_set_id, rule_file_id, "position") VA
 INSERT INTO public.rule_set_files (id, rule_set_id, rule_file_id, "position") VALUES ('f4d06075-9398-459b-836e-5355e81ffab6', 'b0000000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000006', 2) ON CONFLICT DO NOTHING;
 INSERT INTO public.rule_set_files (id, rule_set_id, rule_file_id, "position") VALUES ('f7205fda-b152-484b-9d11-e789ed212161', 'b0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000001', 0) ON CONFLICT DO NOTHING;
 INSERT INTO public.rule_set_files (id, rule_set_id, rule_file_id, "position") VALUES ('fcd1aed7-6bd5-48f0-8582-ac3900ca4692', 'b0000000-0000-4000-8000-000000000002', 'a0000000-0000-4000-8000-000000000012', 5) ON CONFLICT DO NOTHING;
-
--- waf_schema_log: 101
-INSERT INTO public.waf_schema_log (file) VALUES
-    ('001_init.sql'),
-    ('002_store_objects.sql'),
-    ('003_datasets_and_rule_sets.sql'),
-    ('004_dataset_addresses_and_rule_files.sql'),
-    ('005_space_scoped_rule_sets.sql'),
-    ('006_raw_blocks.sql'),
-    ('007_rule_files_and_profiles.sql'),
-    ('008_port_listen_flags.sql'),
-    ('009_dataset_types.sql'),
-    ('010_ip_profiles.sql'),
-    ('011_ip_countries.sql'),
-    ('012_rule_profiles.sql'),
-    ('013_dataset_kinds.sql'),
-    ('014_ip_asns.sql'),
-    ('015_ip_profile_asns.sql'),
-    ('016_ip_profile_exclude.sql'),
-    ('017_ip_compile_seed.sql'),
-    ('018_ip_pack_seed.sql'),
-    ('019_dataset_active_ttl.sql'),
-    ('020_response_pages.sql'),
-    ('021_certificates_fingerprint.sql'),
-    ('022_nginx_stand.sql'),
-    ('023_nginx_main.sql'),
-    ('024_nginx_stand.sql'),
-    ('025_ip_set_address_search.sql'),
-    ('026_dataset_description.sql'),
-    ('027_inspector_catalog.sql'),
-    ('028_inspector_catalog_real.sql'),
-    ('029_inspector_graph.sql'),
-    ('030_dataset_list_ttl.sql'),
-    ('031_log_format_kind.sql'),
-    ('032_route_settings_to_server.sql'),
-    ('033_certificate_kind_and_crl.sql'),
-    ('034_store_crl_type.sql'),
-    ('035_inspector_phases.sql'),
-    ('036_agent_settings.sql'),
-    ('037_auth_profiles.sql'),
-    ('038_auth_profile_server.sql'),
-    ('039_auth_drop_allow_paths.sql'),
-    ('040_pages_into_content.sql'),
-    ('041_login_form_object.sql'),
-    ('042_users_into_lists.sql'),
-    ('043_store_url_from_env.sql'),
-    ('044_captcha_profiles.sql'),
-    ('045_captcha_datasets.sql'),
-    ('046_auth_single_provider.sql'),
-    ('046_log_format_nginx_only.sql'),
-    ('047_drop_metrics_handler.sql'),
-    ('048_inspector_response_phase.sql'),
-    ('049_inspector_catalog_columns.sql'),
-    ('050_json_profiles.sql'),
-    ('051_ip_sets_and_rules.sql'),
-    ('052_threshold_percent.sql'),
-    ('053_ip_profile_outcomes.sql'),
-    ('054_action_profiles.sql'),
-    ('055_captcha_page_image.sql'),
-    ('056_rule_set_policy.sql'),
-    ('057_counter_profiles.sql'),
-    ('058_inspector_descriptions.sql'),
-    ('059_location_return_page.sql'),
-    ('060_default_profiles.sql'),
-    ('061_note_counter.sql'),
-    ('062_default_deny_pages.sql'),
-    ('063_default_ip_lists.sql'),
-    ('064_rule_set_data.sql'),
-    ('065_deny_http_message_drop.sql'),
-    ('066_deny_pages_drop_message.sql'),
-    ('067_vlai_profiles.sql'),
-    ('068_auth_cookie_space.sql'),
-    ('069_pii_drop.sql'),
-    ('070_auth_forbidden.sql'),
-    ('071_haproxy_settings.sql'),
-    ('071_upstream_tls.sql'),
-    ('072_auth_sources.sql'),
-    ('073_keeper_sets.sql'),
-    ('074_root_location.sql'),
-    ('075_rewrite_profiles.sql'),
-    ('076_form_inline.sql'),
-    ('077_frame_phase.sql'),
-    ('078_frame_counter_rewrite.sql'),
-    ('079_location_protocol.sql'),
-    ('080_upgrade_required.sql'),
-    ('081_default_profiles_unmoded.sql'),
-    ('082_mutate_group_on_wire.sql'),
-    ('083_auth_response_phase.sql'),
-    ('084_ip_rule_marker.sql'),
-    ('085_ip_rule_not_outcome_place.sql'),
-    ('086_ip_raw_lists_no_score.sql'),
-    ('087_ip_filter_rename.sql'),
-    ('088_ip_ask_record_fields.sql'),
-    ('089_rewrite_no_on_error.sql'),
-    ('090_waf_exception.sql'),
-    ('091_inspector_error_verdict.sql'),
-    ('092_no_control_grants.sql'),
-    ('093_ip_ask_group.sql'),
-    ('094_dataset_hash.sql'),
-    ('095_inspector_log_level.sql'),
-    ('096_ip_ask_phase.sql'),
-    ('097_ip_list_write.sql'),
-    ('098_deny_pages_client_text.sql'),
-    ('099_cookie_profiles.sql')
-    ON CONFLICT DO NOTHING;
 

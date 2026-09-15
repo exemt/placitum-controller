@@ -1,21 +1,19 @@
 --
--- Поставочная структура Placitum 1.0.
+-- Схема базы контроллера Placitum.
 --
--- Машинный снимок: pg_dump со схемы, прокатанной архивом controller/schema/migrations.
--- Правок руками не держит -- пересобирается скриптом build/baseline.mjs. Проза о
--- том, почему таблицы такие, живёт в самих миграциях: 001_init.sql -- модель
--- конфигурации nginx, дальше по номерам.
+-- Ставится на пустую базу при первом старте контроллера (src/migrate.ts), следом
+-- идут данные поставки из 02-seed.sql. На базе, где схема уже есть, контроллер её
+-- не трогает: схема поменялась -- установка ставится заново.
 --
--- Едет из initdb.d первым файлом, только на пустой том. Данные -- следом,
--- в 02-shipped.sql. Всё, что новее 1.0, приезжает миграциями из
--- migrations/ поверх: журнал применённых (waf_schema_log) приходит заполненным.
+-- Файл -- вывод pg_dump --schema-only. Меняется схема -- правится этот файл.
 --
+
 --
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 16.15
--- Dumped by pg_dump version 16.15
+-- Dumped from database version 16.13
+-- Dumped by pg_dump version 16.13
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -324,6 +322,21 @@ CREATE TABLE public.deny_responses (
     spec jsonb DEFAULT '{}'::jsonb NOT NULL,
     "position" integer DEFAULT 0 NOT NULL,
     CONSTRAINT deny_responses_type_check CHECK ((type = ANY (ARRAY['http'::text, 'grpc'::text, 'websocket'::text])))
+);
+
+--
+-- Name: geo_files; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.geo_files (
+    kind text NOT NULL,
+    sha256 text NOT NULL,
+    size bigint NOT NULL,
+    database_type text NOT NULL,
+    build_epoch bigint DEFAULT 0 NOT NULL,
+    data bytea NOT NULL,
+    uploaded_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT geo_files_kind_check CHECK ((kind = ANY (ARRAY['country'::text, 'asn'::text])))
 );
 
 --
@@ -895,6 +908,7 @@ CREATE TABLE public.upstream_peers (
     backup boolean DEFAULT false NOT NULL,
     down boolean DEFAULT false NOT NULL,
     "position" integer DEFAULT 0 NOT NULL,
+    resolve boolean DEFAULT false NOT NULL,
     CONSTRAINT upstream_peers_port_check CHECK (((port >= 1) AND (port <= 65535))),
     CONSTRAINT upstream_peers_weight_check CHECK ((weight > 0))
 );
@@ -937,15 +951,6 @@ CREATE TABLE public.vlai_profiles (
 --
 
 COMMENT ON COLUMN public.vlai_profiles.doc IS 'Документ профиля vlai. Валидация -- в контроллере и в инспекторе, не в типах.';
-
---
--- Name: waf_schema_log; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.waf_schema_log (
-    file text NOT NULL,
-    applied_at timestamp with time zone DEFAULT now() NOT NULL
-);
 
 --
 -- Name: action_profiles action_profiles_http_space_id_name_key; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1135,6 +1140,13 @@ ALTER TABLE ONLY public.deny_responses
 
 ALTER TABLE ONLY public.deny_responses
     ADD CONSTRAINT deny_responses_pkey PRIMARY KEY (id);
+
+--
+-- Name: geo_files geo_files_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.geo_files
+    ADD CONSTRAINT geo_files_pkey PRIMARY KEY (kind);
 
 --
 -- Name: haproxy_settings haproxy_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
@@ -1485,13 +1497,6 @@ ALTER TABLE ONLY public.vlai_profiles
 
 ALTER TABLE ONLY public.vlai_profiles
     ADD CONSTRAINT vlai_profiles_pkey PRIMARY KEY (id);
-
---
--- Name: waf_schema_log waf_schema_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.waf_schema_log
-    ADD CONSTRAINT waf_schema_log_pkey PRIMARY KEY (file);
 
 --
 -- Name: action_profiles_space; Type: INDEX; Schema: public; Owner: -

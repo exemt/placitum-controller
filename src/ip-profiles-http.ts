@@ -925,8 +925,8 @@ export function ipProfilesRouter(
   });
 
   /*
-   * Вернуть default к поставке -- к тому, чем он пришёл из сида
-   * 060_default_profiles.sql: без правил и инициаторов, «иначе allow».
+   * Вернуть default к поставке -- к тому, чем он пришёл из
+   * schema/02-seed.sql: без правил и инициаторов, «иначе allow».
    */
   router.post("/:uuid/restore", async (req: Request, res: Response, next) => {
     try {

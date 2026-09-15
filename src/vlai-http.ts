@@ -216,10 +216,9 @@ export function vlaiRouter(
   });
 
   /*
-   * Вернуть default к поставке -- к тому, чем он пришёл из сида
-   * 067_vlai_profiles.sql (та же поставка, что у 060). Отдельная ручка, а не
-   * PUT с телом образца: образец держит `default-profile.ts`, и возвращает
-   * его тот же, кто его держит.
+   * Вернуть default к поставке -- к тому, чем он пришёл из
+   * schema/02-seed.sql. Отдельная ручка, а не PUT с телом образца: образец
+   * держит `default-profile.ts`, и возвращает его тот же, кто его держит.
    */
   router.post("/profiles/:uuid/restore", async (req: Request, res: Response, next) => {
     try {

@@ -74,7 +74,7 @@ export interface CertificateRevocationList {
  *
  * `keyStoreId` есть ровно у `type: "server"`, `crl` -- ровно у
  * `type: "client_ca"`; в базе это закреплено check-констрейнтами
- * (schema/migrations/033_certificate_kind_and_crl.sql).
+ * (schema/01-schema.sql).
  */
 export interface Certificate {
   id: Uuid;

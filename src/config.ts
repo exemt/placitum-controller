@@ -20,12 +20,10 @@ export interface Config {
   logWriter: string;
   /** origin UX в vite-dev; пустая строка — отражать любой (только отладка) */
   corsOrigin: string;
-  /** Postgres контроллера. Схему накатывает сам контроллер при старте (migrate.ts). */
+  /** Postgres контроллера. Пустую базу контроллер поднимает сам при старте (migrate.ts). */
   databaseUrl: string;
-  /** Каталог схемы: поставка 1.0 и миграции новее неё. В образе -- /app/schema. */
+  /** Каталог схемы: 01-schema.sql и 02-seed.sql. В образе -- /app/schema. */
   schemaDir: string;
-  /** База без журнала миграций: номер последней применённой, CONTROLLER_SCHEMA_BASE. */
-  schemaBase?: string;
   /** Сборка: метки образа (CONTROLLER_VERSION/REVISION); dev/unknown без них. */
   version: string;
   revision: string;
@@ -97,8 +95,6 @@ export function load(env: NodeJS.ProcessEnv = process.env): Config {
       "postgres://waf:waf@127.0.0.1:5432/waf",
     /* Схема едет в образе (/app/schema); локально -- controller/schema. */
     schemaDir: env.CONTROLLER_SCHEMA_DIR ?? join(process.cwd(), "schema"),
-    /* База старше поставки 1.0: номер последней применённой миграции, см. migrate.ts. */
-    schemaBase: env.CONTROLLER_SCHEMA_BASE,
     version: env.CONTROLLER_VERSION ?? "dev",
     revision: env.CONTROLLER_REVISION ?? "unknown",
     storeMaxBytes: Number(env.CONTROLLER_STORE_MAX_BYTES ?? 2 * 1024 * 1024),

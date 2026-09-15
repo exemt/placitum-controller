@@ -41,9 +41,9 @@ RUN npm ci --omit=dev
 COPY src ./src
 COPY --from=ux /ux/dist ./ux/dist
 
-# Схема базы едет в образе: её накатывает владелец данных, то есть этот же
-# процесс (core/migrate/README.md). Выгрузка гео и стендовое дерево в образ не
-# едут -- см. .dockerignore.
+# Схема базы едет в образе: пустую базу поднимает сам контроллер при первом
+# старте (src/migrate.ts). Выгрузка гео и стендовое дерево в образ не едут --
+# см. .dockerignore.
 COPY schema ./schema
 
 RUN mkdir -p /app/data/compile && chown -R node:node /app

@@ -104,18 +104,16 @@ const pool = createPool(cfg.databaseUrl);
 
 /*
   Схема -- до всего остального: репозитории ниже читают таблицы, которых на
-  пустой базе ещё нет. Ошибка миграции -- отказ старта, а не работа на схеме,
-  которой код не соответствует (migrate.ts).
+  пустой базе ещё нет. Не встала схема -- отказ старта (migrate.ts).
 */
 try {
-  const schema = await migrate(pool, { schemaDir: cfg.schemaDir, base: cfg.schemaBase });
+  const schema = await migrate(pool, { schemaDir: cfg.schemaDir });
   log("info", "schema ready", {
     dir: cfg.schemaDir,
-    baseline: schema.baseline,
-    applied: schema.applied.length,
+    initialized: schema.initialized,
   });
 } catch (err) {
-  log("error", "schema migration failed", { error: String(err) });
+  log("error", "schema init failed", { error: String(err) });
   process.exit(1);
 }
 

@@ -361,7 +361,7 @@ export function ruleSetsRouter(
   });
 
   /*
-   * Вернуть default к поставке -- к составу из сида 012_rule_profiles.sql.
+   * Вернуть default к поставке -- к составу из schema/02-seed.sql.
    * Файлы ищутся по именам: uuid у каждой установки свои, а имя -- то, чем
    * набор описан в `compile/rule-set-seed.ts`.
    *

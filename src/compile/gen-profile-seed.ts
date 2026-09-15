@@ -1,14 +1,13 @@
 /*
- * Сид наборов правил из controller/data/crs-src: файлы CRS телами в базу.
+ * SQL наборов правил из controller/data/crs-src: файлы CRS телами в базу.
  *
- * Пишет в архивную миграцию 012 -- ту, с которой поставка 1.0 была срезана.
- * На пустой том она больше не катится: CRS приезжает готовым в 02-shipped.sql.
- * Поэтому обновление CRS -- это не перегенерация файла, а одно из двух:
- * новая миграция поверх поставки (`schema/migrations/1NN_...`) либо пересборка
- * поставки целиком (`schema/build/baseline.mjs`), если режется новая версия.
+ * Печатает в stdout замену rule_files, rule_sets и rule_set_files. Поставка
+ * везёт эти строки в schema/02-seed.sql, поэтому обновление CRS -- прогнать
+ * вывод на базе из 01-schema.sql и 02-seed.sql и переписать три таблицы в
+ * 02-seed.sql по ней.
  */
 
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -16,7 +15,6 @@ import { RULE_SET_SEED as SETS } from "./rule-set-seed.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const crsDir = join(here, "../../data/crs-src");
-const outPath = join(here, "../../schema/migrations/012_rule_profiles.sql");
 
 const CRS: { id: string; name: string; description: string; file: string }[] = [
   {
@@ -266,8 +264,8 @@ ${members}
  where s.name = 'default';
 `;
 
-  await writeFile(outPath, sql);
-  process.stdout.write(`${outPath}\nfiles ${files.length} profiles ${SETS.length}\n`);
+  process.stdout.write(sql);
+  process.stderr.write(`files ${files.length} profiles ${SETS.length}\n`);
 }
 
 await main();

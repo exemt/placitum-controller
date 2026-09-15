@@ -239,9 +239,9 @@ export function rewriteRouter(
   });
 
   /*
-   * Вернуть default к поставке -- к тому, чем он пришёл из сида
-   * 075_rewrite_profiles.sql (та же поставка, что у 060). Отдельная ручка, а
-   * не PUT с телом образца: образец держит `default-profile.ts`.
+   * Вернуть default к поставке -- к тому, чем он пришёл из
+   * schema/02-seed.sql. Отдельная ручка, а не PUT с телом образца: образец
+   * держит `default-profile.ts`.
    */
   router.post(
     "/profiles/:uuid/restore",

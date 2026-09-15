@@ -12,7 +12,7 @@ import type { AppDispatch, RootState } from "./state/types.ts";
 
 /*
  * Встроенная страница отказа: приехала с поставкой
- * (062_default_deny_pages.sql), правится, но не удаляется и не
+ * (schema/02-seed.sql), правится, но не удаляется и не
  * переименовывается. Имя набора -- это имя записи каталога
  * waf_deny_response, по которому страницу ищет try_files.
  */

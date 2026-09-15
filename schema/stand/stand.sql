@@ -11,7 +11,7 @@
 -- контейнера postgres.
 --
 -- Идемпотентен: вставки с on conflict do nothing, правки -- по имени. Ложится
--- поверх 02-shipped.sql, отдельно от него не применяется.
+-- поверх 02-seed.sql, отдельно от него не применяется.
 --
 
 -- граф объявлений http {}: чем стенд отличается от пустой поставки
@@ -209,9 +209,8 @@ INSERT INTO public.ip_sets (id, http_space_id, name, description, inverse, count
 -- json_profiles: 1
 INSERT INTO public.json_profiles (id, http_space_id, name, description, doc, created_at, updated_at) VALUES ('a379f2d1-d73b-4f54-ba42-945c81ddba89', (select id from public.http_spaces where name = 'default'), 'default', 'Контракт не задан: проверка выключена', '{"mode": "off", "description": "Контракт не задан: проверка выключена"}', '2026-09-12 15:27:34.432558+00', '2026-09-12 15:27:34.432558+00') ON CONFLICT DO NOTHING;
 
--- ports: 2
+-- ports: 1
 INSERT INTO public.ports (id, http_space_id, name, address, port, ssl, http2, proxy_protocol) VALUES ('3346a0ed-f8ab-46f8-be48-0881d9097e7a', (select id from public.http_spaces where name = 'default'), 'http-8082', '0.0.0.0', 8082, false, false, false) ON CONFLICT DO NOTHING;
-INSERT INTO public.ports (id, http_space_id, name, address, port, ssl, http2, proxy_protocol) VALUES ('6db23b5e-e98d-44a4-b500-7627a4e55001', (select id from public.http_spaces where name = 'default'), 'http-8080', '0.0.0.0', 8080, false, false, false) ON CONFLICT DO NOTHING;
 
 -- rewrite_profiles: 1
 INSERT INTO public.rewrite_profiles (id, http_space_id, name, description, doc, created_at, updated_at) VALUES ('3f27aec0-496e-4aea-9d34-40df23ae9b98', (select id from public.http_spaces where name = 'default'), 'default', 'Профиль по умолчанию', '{"mode": "off"}', '2026-09-12 15:27:35.086708+00', '2026-09-12 15:27:35.086708+00') ON CONFLICT DO NOTHING;
@@ -438,7 +437,7 @@ INSERT INTO public.locations (id, server_id, match, path, "position", enabled, h
 INSERT INTO public.locations (id, server_id, match, path, "position", enabled, handler, upstream_id, upstream_uri, return_status, return_url, nginx, waf, raw, raw_nginx, return_page, builtin, protocol) VALUES ('f7dc04d9-becd-4375-bf1c-5f0aa6978397', 'e0956e7d-ce36-46ae-b2ef-811039bd6a69', 'prefix', '/modsec-vlai/', 290, true, 'proxy', 'c7c994ce-b415-43bb-a36e-e00490a3f7cb', '/echo', NULL, NULL, '{"proxySetHeaders": [{"name": "Host", "value": "$host"}]}', '{"exception": ["request timeout pass"], "scoreDeny": {"response": "suspicious", "threshold": 50}, "deadlineMs": 400, "requestInspectors": [{"name": "modsec"}, {"name": "vlai"}]}', false, '', NULL, false, 'http') ON CONFLICT DO NOTHING;
 
 -- server_ports: 2
-INSERT INTO public.server_ports (id, server_id, port_id, ssl, http2, proxy_protocol, default_server) VALUES ('7c556d19-7873-4215-abaa-c97287fc7392', 'e0956e7d-ce36-46ae-b2ef-811039bd6a69', '6db23b5e-e98d-44a4-b500-7627a4e55001', false, false, false, false) ON CONFLICT DO NOTHING;
+INSERT INTO public.server_ports (id, server_id, port_id, ssl, http2, proxy_protocol, default_server) VALUES ('7c556d19-7873-4215-abaa-c97287fc7392', 'e0956e7d-ce36-46ae-b2ef-811039bd6a69', (select id from public.ports where name = 'http-8080' and http_space_id = (select id from public.http_spaces where name = 'default')), false, false, false, false) ON CONFLICT DO NOTHING;
 INSERT INTO public.server_ports (id, server_id, port_id, ssl, http2, proxy_protocol, default_server) VALUES ('be4c18e1-b01e-4f7c-8def-7d9561c25132', 'a9312e54-e0d2-454f-8229-2ae417f2aa3c', '3346a0ed-f8ab-46f8-be48-0881d9097e7a', false, false, false, false) ON CONFLICT DO NOTHING;
 
 -- upstream_peers: 1
