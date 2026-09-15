@@ -1,8 +1,17 @@
 {
-  "name": "waf-controller",
-  "version": "0.1.0",
+  "name": "placitum-controller",
+  "version": "1.0.0-rc.1",
   "private": true,
-  "description": "Контроллер WAF: HTTP API для отладочного UX",
+  "description": "Placitum controller: configuration API and admin panel",
+  "license": "SEE LICENSE IN LICENSE.md",
+  "homepage": "https://github.com/exemt/placitum-controller#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/exemt/placitum-controller.git"
+  },
+  "bugs": {
+    "url": "https://github.com/exemt/placitum-controller/issues"
+  },
   "type": "module",
   "engines": {
     "node": ">=22.18"

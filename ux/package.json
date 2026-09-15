@@ -1,8 +1,15 @@
 {
-  "name": "waf-controller-ux",
-  "version": "0.1.0",
+  "name": "placitum-panel",
+  "version": "1.0.0-rc.1",
   "private": true,
-  "description": "Отладочный UX контроллера WAF",
+  "description": "Placitum admin panel",
+  "license": "SEE LICENSE IN help/license.md",
+  "homepage": "https://github.com/exemt/placitum-controller#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/exemt/placitum-controller.git",
+    "directory": "ux"
+  },
   "type": "module",
   "scripts": {
     "predev": "node scripts/license-sync.mjs",
