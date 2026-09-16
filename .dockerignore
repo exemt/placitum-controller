@@ -1,0 +1,6 @@
+node_modules
+ux/node_modules
+ux/dist
+**/*.md
+# Admin help is bundled into the panel.
+!ux/help/*.md

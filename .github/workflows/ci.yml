@@ -1,0 +1,41 @@
+# Type check, panel build and image build on pushes and pull requests.
+
+name: ci
+
+on:
+  push:
+    branches: [master, rc_1.0, develop]
+  pull_request:
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+
+  ux:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ux
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ux/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t placitum/controller:ci .
