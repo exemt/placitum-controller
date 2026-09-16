@@ -45,6 +45,7 @@ export function validateWafCompile(source: HttpCompileSource, printed: string[])
       );
     }
     checkRouteSizes(waf);
+    checkTailWords(waf);
     checkSend(waf);
     checkException(waf, pages);
   }
@@ -233,6 +234,58 @@ function sizesInTail(tail: string): number[] {
     if (n !== undefined) out.push(n);
   }
   return out;
+}
+
+const PREVIEW_SOURCES = new Set(["original", "sent"]);
+
+/**
+ * `reload` снят, `source=` у архива тоже: откуда брать объект, модуль решает
+ * сам по размеру и спискам архива, а маски задают свои списки
+ * (`waf_archive request headers mask=authorization`). У превью `source=`
+ * остался только у тела: доставленное после подмены или пришедшее. Старая
+ * строка -- отказ здесь, а не на `nginx -t` ноды: панель показывает ошибку
+ * сразу, а не после публикации.
+ */
+function checkTailWords(waf: WafRouteSettings): void {
+  for (const key of ["archive", "preview"] as const) {
+    for (const tail of waf[key] ?? []) {
+      const { rest } = splitPhase(tail, `waf_${key}`);
+      const words = rest.split(/\s+/).filter((w) => w !== "");
+
+      if (words[0] === "reload") {
+        throw new WafCompileError(
+          "tail_reload_retired",
+          `waf_${key} reload is gone: write the size on the object and name own lists ` +
+            `(waf_${key} request headers mask=authorization)`,
+        );
+      }
+
+      const source = words.find((word) => word.startsWith("source="));
+      if (source === undefined) {
+        continue;
+      }
+
+      if (key === "archive") {
+        throw new WafCompileError(
+          "tail_source_value",
+          "waf_archive takes no source=: the archive masks by its own lists, " +
+            "and the module takes the original whenever they need it",
+        );
+      }
+
+      const value = source.slice("source=".length);
+      const objects = words
+        .map((word) => word.split("=", 1)[0])
+        .filter((name) => name === "headers" || name === "args" || name === "body");
+
+      if (!PREVIEW_SOURCES.has(value) || objects.some((name) => name !== "body")) {
+        throw new WafCompileError(
+          "tail_source_value",
+          `waf_preview ${source}: source= is for the body alone, original or sent`,
+        );
+      }
+    }
+  }
 }
 
 function checkRouteSizes(waf: WafRouteSettings): void {

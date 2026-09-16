@@ -58,8 +58,8 @@ export interface ObjectSpec {
   size?: string;
   item?: string;
   none?: boolean;
-  original?: boolean;
-  originalSize?: string;
+  /** source=sent: the record shows the delivered body after a rewrite. */
+  sent?: boolean;
   send?: SendSource;
   ttl?: string;
   when?: readonly ArchiveOutcome[];
@@ -74,7 +74,6 @@ export interface TailModel {
   allow: Partial<Record<ListTarget, string[]>>;
   mask: Partial<Record<ListTarget, string[]>>;
   deny: Partial<Record<ListTarget, string[]>>;
-  sourceSent?: boolean;
   off: boolean;
 }
 
@@ -123,11 +122,6 @@ export function parseTail(lines: unknown, phase: TailPhase = "request"): TailMod
       cleared.off = true;
       return cleared;
     }
-    const original = words[i] === "reload";
-    if (original) {
-      i += 1;
-    }
-
     let listTarget: ListTarget | undefined;
 
     const head = words[i];
@@ -142,6 +136,7 @@ export function parseTail(lines: unknown, phase: TailPhase = "request"): TailMod
 
     let rowTtl: string | undefined;
     let rowWhen: ArchiveOutcome[] | undefined;
+    let rowSent: boolean | undefined;
     const rowObjects: ObjectName[] = [];
 
     for (; i < words.length; i += 1) {
@@ -161,14 +156,21 @@ export function parseTail(lines: unknown, phase: TailPhase = "request"): TailMod
         rowWhen = set.length > 0 ? set : undefined;
         continue;
       }
-      if (word === "source=sent" || word === "source=original") {
-        model.sourceSent = word === "source=sent";
+      if (word.startsWith("source=")) {
+        rowSent = word === "source=sent";
         continue;
       }
       if (/^(allow|mask|deny)=/.test(word)) {
+        // A named list is the consumer's own even when empty: mask=none and
+        // allow=* set it, and own lists replace the capture lists.
         const eq = word.indexOf("=");
-        const bag = model[word.slice(0, eq) as ListName];
-        const names = word.slice(eq + 1).split(",").map((n) => n.trim()).filter((n) => n !== "");
+        const list = word.slice(0, eq) as ListName;
+        const bag = model[list];
+        const value = word.slice(eq + 1);
+        const names =
+          value === "none" || (list === "allow" && value === "*")
+            ? []
+            : value.split(",").map((n) => n.trim()).filter((n) => n !== "");
         const target = listTarget ?? "headers";
         bag[target] = [...(bag[target] ?? []), ...names];
         continue;
@@ -184,16 +186,6 @@ export function parseTail(lines: unknown, phase: TailPhase = "request"): TailMod
       }
       const spec = model.objects[name];
 
-      if (original) {
-        model.objects[name] = {
-          ...spec,
-          on: true,
-          none: undefined,
-          original: true,
-          originalSize: value === undefined || value === "" ? undefined : value,
-        };
-        continue;
-      }
       if (value === "none") {
         model.objects[name] = { on: false, none: true };
         continue;
@@ -218,6 +210,7 @@ export function parseTail(lines: unknown, phase: TailPhase = "request"): TailMod
         ...spec,
         ttl: rowTtl ?? spec.ttl,
         when: rowWhen ?? spec.when,
+        sent: rowSent === undefined ? spec.sent : rowSent || undefined,
       };
     }
   }
@@ -285,51 +278,37 @@ function formatPhaseless(model: TailModel, kind: TailKind, phase: TailPhase): st
   }
 
   const out: string[] = [];
-  const masked: Word[] = [];
-  const original: Word[] = [];
+  const words: Word[] = [];
 
-  const paramsOf = (spec: ObjectSpec): string[] => {
-    if (kind !== "archive") return [];
+  // ttl, when and source are properties of the object, not of the line:
+  // objects that share them share a line.
+  const paramsOf = (name: ObjectName, spec: ObjectSpec): string[] => {
     const opts: string[] = [];
-    if (spec.ttl !== undefined && spec.ttl !== "") opts.push(`ttl=${spec.ttl}`);
-    if (spec.when !== undefined && spec.when.length > 0) {
-      opts.push(`when=${outcomeSet(spec.when).join(",")}`);
+    if (kind === "archive") {
+      if (spec.ttl !== undefined && spec.ttl !== "") opts.push(`ttl=${spec.ttl}`);
+      if (spec.when !== undefined && spec.when.length > 0) {
+        opts.push(`when=${outcomeSet(spec.when).join(",")}`);
+      }
     }
+    if (kind === "preview" && name === "body" && spec.sent === true) opts.push("source=sent");
     return opts;
   };
 
   for (const name of PHASE_OBJECTS[phase]) {
     const spec = model.objects[name];
     if (spec.none === true) {
-      masked.push({ text: `${name}=none`, opts: [] });
+      words.push({ text: `${name}=none`, opts: [] });
       continue;
     }
     if (!spec.on) {
       continue;
     }
-    const opts = paramsOf(spec);
-    if (kind !== "capture" && spec.original === true && (phase === "frame:c2s" || phase === "frame:s2c")) {
-      masked.push({ text: name, opts });
-      continue;
-    }
-    if (kind !== "capture" && spec.original === true) {
-      original.push({
-        text: spec.originalSize === undefined ? name : `${name}=${spec.originalSize}`,
-        opts,
-      });
-      if (kind === "preview" && spec.size !== undefined && spec.size !== "") {
-        masked.push({
-          text: spec.item ? `${name}=${spec.size}/${spec.item}` : `${name}=${spec.size}`,
-          opts,
-        });
-      }
-      continue;
-    }
+    const opts = paramsOf(name, spec);
     if (spec.size === undefined || spec.size === "") {
-      masked.push({ text: name, opts });
+      words.push({ text: name, opts });
       continue;
     }
-    masked.push({
+    words.push({
       text:
         kind === "preview" && spec.item
           ? `${name}=${spec.size}/${spec.item}`
@@ -338,31 +317,51 @@ function formatPhaseless(model: TailModel, kind: TailKind, phase: TailPhase): st
     });
   }
 
-  const axisOpts: string[] = kind === "preview" && model.sourceSent === true ? ["source=sent"] : [];
-
-  const maskedRows = groupWords(masked);
-  const originalRows = groupWords(original);
-
-  maskedRows.forEach((row, index) => {
-    out.push([...row, ...(index === 0 ? axisOpts : [])].join(" "));
-  });
-  originalRows.forEach((row, index) => {
-    out.push(
-      ["reload", ...row, ...(maskedRows.length === 0 && index === 0 ? axisOpts : [])].join(" "),
-    );
-  });
+  for (const row of groupWords(words)) {
+    out.push(row.join(" "));
+  }
 
   for (const target of LIST_TARGETS) {
     if (!PHASE_OBJECTS[phase].includes(target)) continue;
     for (const list of listNames(kind)) {
       const names = model[list][target];
-      if (names && names.length > 0) {
+      if (names === undefined) continue;
+      if (names.length > 0) {
         out.push(`${target} ${list}=${names.join(",")}`);
+      } else if (kind !== "capture") {
+        // An empty own list is still own: it keeps the capture lists out.
+        out.push(`${target} ${list}=${list === "allow" ? "*" : "none"}`);
       }
     }
   }
 
   return out;
+}
+
+/** The consumer names its own lists for the object: any of the three is set. */
+export function hasOwnLists(model: TailModel, target: ListTarget, kind: TailKind): boolean {
+  return listNames(kind).some((list) => model[list][target] !== undefined);
+}
+
+/**
+ * Names the capture hides from inspectors (masked or dropped) that the own
+ * lists of the record or the archive leave in the clear. Own lists replace the
+ * capture lists, so these travel open -- the panel says so before it happens.
+ */
+export function openedByOwnLists(capture: TailModel, own: TailModel, target: ListTarget): string[] {
+  const has = (list: string[] | undefined, name: string) =>
+    (list ?? []).some((item) => item.toLowerCase() === name.toLowerCase());
+  const allow = own.allow[target] ?? [];
+  const dropped = (name: string) =>
+    has(own.deny[target], name) || (allow.length > 0 && !has(allow, name));
+  const hidden = [...(capture.mask[target] ?? []), ...(capture.deny[target] ?? [])];
+  const seen = new Set<string>();
+  return hidden.filter((name) => {
+    const key = name.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return !dropped(name) && !has(own.mask[target], name);
+  });
 }
 
 export function sizeBytes(text: string | undefined): number | undefined {
@@ -381,10 +380,7 @@ export type ProblemCode =
   | "notInCapture"
   | "widerThanCapture"
   | "budgetRequired"
-  | "originalWholeResponse"
-  | "originalNotCaptured"
-  | "storeOriginal"
-  | "listOverCaptureDeny"
+  | "ownListsOpen"
   | "sendNotCaptured"
   | "sendPrefix";
 
@@ -467,50 +463,31 @@ export function checkTail(
 
     if (kind === "capture") continue;
 
-    const frame = phase === "frame:c2s" || phase === "frame:s2c";
-
-    if (frame && spec.original === true) {
-      continue;
-    }
-
-    const captured = ctx.capture?.objects[name];
-    const captureSize = captured?.on === true ? sizeBytes(captured.size) : undefined;
-
-    if (spec.original === true) {
-      overLimits(name, spec.originalSize === "capture" ? undefined : spec.originalSize);
-      if (spec.originalSize === "capture" && captured?.on !== true) {
-        problems.push({ object: name, code: "originalNotCaptured", level: "error" });
-      }
-      if (phase === "response" && !journal) {
-        const origBytes =
-          spec.originalSize === "capture" ? undefined : sizeBytes(spec.originalSize);
-        const whole = spec.originalSize === undefined;
-        const wider =
-          origBytes !== undefined &&
-          (captured?.on !== true ||
-            (captured.size !== undefined && captureSize !== undefined && origBytes > captureSize));
-        if (whole || wider) {
-          problems.push({ object: name, code: "originalWholeResponse", level: "error" });
-        }
-      }
-      continue;
-    }
-
-    if (captured?.on !== true && !journal) {
-      problems.push({ object: name, code: "notInCapture", level: "error" });
-      continue;
-    }
     if (kind === "preview" && (spec.size === undefined || spec.size === "")) {
       problems.push({ object: name, code: "budgetRequired", level: "error" });
     }
+
+    // Headers are in memory whole and the request body is in hand until the
+    // end: those ride to the agent with the record at any size. Past the
+    // request phase the module holds only the body it captures.
+    if (journal || phase === "request" || name !== "body") continue;
+
+    const frame = phase === "frame:c2s" || phase === "frame:s2c";
+    const captured = ctx.capture?.objects[name];
+
+    if (captured?.on !== true) {
+      problems.push({ object: name, code: "notInCapture", level: "error" });
+      continue;
+    }
+
+    if (frame) continue;
+
+    const captureSize = sizeBytes(captured.size);
     const own = sizeBytes(spec.size);
     if (
-      !frame &&
-      !journal &&
-      own !== undefined &&
+      captured.size !== undefined &&
       captureSize !== undefined &&
-      captured?.size !== undefined &&
-      own > captureSize
+      (own === undefined || own > captureSize)
     ) {
       problems.push({
         object: name,
@@ -529,54 +506,22 @@ export function checkStoreCross(
   phase: TailPhase,
 ): (TailProblem & { kind: TailKind })[] {
   const problems: (TailProblem & { kind: TailKind })[] = [];
-  const pairs: [TailKind, TailKind][] = [
-    ["archive", "preview"],
-    ["preview", "archive"],
-  ];
   for (const target of LIST_TARGETS) {
     if (!PHASE_OBJECTS[phase].includes(target)) continue;
-    for (const [plain, reloaded] of pairs) {
-      const a = models[plain];
-      const b = models[reloaded];
-      if (a.off || b.off) continue;
-      const spec = a.objects[target];
-      const other = b.objects[target];
-      if (!spec.on || spec.original === true) continue;
-      if (!other.on || other.original !== true) continue;
-      const hasOwnLists = listNames(plain).some(
-        (list) => (a[list][target]?.length ?? 0) > 0,
-      );
-      if (hasOwnLists) continue;
-      problems.push({
-        kind: plain,
-        object: target,
-        code: "storeOriginal",
-        level: "warn",
-        params: { axis: reloaded },
-      });
-    }
-
-    const captureDeny = models.capture.off ? [] : (models.capture.deny[target] ?? []);
-    if (captureDeny.length === 0) continue;
+    if (models.capture.off) continue;
     for (const kind of ["archive", "preview"] as const) {
       const model = models[kind];
-      if (model.off) continue;
-      const spec = model.objects[target];
-      if (!spec.on || spec.original === true) continue;
-      for (const list of ["allow", "mask"] as const) {
-        const hit = (model[list][target] ?? []).find((name) =>
-          captureDeny.some((d) => d.toLowerCase() === name.toLowerCase()),
-        );
-        if (hit === undefined) continue;
-        problems.push({
-          kind,
-          object: target,
-          code: "listOverCaptureDeny",
-          level: "error",
-          params: { name: hit, list },
-        });
-        break;
-      }
+      if (model.off || !model.objects[target].on) continue;
+      if (!hasOwnLists(model, target, kind)) continue;
+      const opened = openedByOwnLists(models.capture, model, target);
+      if (opened.length === 0) continue;
+      problems.push({
+        kind,
+        object: target,
+        code: "ownListsOpen",
+        level: "warn",
+        params: { names: opened.join(", ") },
+      });
     }
   }
   return problems;

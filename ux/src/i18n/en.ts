@@ -2773,7 +2773,7 @@ export const en: DeepString<typeof ru> = {
       alertArchiveOff:
         "The objects leave with the verdict: nothing is left to the agent, and the exchange is cleaned right away.",
       alertSourceCapture:
-        "Bytes come from the capture: its masks and deny are already applied, and nothing wider than what was captured travels.",
+        "The capture's Mask and Do not capture apply, and the route's own lists go on top. The size may be wider than the capture: the module hands what is missing to the agent with the record.",
       objectShort: "budget and source — the ask's own",
       objectAsRoute: "as on the route",
       write: "write to the log",
@@ -2791,7 +2791,8 @@ export const en: DeepString<typeof ru> = {
         "Objects as in the path's object dialog, the 'To archive' axis: switched-on objects stay for the agent with this size and from this source; none switched on — the route's set, or everything captured without one",
       budgetHint: "How many bytes of the object go into the record; empty — the whole object, up to the datagram ceiling. The sum over objects is clamped to it",
       sizeHint: "How many bytes of the object go to the archive; empty — the whole object",
-      sourceHint: "Snapshot — the capture slice with its masks; original — the module re-places the object without masks, the body is read if needed",
+      sourceHint:
+        "As captured — the capture slice and masks, the route's own lists on top. Original — before the capture masks: only the route's own lists apply, and without them the object goes with no masks at all. A body nobody read is read for this.",
       objectOff: "exclude",
     },
     mark: {
@@ -4376,173 +4377,194 @@ export const en: DeepString<typeof ru> = {
   tail: {
     object: "Object",
     objectHint:
-      "A row is an object: headers (`headers`), query arguments (`args`), body (`body`). Clicking a row opens the object window: slice, record and archive with labels. A row's object never changes: if it is the wrong one, delete the row and add the one you need.",
-    objects: { headers: "headers", args: "query args", body: "body" },
-    objectHints: {
-      headers: "`headers` — header names and values; on the response phase — upstream headers.",
-      args: "`args` — query string arguments. The response phase has none.",
-      body: "`body` — the body; on the response phase — the upstream body. The body has no name lists.",
+      "**A row is one object of the phase**: `headers`, `args` — the query string, `body`. The columns are what happens to that object: Capture — what inspectors see, To record — what lands in the audit record, To archive — what the agent takes to S3, Deliver — which version the recipient gets.\n\nClicking a row opens the object window: every axis is edited together there, next to the lines that go into the config. A row's object never changes — for another one, delete the row and add the object you need.",
+    objects: {
+      headers: "headers",
+      args: "query args",
+      body: "body",
     },
-    state: { inherit: "inherited", set: "own", off: "none" },
+    objectHints: {
+      headers:
+        "`headers` — headers as name–value pairs in the order received; a repeated name stays as separate pairs. On the response phase — the response headers of the protected server. Names are matched case-insensitively.",
+      args:
+        "`args` — the query string after `?`, as received, not decoded. Name lists work on parameter names. The response phase has no query string.",
+      body:
+        "`body` — the request body, or on the response phase the response body of the protected server. The body is one opaque run of bytes: it has no name lists and no masks, only a size.",
+    },
+    state: {
+      inherit: "inherited",
+      set: "own",
+      off: "none",
+    },
     addObject: "Add object",
-    addAllUsed: "All three objects are already in the table",
+    addAllUsed: "All objects of this phase are already in the table",
     empty:
-      "Nothing is captured — add an object. Inspectors get request metadata only, and nothing reaches the archive or the record.",
+      "Nothing is captured. Inspectors get request metadata only — method, address, path, client — and neither headers nor the body reach the record or the archive. Add an object with the “+” next to the phase.",
+    emptyJournal:
+      "The phase has no inspectors, so there are no Capture and Deliver columns: there is nobody to send the object to. The record and the archive work anyway — they take the object from the traffic itself. Add an object with the “+” next to the phase; the columns appear once the phase has inspectors.",
     editObject: "Edit object",
     stateLabel: "Set by",
     addTitle: "New object — {phase}",
     objectTitle: "{object} — {phase}",
     objectDialogHint:
-      "The object is edited as a whole: what to capture, what of it goes into the audit record, what into the archive and what the receiver gets. Below — warnings (what nginx -t would otherwise say on the node) and the lines that will land in the file. Only touched axes are written.",
+      "Every axis of the object is edited together: what to capture for inspectors, what to show in the audit record, what to take to the archive and which version to deliver. A ticked axis applies; unticked, the object does not travel along it.\n\nBelow are the warnings (what `nginx -t` on the node would say, or what only the archive contents would show) and the lines that go into this level's config. Only touched axes are written; the rest keep inheriting.",
+    objectDialogHintJournal:
+      "The phase has no inspectors: nobody to capture or deliver for, so there are no Capture and Deliver axes here. The audit record and the archive remain — they take the object from the traffic itself.\n\nBelow are the warnings and the lines that go into this level's config; only touched axes are written.",
     capture: "Capture",
-    captureShort: "what goes to the exchange and on to inspectors",
-    previewShort: "the slice inside the audit record, searchable in ClickHouse",
+    captureShort: "what inspectors see and what goes into the exchange",
+    preview: "To record",
+    previewShort: "what lands in the audit record and is searched",
+    archive: "To archive",
     archiveShort: "what the agent takes to S3 after the verdict",
-    sendShort: "what the receiver gets — as received or with inspector edits",
+    send: "Deliver",
+    sendShort: "which version the recipient gets — as received or edited",
     axisOff: "not carried",
     captureHint:
-      "waf_capture: what goes to the exchange and on to inspectors. Mask and deny apply before them. A size above waf_body_limit or client_max_body_size — nginx -t.",
-    preview: "Record",
+      "`waf_capture` — **what inspectors see**. A captured object is put into the exchange (Redis) once, before the first wave, and inspectors read it from there; an object that is not captured reaches inspectors as `null`.\n\n**Slice** limits the size, **Mask** replaces a name's value with sha256, **Do not capture** drops the name altogether — all before the exchange, so inspectors never see the original.\n\nA body in the capture makes the first wave wait for the body to be read. The response body capture also sets how much of the response the module holds until the verdict.\n\nThe record and the archive with lists “as captured” show names the way inspectors saw them; their sizes are their own.",
     previewHint:
-      "waf_preview: the slice inside the audit record, searchable in ClickHouse. The budget counts written JSON bytes; headers and args also cap one pair: 30k / 2k.",
-    archive: "Archive",
+      "`waf_preview` — **a slice of the object inside the audit record**. The record goes to the log, and the slice lets you search requests across all traffic. The module cuts the slice itself from what it holds in memory — nobody fetches it from the exchange.\n\n**Budget** — the slice size in bytes of written JSON, required. Headers and args take a second value, the **pair cap**: `30k/2k`.\n\n**Name lists** — as captured or own; own lists replace the capture lists instead of adding to them. On the request phase the slice may be wider than the capture, a response body only within it.\n\nWhich requests are recorded at all is up to the route's sample; denials are always recorded.",
     archiveHint:
-      "waf_archive: what the agent takes to S3 after the verdict. Sizes and name lists come from capture; wider than capture goes only as the original.",
+      "`waf_archive` — **what the agent takes to S3 after the verdict**: each kind of object into its own bucket. The audit record keeps a link, and the incident card opens the object by it.\n\n**Size** — how many bytes to keep, empty for the whole object. **Keep** and **Outcome** — the lifetime in the archive and on which outcomes to archive. **Name lists** — as captured or own, independent of the capture.\n\nWhere the bytes come from, the module decides itself: if the copy in the exchange is enough — the size is no wider than the capture and own lists open nothing it hid — the agent takes it; otherwise the module hands the original to the agent with the record. The exchange is never written twice, and the request does not wait for it.",
     slice: "Slice",
     sliceHint:
-      "How many bytes to capture: 64k, 1m. Empty — the whole object, but no wider than waf_body_limit and client_max_body_size.",
-    send: "Deliver",
+      "How many bytes of the object to capture: `64k`, `1m`. Empty — the whole object.\n\n**Headers** are cut at a whole pair, the size counted over the JSON of the pairs. **The query string** and **the body** are cut to a byte prefix.\n\nA size above `waf_body_limit` or `client_max_body_size` fails `nginx -t`. Headers and the query string are further bounded by nginx's header buffers. A body over `waf_body_limit` is handled by the limit policy: deny, cut, or pass without checking the body.",
     sendHint:
-      "waf_send: what the receiver gets — the upstream on the request, the client on the response, the other side on frames; the same axis on every phase, with no inheritance from request. **Original** — as received, no inspector edit is lifted. **Edited** — the version an inspector put; edits from neighbouring waves chain up and the receiver gets the last one, nobody edited — the original goes (no GET into the exchange). Two edits within one wave are not a contest but a failure: the route's waf_exception body rules them. A partial capture is never delivered edited: a slice in place of the whole would break the payload, so it is a failed lift — the phase exception for an unavailable object (waf_exception ... body) decides: deny or the original. An object that fits the slice is captured whole and is delivered. Module default: **edited** for every object on every phase — an edit that was made must reach the receiver; the original is delivered only when the operator asks for it.",
+      "`waf_send` — **which version of the object the recipient gets**: the upstream on the request phase, the client on the response phase, the other side on frames.\n\n**Edited** (the module default) — the version an inspector put. Edits from different waves chain up and the last one goes; nobody edited — the original goes.\n\n**Original** — as received; an edit, if there was one, is not applied and shows in the record as `applied:false`.\n\nAn edited body needs a whole capture: a body wider than the slice cannot be replaced with a piece — that is a failed lift, and the phase policy for an unavailable object (`waf_exception … body`) decides: deny or the original. Headers and the query string are edited by name over the original, and the slice does not get in the way.",
     sendOriginal: "original",
-    sendOriginalHint: "as received; an inspector edit, if any, lands in the record with applied:false",
+    sendOriginalHint:
+      "as received; an inspector edit is not applied and lands in the record with applied:false",
     sendStore: "edited",
-    sendStoreHint:
-      "the last version the inspectors put; the capture must be whole — a partial capture and a failed lift are decided by the phase policy for an unavailable body",
+    sendStoreHint: "the last version inspectors put; nobody edited — the original goes",
     sendPick: "Version",
     sendDefaultMark: "(default)",
     sendEffective: "in effect: {value} ({from})",
     sendPickHint:
-      "Original — as received, no edit is lifted. Edited — the object an inspector put via the rewrite section; several edits (in different waves) — the last one is delivered, none at all — the original goes. The capture must be whole: an object within the slice is delivered, an object wider than the slice is a failed lift. A failed lift (partial capture, no key, size or hash mismatch) is decided by the phase policy for an unavailable body.",
+      "**Original** — the body as received, inspector edits are not applied.\n\n**Edited** — the body from the object an inspector put with the rewrite section; several edits across waves — the last one goes, none — the original goes.\n\nThe body capture must be whole: a body within the slice is delivered edited, a body wider than the slice is a failed lift. A failed lift (partial capture, missing key, size or hash mismatch) is decided by the phase policy for an unavailable object: deny or the original.",
     sendPickHeadersHint:
-      "Original — headers as received, inspector set/unset are not applied. Edited — their edits land on top of the original by name and stack wave after wave, a later edit of a name wins: an untouched name, a name beyond the slice or under a mask stays as it was. A partial capture does not affect headers.",
+      "**Original** — headers as received, inspector `set` and `unset` are not applied.\n\n**Edited** — edits land over the original by name and stack wave after wave, a later edit of a name wins. A name nobody touched goes as received — even if the capture cut or masked it: capture masks do not apply to the recipient.",
     sendPickArgsHint:
-      "Original — the query string as received, inspector set/unset are not applied. Edited — their edits land on top of the original by name: set changes a value or appends a pair, unset removes every pair of the name, a later edit wins; masks and the capture slice do not interfere, the string never travels through the exchange.",
+      "**Original** — the query string as received, inspector `set` and `unset` are not applied.\n\n**Edited** — edits land over the original by name: `set` changes a value or appends a pair, `unset` removes every pair with that name, a later edit wins. Capture masks and the slice do not apply to the recipient, and the string never travels through the exchange.",
     sendPickFrameHint:
-      "Original — the frame as received. Edited — the frame payload from the inspector's object (the last one if there were several), the frame is rebuilt with the original opcode and fin; the frame capture must be whole, a frame wider than the slice is a failed lift ruled by the direction's policy for an unavailable body.",
+      "**Original** — the frame as received.\n\n**Edited** — the frame payload from the inspector's object (the last one if there were several); the frame is rebuilt with the original opcode and fin flag.\n\nThe frame capture must be whole: a frame wider than the slice is a failed lift, and the direction's policy for an unavailable object decides: close the connection or deliver the original.",
     budget: "Budget",
     budgetHint:
-      "How many bytes of the object land in the audit record itself. Counted over written JSON. A size is required — the whole object never goes into the record: whole objects travel via the archive.",
+      "How many bytes of the object go into the audit record — the size is required. It counts **written JSON**: quotes and escapes take room too, so less text fits than the number says.\n\nHeaders and args are written as whole pairs while the budget lasts. The body is a prefix; bytes that do not form UTF-8 are replaced with “�”.\n\nThe archive keeps the object whole and for long; the record exists for search, and big budgets bloat every record. The three budgets together are bounded by the size of one message to the agent — more than that fails `nginx -t`.",
     budgetNone: "required",
     pairCap: "Pair cap",
     pairCapHint:
-      "The second slice value: 30k/2k — at most 2k per name=value pair inside the budget. Empty — pairs are not cut.",
+      "The second value of a headers or args slice: `30k/2k` — at most 2k per name–value pair inside the budget. Empty — pairs are not cut.\n\nA value longer than the cap is cut at a character boundary, and the pair is marked as cut. A pair whose name alone takes more than half of the cap is skipped entirely and counted in `headers_preview_dropped` or `args_preview_dropped`.",
     pairCapNone: "none",
     archiveSize: "Size",
     archiveSizeHint:
-      "How many bytes of the object go to S3. Empty — as captured; no wider than capture. The agent cuts it: the exchange holds the whole object.",
+      "How many bytes of the object to take to S3. Empty — the whole object.\n\n**Headers and args** are cut at a whole pair, **the body** to a prefix; a cut object is marked incomplete in the record.\n\nOn the **request phase** any size within `waf_body_limit` and `client_max_body_size`: whatever is wider than the capture, the module hands to the agent with the record. On the **response phase** the body is held only at capture size — wider is not allowed. On **frames** — up to the side's `waf_body_limit`, wider than the capture is fine.",
+    archiveSizeJournalHint:
+      "How many bytes of the object to take to S3. Empty — the whole object, but no more than the phase's `waf_body_limit`.\n\nThe phase has no inspectors: the object is taken from the traffic itself and reaches the agent with the record.",
     source: "Source",
     sourceHint:
-      "From capture — what inspectors saw: after mask and deny. Original — the reload line: the exchange gets the unmasked object, inspectors never see it. That is how a masked header travels intact.",
-    sourceFrameHint:
-      "From capture: the frame payload at the size set next to it. Original: the whole frame regardless of capture, a frame has no masks, no reload needed. As delivered: what went to the recipient after rewrite (record only).",
-    sourceCapture: "from capture",
-    sourceCaptureHint: "after mask and deny — exactly what inspectors saw",
-    sourceCaptureFrameHint: "the frame payload at the size set below — a frame has no masks, and the size may be wider than capture (up to waf_body_limit)",
-    sourceOriginalFrameHint: "the whole frame, regardless of capture — no masks, no reload needed",
+      "Which version of the body the record shows.\n\n**As received** — the body before any rewrite. **As delivered** — what the recipient got after an inspector rewrite; the record marks it with `body_preview_source: sent`. No rewrite happened — the record shows what was received.\n\nHeaders and args have no second version: the name lists decide what of them is shown.",
+    sourceCapture: "as captured",
+    sourceCaptureHint: "the capture slice and masks; the route's own lists apply on top",
     sourceOriginal: "original",
-    sourceOriginalHint: "before masks; put into the exchange after the verdict, never shown to inspectors",
+    sourceOriginalHint:
+      "before the capture masks; only the route's own lists apply, none — no masks",
+    recordReceived: "as received",
+    recordReceivedHint: "the body before any inspector rewrite",
     recordSent: "as delivered",
-    recordSentHint: "the record holds what was sent to the recipient after rewrite; the original comes from the archive",
-    origAmount: "Original amount",
-    origAmountHint:
-      "How much of the original to put into the exchange: at capture size (=capture), whole, or the first N bytes. Put after the verdict over the capture — the wave does not wait for it. Wider than capture — request phase only.",
-    origAsCapture: "as captured",
-    origAsCaptureHint: "=capture: the original at the same size capture took",
-    origWhole: "whole",
-    origWholeHint:
-      "the whole object. Request phase only: a response cannot be re-read wider than captured",
-    origBySize: "first N",
-    origBySizeHint: "the original at a given size — may be wider than capture (request phase)",
-    origSizeLabel: "Size",
+    recordSentHint:
+      "the body sent to the recipient after a rewrite; the archive keeps the received one",
     lists: "Name lists",
     listsHint:
-      "Which names travel. As captured — mask/deny from capture. Own — an override, not an addition: the agent applies only what is named here. With the original, capture's lists are already lost — masking here is done by own lists.",
+      "Which names land here and in what form.\n\n**As captured** — the same Mask and Do not capture as the capture: exactly what inspectors saw.\n\n**Own** — independent lists: they replace the capture lists instead of adding to them. A name the capture hid that own lists neither mask nor drop lands here in the clear — the window warns about that separately. The module takes the original for that by itself.",
     listsCapture: "as captured",
+    listsCaptureHint: "the capture's Mask and Do not capture — what inspectors saw",
+    listsStandard: "standard",
+    listsStandardHint: "the phase masks and denials set by waf_capture lines",
+    listsJournalHint:
+      "Which names land here and in what form.\n\n**Standard** — the phase masks and denials set by `waf_capture` lines on this level or above. The phase has no inspectors, so these lists apply to the record and the archive only.\n\n**Own** — independent lists: they replace the standard ones instead of adding to them.",
     listsOwn: "own",
-    allow: "Only these",
-    allowHint:
-      "allow: only the named names travel, the rest do not. Cheaper than a wide deny: response headers are few.",
+    listsOwnHint: "your own choice of names and masks instead of the capture lists",
+    namesMode: "Which names",
+    namesModeHint:
+      "**All except the named** — every name lands, the named ones are dropped. Good for removing a few known secrets.\n\n**Only the named** — only the named names land, the rest are dropped, including ones you do not know about in advance. Good for responses and strict routes.\n\nMasks apply separately in both modes: a masked name stays, its value replaced with sha256.",
+    namesExcept: "all except the named",
+    namesExceptHint: "the named names are dropped, the rest land",
+    namesOnly: "only the named",
+    namesOnlyHint: "only the named and the masked names land",
+    namesExceptShort: "except",
+    namesOnlyShort: "only",
+    namesDrop: "Drop",
+    namesDropHint:
+      "Names that will not be here at all — neither the name nor the value. Case-insensitive. Empty — nothing is dropped.",
+    namesKeep: "Keep only",
+    namesKeepHint:
+      "The only names that land here; every other name is dropped. Masked names need not be listed here — they stay by themselves. Case-insensitive.",
     mask: "Mask",
-    maskHint:
-      "The name stays, the value becomes sha256. The inspector sees the field existed, not its content.",
+    ownMaskHint:
+      "The name stays, the value is replaced with its sha256. Hashes let you match requests — say, the same token from different addresses — without revealing the value. A name the capture already hashed is not hashed again. Empty — no masks.",
+    captureMaskHint:
+      "The name stays, the value is replaced with its sha256 — before the exchange, so inspectors see only the hash. Hashes let you match requests (the same token from different addresses) without revealing the value.\n\nThe record and the archive with lists “as captured” get the same hash. Names are matched case-insensitively.",
     deny: "Do not capture",
-    denyHint: "The name reaches nothing at all. Adds to the built-in secret list.",
+    captureDenyHint:
+      "The name is dropped together with its value before the exchange: inspectors never learn it was there.\n\nThe record and the archive with lists “as captured” do not get it either; with own lists they do, unless those lists drop it themselves. Names are matched case-insensitively.",
     addName: "add name…",
     whole: "whole",
-    asCapture: "as captured",
     no: "no",
     clearedHere: "cleared here",
-    originalMark: "orig",
-    originalMarkHint:
-      "The original travels (reload line): after the verdict the exchange gets the unmasked object, inspectors never see it.",
-    namesMark: "names",
+    namesMark: "own names",
+    ownEmpty: "own lists empty — no masks",
     ttl: "Keep",
     ttlForever: "forever",
-    ttlHint: "ttl: how long the object lives in the archive — 30d, 12h. Empty means forever.",
+    ttlHint:
+      "How long the object lives in the archive: `30d`, `12h`. Empty — forever.\n\nThe lifetime travels as the object tag `waf-retain-ttl`, and the bucket's lifecycle rule for that tag deletes the object. **Every lifetime needs its own rule in the bucket**: without one the object is never deleted and stays forever.",
     when: "Outcome",
     whenHint:
-      "when: which outcomes send the object to the archive. None pressed means any, redirect included; both mean everything but redirect. The outcome is the route's, taken from the last phase: a deny in the response phase counts for request objects too.",
+      "On which request outcomes the object goes to the archive.\n\nNothing pressed — on any outcome, redirect included. **Deny** — only when the request was denied. **Allow** — only when it was let through. Both — everything but redirect.\n\nThe outcome is the whole route's: a deny on the response phase counts as a deny for request objects too, so their record waits for the end of the response.",
     whenSummaryAny: "any outcome, redirect included",
     whenSummaryDeny: "deny only",
     whenSummaryAllow: "allow only",
     whenSummaryBoth: "everything but redirect",
     alert: {
       capture:
-        "The capture is the only copy inspectors see. The slice cuts the object before it is sent, mask and deny apply before that. Everything below that takes the \"from capture\" source gets exactly this: nothing wider than the slice and nothing past the masks.",
-      sourceCapture:
-        "Bytes come from the capture: masks and deny are already applied, the capture slice ({size}) is the ceiling. Inspectors saw exactly this.",
-      sourceCaptureArchive:
-        "Bytes come from the capture: masks and deny are already applied, and nothing wider than the capture ({size}) travels — that is what the original is for. The agent does the cutting: the exchange holds the capture, and the archive gets its head at the size asked.",
-      sourceCaptureOff:
-        "The object is not captured — there is nothing to take from the capture, and the line stays silent. Either turn on Capture, or take the original: it is read past the capture.",
+        "The capture is the only copy of the object inspectors see. The slice cuts the object, Mask and Do not capture apply before the exchange, and the original is out of inspectors' reach. The record and the archive with lists “as captured” show names the same way; their sizes are their own.",
       sourceOriginal:
-        "The original is read again, past the capture: the slice and the masks of the capture do not apply to it, and a masked header travels whole. It is put into the exchange after the verdict, over the capture, and only when someone needs it: on an outcome the archive does not take the object on, the original is not put at all. Inspectors never see it. Names can be limited here only by own lists.",
-      sourceOriginalFrame:
-        "The original of a frame is the whole frame regardless of the capture: frames have no masks, and there is nothing to re-read.",
+        "The original is taken before the capture masks, and only the route's own lists for the record or the archive apply. With no own lists the object goes without any masks, and a header the capture masked ends up in the clear.",
       sourceSent:
-        "The record gets what was delivered to the receiver after the rewrite. What arrived originally stays only in the archive — if it is on.",
-      ownLists:
-        "Own lists override the capture's lists rather than adding to them: the agent applies only what is named here. An empty \"only these\" narrows nothing. A name the capture already masked is not hashed a second time — the archive holds the same hash inspectors saw. A name the capture dropped cannot come back here without the original — nginx -t.",
-      listsOriginal:
-        "The lists come from the capture, but the original has already gone past them: it has no masks at all. To mask a name here, switch the lists to \"own\".",
+        "The record gets the body sent to the recipient after a rewrite. The received body stays only in the archive, if body archiving is on.",
+      namesOnlyEmpty:
+        "In “only the named” mode, name at least one name: an empty list would mean “nothing”, yet the config reads it as “everything”.",
+      ownListsOpen:
+        "The capture hides {names} from inspectors, and own lists neither mask nor drop them — they land here in the clear. If that is not intended, add them to Mask or Drop.",
+      ownListsOpenJournal:
+        "The phase's standard lists hide {names}, and own lists neither mask nor drop them — they land here in the clear.",
       auditOverride:
-        "An initiator can demand this object be recorded — then it lands in the log with its own budget and source, despite this switch and despite the route's sample. What stands here is the route's default, not a ban.",
+        "An inspector can ask for this object to be recorded through the action channel — with its own budget and source, even when recording is off here and the request missed the sample. What stands here is the route's default, not a ban.",
       archiveOverride:
-        "An initiator can demand this object be archived — with its own size, source and ttl, and on any outcome: the ask outranks the outcome filter it knows nothing about. What stands here is the route's default, not a ban.",
+        "An inspector can ask for this object to be archived through the action channel — with its own size, lifetime and source, and on any outcome. What stands here is the route's default, not a ban.",
       sendOriginal:
-        "The receiver gets the object as it arrived: no inspector edit is lifted — the same on the request, on the response and on frames. An edit, if there was one, lands in the record with applied:false.",
+        "The recipient gets the object as it arrived: inspector edits are not applied — the same on the request, the response and frames. An edit, if there was one, lands in the record with applied:false.",
       sendStoreBody:
-        "The receiver gets the inspector's version if it put one; several edits chained up — the last one goes, and if nobody edited, the original goes. The capture must be whole for that: an object wider than the slice is a failed lift, and the phase policy for an unavailable body decides what happens next (deny by default).",
+        "The recipient gets the inspector's version if one was put; several edits — the last one goes, none — the original goes. The capture must be whole for that: a body wider than the slice is a failed lift, and the phase policy for an unavailable object decides what happens (deny by default).",
       sendStoreNames:
-        "Inspector edits land on top of the original by name and stack wave after wave, a later edit of a name wins: an untouched name, a name past the slice and a masked name stay as they were. A partial capture does not get in the way here.",
+        "Inspector edits land over the original by name and stack wave after wave, a later edit of a name wins. A name nobody touched goes as received, even if the capture cut or masked it.",
     },
     problem: {
-      overBodyLimit: "{size} is above waf_body_limit {limit} — nginx -t",
-      overClientMax: "{size} is above client_max_body_size {limit} — nginx -t",
-      notInCapture: "the object is not captured — it can travel only as the original",
-      widerThanCapture: "{size} is wider than capture ({capture}) — only the original goes wider",
-      budgetRequired: "the record requires a size — set the budget",
-      originalWholeResponse:
-        "on the response phase the original is no wider than capture: “as captured” or a size within it",
-      originalNotCaptured: "nothing to take “as captured” from: the object is not captured",
-      storeOriginal:
-        "“{axis}” puts the original into the exchange, and the object has a single key — without own name lists the original travels here too",
-      listOverCaptureDeny:
-        "{list}: the capture drops “{name}” — the object no longer has it, the promise cannot hold; take the original or drop the name — nginx -t",
-      sendNotCaptured: "nothing to deliver edited: the object is not captured — nginx -t",
-      sendPrefix: "slice {size}: an object wider than the slice is not delivered edited — a failed lift ruled by the phase policy for an unavailable body (deny by default); an object within the slice is delivered",
+      overBodyLimit: "{size} is above waf_body_limit ({limit}) — nginx -t will reject it",
+      overClientMax: "{size} is above client_max_body_size ({limit}) — nginx -t will reject it",
+      notInCapture:
+        "the body is not captured, and after the request phase the module holds only what it captures — turn on Capture for the body",
+      widerThanCapture:
+        "{size} is wider than the capture ({capture}): after the request phase the body is held only at capture size — widen the capture or lower the size",
+      budgetRequired: "the record needs a size — set the budget",
+      ownListsOpen: "own lists open what the capture hides: {names}",
+      sendNotCaptured:
+        "nothing to deliver edited: the object is not captured — nginx -t will reject it",
+      sendPrefix:
+        "slice {size}: an object wider than the slice is not delivered edited — that is a failed lift decided by the phase policy for an unavailable object; an object within the slice is delivered",
     },
+    emitted: "In the file at this level",
+    emittedNone: "No lines of its own — what is above applies.",
+    fromAbove: "applies from above",
+    nothingAbove: "nothing is set above",
     phase: {
       request: "request",
       response: "response",
@@ -4551,17 +4573,17 @@ export const en: DeepString<typeof ru> = {
     },
     phaseHint: {
       request:
-        "Request-phase objects: headers, query string, body. Module default is headers and args in full. Without inspectors the phase keeps a journal: the record and the archive take the object from the request, no capture needed for that.",
+        "**Request phase** — the headers, query string and body the client sent. Module default: capture headers and the query string whole, do not capture the body.\n\nThe module has the whole body until the request ends, so the record and the archive may be wider than the capture. Without inspectors the phase keeps a journal: the record and the archive take the object from the request itself.",
       response:
-        "Response-phase objects: upstream headers and body. Default is nothing. The body size here also caps how much of the response is held (waf_hold). Without response-phase inspectors the response is not held: the record and the archive get a copy of the body prefix, the client gets the response at once.",
+        "**Response phase** — the headers and body of the protected server's response. Default: capture nothing.\n\nThe response body capture sets how much of the response the module holds until the verdict and makes it ask the upstream for an uncompressed response — inspectors do not read a compressed body. The body in the record and the archive is no wider than the capture; headers can be any size.\n\nWithout inspectors the response is not held: the client gets it at once, and the record and the archive get a copy of the start of the body.",
       "frame:c2s":
-        "Payload of a WebSocket frame from the client. Default is nothing. Capture and delivery matter only to frame inspectors — without them the group keeps the record and the archive. Archive and preview may be wider than capture (up to waf_body_limit). Frames reach the journal and the archive by the frame record policy — the selector on the right; without inspectors only “record all” writes.",
+        "**Client frames** — the payload of WebSocket frames from the client to the application. Default: capture nothing.\n\nFrames have no masks, and the whole frame sits in a buffer until the verdict, so the record and the archive may be wider than the capture — up to the side's `waf_body_limit`. Which frames reach the journal and the archive is set by the frame record policy on the right; without inspectors only “record all” writes.",
       "frame:s2c":
-        "Payload of a WebSocket frame from the application. Default is nothing. Capture and delivery matter only to frame inspectors — without them the group keeps the record and the archive. Archive and preview may be wider than capture (up to waf_body_limit). Frames reach the journal and the archive by the frame record policy; without inspectors only “record all” writes.",
+        "**Application frames** — the payload of WebSocket frames from the application to the client. Default: capture nothing.\n\nFrames have no masks, and the whole frame sits in a buffer until the verdict, so the record and the archive may be wider than the capture — up to the side's `waf_body_limit`. Which frames reach the journal and the archive is set by the frame record policy on the right; without inspectors only “record all” writes.",
     },
     frameAudit: "Frame records",
     frameAuditHint:
-      "waf_audit_frames — which frames reach the journal, and with them the slice (“To record”) and the archive. **record denials** — a frame with a deny, a rewrite or a score (none without inspectors); **record all** — every frame of both sides, a side without inspectors is journaled, the frame goes to the receiver without waiting for the record; **no records** — neither frames nor the session summary. The session summary is written on close with any value but “no records”. One policy per path, both sides.",
+      "`waf_audit_frames` — **which frames reach the journal**, and with them the frame slice (To record) and archive.\n\n**Record denials** — only a frame that was denied, rewritten or scored; without inspectors there are none. **Record all** — every frame of both sides (or every n-th); the frame goes to the recipient without waiting for the record. **No records** — neither frames nor the session summary.\n\nThe session summary is written when the connection closes, with any value but “no records”. One policy per path, for both sides.",
     frameAuditOptions: {
       inherit: "inherits: {value}",
       off: "no records",
@@ -4571,37 +4593,21 @@ export const en: DeepString<typeof ru> = {
     frameAuditEvery: "every {n}th",
     frameAuditEveryOne: "every",
     frameAuditWarn: {
-      off: "no frame records — the frame slice and archive will not go out, and there will be no session summary",
+      off:
+        "with no frame records the frame slice and archive do not go out, and there is no session summary",
       deny:
-        "no frame inspectors, and “record denials” records only a frame with a deny, a rewrite or a score — this side's slice and archive will not go out; choose “record all”",
+        "no frame inspectors, and “record denials” records only denied, rewritten or scored frames — this side has none; choose “record all”",
     },
-    journalSource:
-      "No inspectors on this phase: the object is taken from the traffic itself, in this axis's size; the name masks and denials set for the phase apply.",
-    journalOriginal:
-      "Original — as it arrived: masks and denials do not apply, and a masked header travels whole. Names can be limited here only with own lists.",
-    objectDialogHintJournal:
-      "No inspectors on this phase, nobody to capture or deliver for: the object keeps the audit record and the archive, taken from the traffic itself. Below are the warnings and the lines that go into the file. Only touched axes are written.",
-    archiveSizeJournalHint:
-      "How many bytes of the object go to S3. Empty — the whole object, but no wider than waf_body_limit.",
-    sourceJournalHint:
-      "With masks — the name masks and denials set for the phase (waf_capture … mask= / deny=). Original — as it arrived: masks do not apply, a masked header travels whole.",
-    sourceMasked: "with masks",
-    sourceMaskedHint: "the name masks and denials set for the phase apply",
-    sourceOriginalJournalHint: "as it arrived — masks do not apply",
-    sourceSized: "by size",
-    sourceSizedHint: "as much as the size says",
-    listsStandard: "standard",
-    listsJournalHint:
-      "Which names travel. Standard — the masks and denials set for the phase. Own — an override, not an addition: the agent applies only what is named here. The original has no masks — mask it here with own lists.",
     phaseEmpty: {
       request: "nothing is captured",
-      response: "response is not captured — response-phase inspectors see only the status and metadata",
-      "frame:c2s": "frames are not captured — frame inspectors see only the opcode and the handshake URI",
-      "frame:s2c": "application frames are not captured — inspectors see only the opcode and the handshake URI",
+      response:
+        "response is not captured — response-phase inspectors see only the status and metadata",
+      "frame:c2s":
+        "frames are not captured — frame inspectors see only the opcode and the handshake URI",
+      "frame:s2c":
+        "application frames are not captured — inspectors see only the opcode and the handshake URI",
     },
-    emitted: "In the file at this level",
-    emittedNone: "No lines of its own — what is above applies.",
-    fromAbove: "applies from above",
-    nothingAbove: "nothing is captured above",
+    phaseEmptyJournal:
+      "no inspectors — nothing to capture for; the record and the archive take the object from the traffic itself",
   },
 };

@@ -55,7 +55,7 @@ snake_case nginx. Нет ключа — наследовать; ключ ест�
 | `waf_frame_score_deny` | inherit | нет | — |
 | `waf_capture` | inherit | печатает | `capture[]` — первое слово `request`/`response`/`frame:c2s`/`frame:s2c`/`frame` (без слова — `request`); `[]` → `none` на запросе и ответе; у кадров `none` за пустоту не печатается |
 | `waf_response_body_access` | inherit | нет | снято; jsonb ещё парсится |
-| `waf_archive` | inherit | печатает | `archive[]` — первое слово `request`/`response`/`frame[:dir]`; инспекторы фазы не нужны — фаза без волн пишет журнал (`archive_needs_inspect` снят) |
+| `waf_archive` | inherit | печатает | `archive[]` — первое слово `request`/`response`/`frame[:dir]`; инспекторы фазы не нужны — фаза без волн пишет журнал (`archive_needs_inspect` снят). маски — свои списки архива (`headers mask=…`, `mask=none` — свои и пустые), откуда брать объект модуль решает сам; `reload` снят — `tail_reload_retired`, любое `source=` у архива — `tail_source_value` |
 | `waf_body_limit` | inherit | печатает | `bodyLimit` + `bodyLimitPolicy` |
 | `waf_body_encrypt` | inherit | в jsonb | `bodyEncrypt` |
 | `waf_body_transform` | inherit | нет | — |
@@ -70,7 +70,7 @@ snake_case nginx. Нет ключа — наследовать; ключ ест�
 | `waf_cookie_defaults` | inherit | печатает | `cookieDefaults` |
 | `waf_local_rate` | inherit | печатает | `localRates[]`; `count=requests\|waves\|frames` — `frames` считает кадры и допустим только на websocket-пути (`frame_needs_websocket`) |
 | `waf_local_check` | inherit | печатает | `localChecks[]`; `action=block\|allow\|wave`; `response=` только у `block` |
-| `waf_preview` | inherit | печатает | `preview[]` — первое слово `request`/`response` |
+| `waf_preview` | inherit | печатает | `preview[]` — первое слово `request`/`response`/`frame[:dir]`; `source=original\|sent` только у тела (иначе `tail_source_value`), маски — свои списки превью, `reload` снят (`tail_reload_retired`) |
 | `waf_debug_header` | inherit | печатает | `debugHeader` |
 | кадры, обе стороны (`waf_inspect frame:c2s\|frame:s2c\|frame`, `waf_deadline frame`, `waf_body_limit frame:*`) | inherit | печатает | `frameInspectors` (сторона — `ref.stream`), `frameDeadlineMs`/`frameDeadlinePolicy`, `bodyLimit` с первым словом `frame:c2s`/`frame:s2c`/`frame`; `waf_hold frame:*` не печатается — модуль ведёт кадры только в gate |
 | `waf_audit_frames` | location (websocket) | печатает | `frameAudit` → `off`/`deny`/`all`, `frameAuditSample` → `sample=` (только с `all`, `>1`); без ключа не печатается — умолчание модуля `deny` |

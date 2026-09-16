@@ -49,8 +49,10 @@ import {
   checkTail,
   emptyTail,
   formatTails,
+  hasOwnLists,
   listNames,
   mergeTail,
+  openedByOwnLists,
   overrideTail,
   parseTail,
   NONE_PHASES,
@@ -285,6 +287,10 @@ function problemText(t: Translate, p: TailProblem): string {
   return t(`tail.problem.${p.code}`, params);
 }
 
+function listed(list: readonly string[], name: string): boolean {
+  return list.some((item) => item.toLowerCase() === name.toLowerCase());
+}
+
 function ownListsHint(
   t: Translate,
   model: TailModel,
@@ -293,13 +299,24 @@ function ownListsHint(
 ): string | undefined {
   if (name === "body") return undefined;
   const target = name as ListTarget;
-  const parts = listNames(kind)
-    .map((list) => {
-      const names = model[list][target];
-      return names && names.length > 0 ? `${t(`tail.${list}`)}: ${names.join(", ")}` : null;
-    })
-    .filter((x): x is string => x !== null);
-  return parts.length > 0 ? parts.join(" · ") : undefined;
+  const allow = model.allow[target] ?? [];
+  const mask = model.mask[target] ?? [];
+  const deny = model.deny[target] ?? [];
+  const parts: string[] = [];
+  if (kind === "capture") {
+    if (mask.length > 0) parts.push(`${t("tail.mask")}: ${mask.join(", ")}`);
+    if (deny.length > 0) parts.push(`${t("tail.deny")}: ${deny.join(", ")}`);
+    return parts.length > 0 ? parts.join(" · ") : undefined;
+  }
+  if (!hasOwnLists(model, target, kind)) return undefined;
+  const kept = allow.filter((n) => !listed(mask, n) && !listed(deny, n));
+  if (allow.length > 0) {
+    parts.push(`${t("tail.namesOnlyShort")}: ${kept.length > 0 ? kept.join(", ") : "—"}`);
+  } else if (deny.length > 0) {
+    parts.push(`${t("tail.namesExceptShort")}: ${deny.join(", ")}`);
+  }
+  if (mask.length > 0) parts.push(`${t("tail.mask")}: ${mask.join(", ")}`);
+  return parts.length > 0 ? parts.join(" · ") : t("tail.ownEmpty");
 }
 
 type CellProblem = TailProblem & { kind: TailKind; phase: TailPhase };
@@ -495,12 +512,17 @@ export function CaptureTable({
         </TableHead>
         <TableBody>
           {!hasAnyRow && (
-            <TableNoticeRow colSpan={columns.length + 2} kind="empty" message={t("tail.empty")} />
+            <TableNoticeRow
+              colSpan={columns.length + 2}
+              kind="empty"
+              message={t(columns.includes("capture") ? "tail.empty" : "tail.emptyJournal")}
+            />
           )}
           {phases.map((phase) => (
             <PhaseRows
               key={phase}
               phase={phase}
+              inspected={inspected[phase]}
               rows={rowsOf(phase)}
               unused={unusedOf(phase)}
               span={{ left: leftSpan, right: rightSpan }}
@@ -547,7 +569,6 @@ export function CaptureTable({
                         phase={phase}
                         name={name}
                         problem={problemOf(kind, phase, name)}
-                        inspected={inspected[phase]}
                       />
                     ) : (
                       <FilterCell key={kind} width={axisWidth(kind)}>
@@ -676,6 +697,7 @@ function FrameAuditPick({ audit }: { audit: FrameAudit }) {
 
 function PhaseRows({
   phase,
+  inspected = true,
   rows,
   unused,
   span,
@@ -685,6 +707,7 @@ function PhaseRows({
   children,
 }: {
   phase: TailPhase;
+  inspected?: boolean;
   rows: readonly ObjectName[];
   unused: readonly ObjectName[];
   span: { left: number; right: number };
@@ -712,7 +735,7 @@ function PhaseRows({
             />
             {rows.length === 0 && (
               <Typography sx={{ ...dialogLabelSx, opacity: 0.7, whiteSpace: "normal" }}>
-                {t(`tail.phaseEmpty.${phase}`)}
+                {t(inspected ? `tail.phaseEmpty.${phase}` : "tail.phaseEmptyJournal")}
               </Typography>
             )}
             {audit !== undefined && !auditRight && (
@@ -843,22 +866,18 @@ function archiveMark(t: Translate, spec: ObjectSpec): { text: string; hint: stri
   };
 }
 
-function cellValue(t: Translate, kind: TailKind, spec: ObjectSpec, inspected = true): string {
+function cellValue(t: Translate, kind: TailKind, spec: ObjectSpec): string {
   if (kind === "capture") {
     return spec.size ?? t("tail.whole");
   }
   if (kind === "send") {
     return spec.send === "store" ? t("tail.sendStore") : t("tail.sendOriginal");
   }
-  if (spec.original === true && (kind === "archive" || spec.size === undefined)) {
-    if (spec.originalSize === "capture") return t("tail.asCapture");
-    return spec.originalSize ?? t("tail.whole");
-  }
   if (kind === "preview") {
     if (spec.size === undefined) return "—";
     return spec.item === undefined ? spec.size : `${spec.size} / ${spec.item}`;
   }
-  return spec.size ?? t(inspected ? "tail.asCapture" : "tail.whole");
+  return spec.size ?? t("tail.whole");
 }
 
 function ObjectCell({
@@ -866,13 +885,11 @@ function ObjectCell({
   phase,
   name,
   problem,
-  inspected = true,
 }: {
   axis: Axis;
   phase: TailPhase;
   name: ObjectName;
   problem?: CellProblem;
-  inspected?: boolean;
 }) {
   const t = useT();
   const effective = axis.effective[phase];
@@ -883,7 +900,7 @@ function ObjectCell({
   const keep = spec.on && axis.kind === "archive" ? archiveMark(t, spec) : undefined;
 
   const text = spec.on
-    ? cellValue(t, axis.kind, spec, inspected)
+    ? cellValue(t, axis.kind, spec)
     : spec.none === true && axis.parent[phase].objects[name].on
       ? t("tail.clearedHere")
       : t("tail.no");
@@ -895,10 +912,10 @@ function ObjectCell({
     >
       <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", minWidth: 0 }}>
         <Typography sx={{ ...CELL_VALUE_SX, opacity: spec.on ? 1 : 0.55 }}>{text}</Typography>
-        {spec.on && spec.original === true && axis.kind !== "capture" && (
-          <Tooltip arrow title={t("tail.originalMarkHint")}>
+        {spec.on && spec.sent === true && axis.kind === "preview" && (
+          <Tooltip arrow title={t("tail.recordSentHint")}>
             <Typography component="span" sx={{ ...MARK_SX, color: "info.main" }}>
-              {t("tail.originalMark")}
+              {t("tail.recordSent")}
             </Typography>
           </Tooltip>
         )}
@@ -940,10 +957,11 @@ interface AxisDraft {
   on: boolean;
   size: string;
   item: string;
-  source: "capture" | "original" | "sent";
-  origMode: "capture" | "whole" | "size";
-  origSize: string;
+  /** the record body only: as received or as delivered after a rewrite */
+  source: "received" | "sent";
   ownLists: boolean;
+  /** own lists: all names except the named ones, or only the named ones */
+  namesMode: "except" | "only";
   allow: string[];
   mask: string[];
   deny: string[];
@@ -954,48 +972,35 @@ interface AxisDraft {
 
 type Draft = Record<TailKind, AxisDraft>;
 
-function draftOf(
-  model: TailModel,
-  kind: TailKind,
-  name: ObjectName,
-  phase: TailPhase,
-): AxisDraft {
+function draftOf(model: TailModel, kind: TailKind, name: ObjectName): AxisDraft {
   const spec = model.objects[name];
-  const frame = phase === "frame:c2s" || phase === "frame:s2c";
-  const original =
-    spec.original === true || (frame && kind !== "capture" && spec.on && spec.size === undefined);
   const target = name === "body" ? undefined : (name as ListTarget);
-  const lists =
+  const raw =
     target === undefined
-      ? { allow: [], mask: [], deny: [] }
+      ? { allow: [] as string[], mask: [] as string[], deny: [] as string[] }
       : {
           allow: model.allow[target] ?? [],
           mask: model.mask[target] ?? [],
           deny: model.deny[target] ?? [],
         };
+  // The dialog keeps one mode at a time. "Only these" is printed as allow=
+  // with the masked names added (a masked name has to stay to be masked), so
+  // it is read back without them; a denied name inside allow= never passes.
+  const only = kind !== "capture" && raw.allow.length > 0;
+  const lists = only
+    ? {
+        allow: raw.allow.filter((n) => !listed(raw.mask, n) && !listed(raw.deny, n)),
+        mask: raw.mask.filter((n) => !listed(raw.deny, n)),
+        deny: [],
+      }
+    : raw;
   return {
+    namesMode: only ? ("only" as const) : ("except" as const),
     on: spec.on,
     size: spec.size ?? "",
     item: spec.item ?? "",
-    source:
-      kind === "preview" && name === "body" && model.sourceSent === true
-        ? "sent"
-        : original
-          ? "original"
-          : "capture",
-    origMode:
-      spec.original !== true || spec.originalSize === "capture"
-        ? "capture"
-        : spec.originalSize === undefined
-          ? "whole"
-          : "size",
-    origSize:
-      spec.originalSize !== undefined && spec.originalSize !== "capture"
-        ? spec.originalSize
-        : "",
-    ownLists:
-      kind !== "capture" &&
-      (lists.allow.length > 0 || lists.mask.length > 0 || lists.deny.length > 0),
+    source: kind === "preview" && spec.sent === true ? "sent" : "received",
+    ownLists: kind !== "capture" && target !== undefined && hasOwnLists(model, target, kind),
     ...lists,
     send: spec.send ?? "original",
     ttl: spec.ttl ?? "",
@@ -1008,10 +1013,9 @@ function offDraft(): AxisDraft {
     on: false,
     size: "",
     item: "",
-    source: "capture",
-    origMode: "capture",
-    origSize: "",
+    source: "received",
     ownLists: false,
+    namesMode: "except",
     allow: [],
     mask: [],
     deny: [],
@@ -1058,7 +1062,7 @@ function ObjectDialog({
     return Object.fromEntries(
       KINDS.map((kind) => [
         kind,
-        adding ? offDraft() : draftOf(axes[kind].effective[phase], kind, name, phase),
+        adding ? offDraft() : draftOf(axes[kind].effective[phase], kind, name),
       ]),
     ) as Draft;
   }, [adding, axes, name, phase]);
@@ -1078,28 +1082,19 @@ function ObjectDialog({
     if (!d.on) return { on: false };
     if (kind === "send") return { on: true, send: d.send };
     if (kind === "capture") return { on: true, size: strU(d.size) };
-    const original = d.source === "original";
-    const originalSize = frame
-      ? undefined
-      : d.origMode === "capture"
-        ? "capture"
-        : d.origMode === "whole"
-          ? undefined
-          : strU(d.origSize);
     if (kind === "archive") {
-      const keep = {
+      return {
+        on: true,
+        size: strU(d.size),
         ttl: strU(d.ttl),
         when: d.when.length > 0 ? d.when : undefined,
       };
-      return original
-        ? { on: true, original: true, originalSize, ...keep }
-        : { on: true, size: strU(d.size), ...keep };
     }
     return {
       on: true,
       size: strU(d.size),
       item: target === undefined ? undefined : strU(d.item),
-      ...(original ? { original: true, originalSize } : {}),
+      sent: name === "body" && d.source === "sent" ? true : undefined,
     };
   };
 
@@ -1110,9 +1105,6 @@ function ObjectDialog({
       ...model,
       off: false,
       objects: { ...model.objects, [name]: specOf(kind, d) },
-      ...(kind === "preview" && name === "body"
-        ? { sourceSent: d.on && d.source === "sent" }
-        : {}),
     };
     if (target !== undefined) {
       const set = (list: ListName, values: string[]) => {
@@ -1127,7 +1119,34 @@ function ObjectDialog({
         set("mask", d.mask);
         set("deny", d.deny);
       } else if (d.ownLists) {
-        for (const list of listNames(kind)) set(list, d[list]);
+        // Own lists replace the capture lists. One mode at a time: "except"
+        // prints deny=, "only" prints allow= with the masked names kept. A
+        // list left empty still overrides one named above, and a set with
+        // nothing named at all is printed as mask=none -- own and empty.
+        const above = axes[kind].parent[phase];
+        const aboveHas = (list: ListName) => (above[list][target]?.length ?? 0) > 0;
+        const orEmpty = (list: ListName, values: string[]) =>
+          values.length > 0 ? values : aboveHas(list) ? [] : undefined;
+        const unique = (values: string[]) =>
+          values.filter((n, i) => values.findIndex((m) => m.toLowerCase() === n.toLowerCase()) === i);
+        const own: Record<ListName, string[] | undefined> =
+          d.namesMode === "only"
+            ? {
+                allow: orEmpty("allow", unique([...d.allow, ...d.mask])),
+                mask: orEmpty("mask", d.mask),
+                deny: orEmpty("deny", []),
+              }
+            : {
+                allow: orEmpty("allow", []),
+                mask: orEmpty("mask", d.mask),
+                deny: orEmpty("deny", d.deny),
+              };
+        if (listNames(kind).every((list) => own[list] === undefined)) {
+          own.mask = [];
+        }
+        for (const list of listNames(kind)) {
+          next[list] = { ...next[list], [target]: own[list] };
+        }
       } else if (!adding) {
         for (const list of listNames(kind)) set(list, []);
       }
@@ -1171,7 +1190,16 @@ function ObjectDialog({
     ...checkStoreCross(models, phase),
   ].filter((p) => p.object === name);
 
-  const blocked = problems.some((p) => p.level === "error");
+  const onlyEmpty = (["preview", "archive"] as const).some(
+    (kind) =>
+      target !== undefined &&
+      draft[kind].on &&
+      draft[kind].ownLists &&
+      draft[kind].namesMode === "only" &&
+      draft[kind].allow.length === 0 &&
+      draft[kind].mask.length === 0,
+  );
+  const blocked = onlyEmpty || problems.some((p) => p.level === "error");
   const ready = KINDS.some((kind) => touched(kind)) && !blocked;
 
   const lines: Line[] = KINDS.flatMap((kind) => {
@@ -1202,30 +1230,11 @@ function ObjectDialog({
     onApply(out);
   };
 
-  const sourceOptionsFor = (kind: TailKind): DialogOption<"capture" | "original" | "sent">[] => [
-    {
-      value: "capture",
-      label: t("tail.sourceCapture"),
-      hint: t(frame ? "tail.sourceCaptureFrameHint" : "tail.sourceCaptureHint"),
-    },
-    ...(frame && kind === "preview"
-      ? []
-      : [
-          {
-            value: "original" as const,
-            label: t("tail.sourceOriginal"),
-            hint: t(frame ? "tail.sourceOriginalFrameHint" : "tail.sourceOriginalHint"),
-          },
-        ]),
-    ...(kind === "preview" && name === "body"
-      ? [{ value: "sent" as const, label: t("tail.recordSent"), hint: t("tail.recordSentHint") }]
-      : []),
-  ];
-
-  const origOptions: DialogOption<"capture" | "whole" | "size">[] = [
-    { value: "capture", label: t("tail.origAsCapture"), hint: t("tail.origAsCaptureHint") },
-    { value: "whole", label: t("tail.origWhole"), hint: t("tail.origWholeHint") },
-    { value: "size", label: t("tail.origBySize"), hint: t("tail.origBySizeHint") },
+  // Only the record body has a source: what came in or what went out after a
+  // rewrite. What headers and args show is set by the name lists.
+  const recordSourceOptions: DialogOption<"received" | "sent">[] = [
+    { value: "received", label: t("tail.recordReceived"), hint: t("tail.recordReceivedHint") },
+    { value: "sent", label: t("tail.recordSent"), hint: t("tail.recordSentHint") },
   ];
 
   const sizeRow = (
@@ -1277,103 +1286,19 @@ function ObjectDialog({
     />
   );
 
-  const sourceAlert = (kind: TailKind, d: AxisDraft) => {
-    if (d.source === "sent") {
-      return <DialogAlert text={t("tail.alert.sourceSent")} />;
-    }
-    if (!inspected) {
-      if (name === "body") {
-        return null;
-      }
-      return d.source === "original" ? (
-        <DialogAlert tone="warning" text={t("tail.journalOriginal")} />
-      ) : (
-        <DialogAlert text={t("tail.journalSource")} />
-      );
-    }
-    if (d.source === "original") {
-      return (
-        <DialogAlert
-          tone="warning"
-          text={t(frame ? "tail.alert.sourceOriginalFrame" : "tail.alert.sourceOriginal")}
-        />
-      );
-    }
-    return (
-      <DialogAlert
-        text={t(
-          !draft.capture.on
-            ? "tail.alert.sourceCaptureOff"
-            : kind === "archive"
-              ? "tail.alert.sourceCaptureArchive"
-              : "tail.alert.sourceCapture",
-          { size: draft.capture.size === "" ? t("tail.whole") : draft.capture.size },
-        )}
-        tone={!draft.capture.on ? "warning" : "info"}
-      />
-    );
-  };
-
-  const journalSourceOptions = (d: AxisDraft): DialogOption<"capture" | "original" | "sent">[] => [
-    name === "body"
-      ? { value: "capture", label: t("tail.sourceSized"), hint: t("tail.sourceSizedHint") }
-      : { value: "capture", label: t("tail.sourceMasked"), hint: t("tail.sourceMaskedHint") },
-    {
-      value: "original" as const,
-      label: t("tail.sourceOriginal"),
-      hint: t("tail.sourceOriginalJournalHint"),
-    },
-    ...(d.source === "sent"
-      ? [{ value: "sent" as const, label: t("tail.recordSent"), hint: t("tail.recordSentHint") }]
-      : []),
-  ];
-
   const sourceRow = (kind: TailKind, d: AxisDraft) =>
-    !inspected && name === "body" && d.source === "capture" ? null : (
-    <>
-      <DialogPick
-        label={t("tail.source")}
-        hint={t(
-          !inspected ? "tail.sourceJournalHint" : frame ? "tail.sourceFrameHint" : "tail.sourceHint",
-        )}
-        value={d.source}
-        options={inspected ? sourceOptionsFor(kind) : journalSourceOptions(d)}
-        onChange={(source) => patch(kind, { source })}
-      />
-      {sourceAlert(kind, d)}
-      {d.source === "original" && !frame && (
-        <>
-          <DialogPick
-            label={t("tail.origAmount")}
-            hint={t("tail.origAmountHint")}
-            value={d.origMode}
-            options={
-              inspected
-                ? origOptions
-                : origOptions.filter((o) => o.value !== "capture" || d.origMode === "capture")
-            }
-            onChange={(origMode) => patch(kind, { origMode })}
-          />
-          {d.origMode === "size" && (
-            <DialogInput
-              label={t("tail.origSizeLabel")}
-              hint={t("tail.origBySizeHint")}
-              value={d.origSize}
-              end={
-                <Presets
-                  keep
-                  items={SIZE_PRESETS.map((item) => ({ label: item, value: item }))}
-                  current={d.origSize}
-                  onPick={(next) => patch(kind, { origSize: next === d.origSize ? "" : next })}
-                />
-              }
-              onChange={(origSize) => patch(kind, { origSize })}
-            />
-          )}
-        </>
-      )}
-    </>
-  );
+    kind !== "preview" || name !== "body" ? null : (
+      <>
+        <DialogPick
+          label={t("tail.source")}
+          hint={t("tail.sourceHint")}
+          value={d.source}
+          options={recordSourceOptions}
+          onChange={(source) => patch(kind, { source })}
+        />
+        {d.source === "sent" && <DialogAlert text={t("tail.alert.sourceSent")} />}
+      </>
+    );
 
   const ttlRow = (kind: TailKind, d: AxisDraft) => (
     <DialogInput
@@ -1413,42 +1338,72 @@ function ObjectDialog({
           hint={t(inspected ? "tail.listsHint" : "tail.listsJournalHint")}
           value={d.ownLists ? "own" : "capture"}
           options={[
-            { value: "capture", label: t(inspected ? "tail.listsCapture" : "tail.listsStandard") },
-            { value: "own", label: t("tail.listsOwn") },
+            {
+              value: "capture",
+              label: t(inspected ? "tail.listsCapture" : "tail.listsStandard"),
+              hint: t(inspected ? "tail.listsCaptureHint" : "tail.listsStandardHint"),
+            },
+            { value: "own", label: t("tail.listsOwn"), hint: t("tail.listsOwnHint") },
           ]}
           onChange={(v) => patch(kind, { ownLists: v === "own" })}
         />
         {d.ownLists && (
           <>
-            <DialogAlert text={t("tail.alert.ownLists")} />
-            <DialogFrame label={t("tail.allow")} hint={t("tail.allowHint")}>
-              <ChipInput
-                names={d.allow}
-                placeholder="content-type"
-                addLabel={t("tail.addName")}
-                onChange={(allow) => patch(kind, { allow })}
-              />
-            </DialogFrame>
-            <DialogFrame label={t("tail.mask")} hint={t("tail.maskHint")}>
+            <DialogPick
+              label={t("tail.namesMode")}
+              hint={t("tail.namesModeHint")}
+              value={d.namesMode}
+              options={[
+                { value: "except", label: t("tail.namesExcept"), hint: t("tail.namesExceptHint") },
+                { value: "only", label: t("tail.namesOnly"), hint: t("tail.namesOnlyHint") },
+              ]}
+              onChange={(namesMode) => patch(kind, { namesMode })}
+            />
+            {d.namesMode === "only" ? (
+              <DialogFrame label={t("tail.namesKeep")} hint={t("tail.namesKeepHint")}>
+                <ChipInput
+                  names={d.allow}
+                  placeholder={phase === "response" ? "content-type" : target === "args" ? "id" : "host"}
+                  addLabel={t("tail.addName")}
+                  onChange={(allow) => patch(kind, { allow })}
+                />
+              </DialogFrame>
+            ) : (
+              <DialogFrame label={t("tail.namesDrop")} hint={t("tail.namesDropHint")}>
+                <ChipInput
+                  names={d.deny}
+                  placeholder={target === "args" ? "session" : "authorization"}
+                  addLabel={t("tail.addName")}
+                  onChange={(deny) => patch(kind, { deny })}
+                />
+              </DialogFrame>
+            )}
+            <DialogFrame label={t("tail.mask")} hint={t("tail.ownMaskHint")}>
               <ChipInput
                 names={d.mask}
-                placeholder="cookie"
+                placeholder={target === "args" ? "password" : "cookie"}
                 addLabel={t("tail.addName")}
                 onChange={(mask) => patch(kind, { mask })}
               />
             </DialogFrame>
-            <DialogFrame label={t("tail.deny")} hint={t("tail.denyHint")}>
-              <ChipInput
-                names={d.deny}
-                placeholder="authorization"
-                addLabel={t("tail.addName")}
-                onChange={(deny) => patch(kind, { deny })}
-              />
-            </DialogFrame>
+            {d.namesMode === "only" && d.allow.length === 0 && d.mask.length === 0 && (
+              <DialogAlert tone="warning" text={t("tail.alert.namesOnlyEmpty")} />
+            )}
+            {(() => {
+              // An empty "only" set cannot be applied: its own notice says so,
+              // and the names it would open are not the point yet.
+              if (d.namesMode === "only" && d.allow.length === 0 && d.mask.length === 0) return null;
+              const opened = openedByOwnLists(models.capture, models[kind], target);
+              return opened.length === 0 ? null : (
+                <DialogAlert
+                  tone="warning"
+                  text={t(inspected ? "tail.alert.ownListsOpen" : "tail.alert.ownListsOpenJournal", {
+                    names: opened.join(", "),
+                  })}
+                />
+              );
+            })()}
           </>
-        )}
-        {!d.ownLists && d.source === "original" && (
-          <DialogAlert tone="warning" text={t("tail.alert.listsOriginal")} />
         )}
       </>
     );
@@ -1460,13 +1415,12 @@ function ObjectDialog({
     if (!d.on) {
       return t("tail.axisOff");
     }
-    const value = cellValue(t, kind, specOf(kind, d), inspected);
+    const value = cellValue(t, kind, specOf(kind, d));
     if (kind === "capture" || kind === "send") {
       return value;
     }
     const marks = [
-      d.source === "original" ? t("tail.sourceOriginal") : undefined,
-      d.source === "sent" ? t("tail.recordSent") : undefined,
+      kind === "preview" && name === "body" && d.source === "sent" ? t("tail.recordSent") : undefined,
       d.ownLists ? t("tail.namesMark") : undefined,
       kind === "archive" && d.when.length > 0 ? t(whenSummaryKey(d.when)) : undefined,
     ].filter((mark) => mark !== undefined);
@@ -1491,7 +1445,7 @@ function ObjectDialog({
             {sizeRow(kind, d, t("tail.slice"), t("tail.sliceHint"), t("tail.whole"), t("tail.whole"))}
             {target !== undefined && (
               <>
-                <DialogFrame label={t("tail.mask")} hint={t("tail.maskHint")}>
+                <DialogFrame label={t("tail.mask")} hint={t("tail.captureMaskHint")}>
                   <ChipInput
                     names={d.mask}
                     placeholder={
@@ -1501,7 +1455,7 @@ function ObjectDialog({
                     onChange={(mask) => patch(kind, { mask })}
                   />
                 </DialogFrame>
-                <DialogFrame label={t("tail.deny")} hint={t("tail.denyHint")}>
+                <DialogFrame label={t("tail.deny")} hint={t("tail.captureDenyHint")}>
                   <ChipInput
                     names={d.deny}
                     placeholder={target === "headers" ? "authorization" : "session"}
@@ -1525,15 +1479,14 @@ function ObjectDialog({
         {kind === "archive" && (
           <>
             {sourceRow(kind, d)}
-            {d.source === "capture" &&
-              sizeRow(
-                kind,
-                d,
-                t("tail.archiveSize"),
-                t(inspected ? "tail.archiveSizeHint" : "tail.archiveSizeJournalHint"),
-                t(inspected ? "tail.asCapture" : "tail.whole"),
-                t(inspected ? "tail.asCapture" : "tail.whole"),
-              )}
+            {sizeRow(
+              kind,
+              d,
+              t("tail.archiveSize"),
+              t(inspected ? "tail.archiveSizeHint" : "tail.archiveSizeJournalHint"),
+              t("tail.whole"),
+              t("tail.whole"),
+            )}
             {ttlRow(kind, d)}
             {whenRow(kind, d)}
             {listsRow(kind, d)}
