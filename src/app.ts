@@ -166,7 +166,7 @@ export function createApp(cfg: Config, services: AppServices): Express {
 
   app.use("/api/actions", actionsRouter());
   app.use("/api/spaces", spacesRouter(services.getState));
-  app.use("/api/fleet", fleetRouter(services.getState));
+  app.use("/api/fleet", fleetRouter(services.dispatch, services.getState));
   app.use("/api/search", searchRouter(cfg.searchUrl));
   app.use("/api/log-levels", logLevelsRouter(services.desired));
   app.use("/api/geo/files", geoFilesRouter(services.geoFiles));

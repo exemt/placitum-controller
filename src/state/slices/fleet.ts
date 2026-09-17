@@ -135,6 +135,39 @@ function withRecv<T>(pulse: T): { payload: T; meta: { recvAt: number } } {
 
 type PulseAction<T> = PayloadAction<T, string, { recvAt: number }>;
 
+// Ids of the members named by the installer: a node by its node id, any other member by the hostname
+// of its container.
+function namedIds<T>(
+  ids: string[],
+  entities: Record<string, T | undefined>,
+  named: (row: T) => boolean,
+): string[] {
+  return ids.filter((id) => {
+    const row = entities[id];
+    return row !== undefined && named(row);
+  });
+}
+
+export function membersNamed(state: FleetState, names: ReadonlySet<string>): {
+  workers: string[];
+  agents: string[];
+  inspectors: string[];
+  stores: string[];
+  services: string[];
+} {
+  return {
+    workers: namedIds(state.workers.ids as string[], state.workers.entities, (row) => names.has(row.node_id)),
+    agents: namedIds(
+      state.agents.ids as string[],
+      state.agents.entities,
+      (row) => names.has(row.node_id) || names.has(row.hostname),
+    ),
+    inspectors: namedIds(state.inspectors.ids as string[], state.inspectors.entities, (row) => names.has(row.hostname)),
+    stores: namedIds(state.stores.ids as string[], state.stores.entities, (row) => names.has(row.hostname)),
+    services: namedIds(state.services.ids as string[], state.services.entities, (row) => names.has(row.hostname)),
+  };
+}
+
 function tickBucket<T extends { seenAt: number; status: FleetStatus }>(
   ids: string[],
   entities: Record<string, T | undefined>,
@@ -321,6 +354,21 @@ const fleetSlice = createSlice({
         state.seq += 1;
       }
     },
+    // The installer removed these containers: their members leave at once instead of turning silent
+    // for a minute. A member that is still alive comes back with its next heartbeat.
+    forget(state, action: PayloadAction<{ names: string[] }>) {
+      const named = membersNamed(state as FleetState, new Set(action.payload.names));
+
+      workersAdapter.removeMany(state.workers, named.workers);
+      agentsAdapter.removeMany(state.agents, named.agents);
+      inspectorsAdapter.removeMany(state.inspectors, named.inspectors);
+      storesAdapter.removeMany(state.stores, named.stores);
+      servicesAdapter.removeMany(state.services, named.services);
+
+      if (Object.values(named).some((ids) => ids.length > 0)) {
+        state.seq += 1;
+      }
+    },
   },
 });
 
@@ -332,6 +380,7 @@ export const fleetRedisUp = fleetSlice.actions.redisUp;
 export const fleetS3Up = fleetSlice.actions.s3Up;
 export const fleetServiceUp = fleetSlice.actions.serviceUp;
 export const fleetTick = fleetSlice.actions.tick;
+export const fleetForget = fleetSlice.actions.forget;
 
 export function ingestWorkerPulse(
   dispatch: (action: ReturnType<typeof fleetWorkerUp>) => void,
