@@ -11,9 +11,9 @@ function contourFingerprint(fromEnvFile: string | undefined): string {
 }
 
 const PROXY = {
+  // No changeOrigin: the API compares Origin with Host and refuses a page of another site.
   "/api": {
     target: "http://127.0.0.1:8080",
-    changeOrigin: true,
   },
   "/agent_health_socket": {
     target: "ws://127.0.0.1:8080",

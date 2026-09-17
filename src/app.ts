@@ -4,6 +4,7 @@ import type { Express, NextFunction, Request, Response } from "express";
 
 import { agentRouter } from "./agent-http.ts";
 import { AgentSettingsRepo } from "./agent-settings.ts";
+import { originGuard, securityHeaders } from "./browser-guard.ts";
 import { haproxyRouter } from "./haproxy-http.ts";
 import { HaproxySettingsRepo } from "./haproxy-settings.ts";
 import { certificatesRouter } from "./certificates-http.ts";
@@ -122,11 +123,15 @@ export function createApp(cfg: Config, services: AppServices): Express {
   const app = express();
 
   app.disable("x-powered-by");
-  app.use(
-    cors({
-      origin: cfg.corsOrigin === "" ? true : cfg.corsOrigin,
-    }),
-  );
+  app.use(securityHeaders());
+
+  // The panel is served from this origin and the dev server proxies to it: CORS is for an
+  // operator who names the origins, never for any page that asks.
+  if (cfg.corsOrigins.length > 0) {
+    app.use(cors({ origin: cfg.corsOrigins }));
+  }
+
+  app.use(originGuard(cfg.corsOrigins));
   app.use(express.json({ limit: Math.ceil(cfg.storeMaxBytes * 1.4) + 4096 }));
 
   app.use((req, res, next) => {

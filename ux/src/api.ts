@@ -2689,6 +2689,7 @@ export interface AuthSourceDoc {
     cookie: string;
     ttlS: number;
     renewAfterS: number;
+    maxTtlS?: number;
     bind: string[];
     subnet: { v4: number; v6: number };
   };

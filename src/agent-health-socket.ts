@@ -20,7 +20,8 @@ export function attachAgentHealthSocket(
   options: HealthSocketOptions = {},
 ): { wss: WebSocketServer; path: string; close: () => void } {
   const { pushMs, backlogBytes, pingMs } = { ...DEFAULTS, ...options };
-  const wss = new WebSocketServer({ noServer: true });
+  // The feed is one-way: the panel sends nothing, so there is no reason to accept much.
+  const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
   const clients = new Map<WebSocket, number>();
   const alive = new Set<WebSocket>();
   let seenSeq = getState().fleet.seq;

@@ -313,19 +313,27 @@ const app = createApp(cfg, {
   cryptoService,
   convergence,
 });
-const server = app.listen(cfg.port, () => {
+const onListening = (): void => {
   log("info", "listening", {
+    host: cfg.host ?? "*",
     port: cfg.port,
     version: cfg.version,
     revision: cfg.revision,
     name: cfg.name,
-    cors: cfg.corsOrigin,
+    cors: cfg.corsOrigins.join(",") || "off",
     ux: cfg.uxDir ?? "off",
   });
-});
+};
+
+// CONTROLLER_HOST keeps an API without login off the outside addresses where no container
+// boundary does it: an install without Docker.
+const server =
+  cfg.host === undefined
+    ? app.listen(cfg.port, onListening)
+    : app.listen(cfg.port, cfg.host, onListening);
 
 const healthSocket = attachAgentHealthSocket(model.getState, model.subscribe);
-const stopUpgrades = routeUpgrades(server, [healthSocket]);
+const stopUpgrades = routeUpgrades(server, [healthSocket], cfg.corsOrigins);
 
 const stopFleetTick = startFleetTicker(model, {
   tickMs: cfg.fleetTickMs,

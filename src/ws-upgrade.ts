@@ -4,9 +4,12 @@ import type { Server } from "node:http";
 
 import { WebSocketServer } from "ws";
 
+import { originAllowed } from "./browser-guard.ts";
+
 export function routeUpgrades(
   server: Server,
   routes: ReadonlyArray<{ path: string; wss: WebSocketServer }>,
+  trustedOrigins: readonly string[] = [],
 ): () => void {
   const onUpgrade = (
     req: IncomingMessage,
@@ -16,7 +19,8 @@ export function routeUpgrades(
     const path = pathname(req.url);
     const hit = routes.find((row) => row.path === path);
 
-    if (hit === undefined) {
+    // CORS does not cover WebSocket: without this any page could read the feed.
+    if (hit === undefined || !originAllowed(req.headers, trustedOrigins)) {
       socket.destroy();
       return;
     }

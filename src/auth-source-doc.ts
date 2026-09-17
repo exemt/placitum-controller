@@ -243,6 +243,7 @@ export function normalizeSourceDoc(raw: unknown): AuthSourceDoc {
         "session.renew_after_s",
         0,
       ),
+      maxTtlS: seconds(session.max_ttl_s ?? session.maxTtlS, "session.max_ttl_s", 0),
       bind: list(session.bind, "session.bind", ["subnet", "ua"]),
       subnet: {
         v4: num(subnet.v4, "session.subnet.v4", 24),
@@ -329,6 +330,10 @@ export function validateSourceDoc(doc: AuthSourceDoc): void {
 
   if (doc.session.renewAfterS !== 0 && doc.session.renewAfterS >= doc.session.ttlS) {
     fail("session.renew_after_s must be shorter than session.ttl_s");
+  }
+
+  if (doc.session.maxTtlS !== 0 && doc.session.maxTtlS < doc.session.ttlS) {
+    fail("session.max_ttl_s must not be shorter than session.ttl_s");
   }
 
   for (const bind of doc.session.bind) {
@@ -733,6 +738,10 @@ export function renderSourceYaml(name: string, doc: AuthSourceDoc): string {
 
   out.push(`  ttl: ${q(duration(doc.session.ttlS))}`);
   out.push(`  renew_after: ${q(duration(doc.session.renewAfterS))}`);
+
+  if (doc.session.maxTtlS > 0) {
+    out.push(`  max_ttl: ${q(duration(doc.session.maxTtlS))}`);
+  }
   out.push(`  bind: ${seq(doc.session.bind)}`);
   out.push(`  subnet: { v4: ${doc.session.subnet.v4}, v6: ${doc.session.subnet.v6} }`);
   out.push("");

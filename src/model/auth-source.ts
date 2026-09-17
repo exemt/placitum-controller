@@ -70,6 +70,7 @@ export interface AuthSession {
   cookie: string;
   ttlS: number;
   renewAfterS: number;
+  maxTtlS: number;
   bind: string[];
   subnet: AuthSubnet;
 }

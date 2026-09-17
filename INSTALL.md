@@ -26,6 +26,8 @@ configuration.
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `CONTROLLER_PORT` | `8080` | API and panel port |
+| `CONTROLLER_HOST` | — | address to listen on; unset means all addresses, which suits a container. Without Docker set `127.0.0.1` |
+| `CONTROLLER_CORS_ORIGIN` | — | origins, comma-separated, allowed to call the API from a browser; unset means none. The panel and its dev server do not need it |
 | `CONTROLLER_DATABASE_URL` | `postgres://waf:waf@127.0.0.1:5432/waf` | PostgreSQL |
 | `CONTROLLER_NATS_URL` | `nats://127.0.0.1:4222` | NATS |
 | `CONTROLLER_NATS_USER`, `_PASS`, `_TOKEN` | — | NATS credentials written into the node configuration |
@@ -77,7 +79,10 @@ services:
     depends_on: [postgres, nats, redis-internal]
 ```
 
-The API has no login of its own, so the port is published on 127.0.0.1 only.
+The API has no login of its own, so the port is published on 127.0.0.1 only. A browser is the
+other way in: a request that changes state, or a WebSocket handshake, is refused with
+`403 cross_origin` when its `Origin` or `Sec-Fetch-Site` names another site. Tools that send neither
+header pass. Responses carry `Content-Security-Policy`, `X-Frame-Options: DENY` and `nosniff`.
 
 ## Checking the installation
 

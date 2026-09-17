@@ -3,6 +3,8 @@ import { hostname } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { parseTrustedOrigins } from "./browser-guard.ts";
+
 function defaultUxDir(): string | undefined {
   const dir = join(dirname(fileURLToPath(import.meta.url)), "..", "ux", "dist");
   return existsSync(join(dir, "index.html")) ? dir : undefined;
@@ -14,7 +16,8 @@ export interface Config {
   logLevel: string;
   logShip: boolean;
   logWriter: string;
-  corsOrigin: string;
+  host: string | undefined;
+  corsOrigins: string[];
   databaseUrl: string;
   schemaDir: string;
   version: string;
@@ -50,7 +53,8 @@ export function load(env: NodeJS.ProcessEnv = process.env): Config {
       (env.WAF_LOG_SHIP ?? "").trim().toLowerCase(),
     ),
     logWriter: (env.WAF_LOG_WRITER ?? "").trim() || hostname(),
-    corsOrigin: env.CONTROLLER_CORS_ORIGIN ?? "http://127.0.0.1:5173",
+    host: (env.CONTROLLER_HOST ?? "").trim() || undefined,
+    corsOrigins: parseTrustedOrigins(env.CONTROLLER_CORS_ORIGIN),
     databaseUrl:
       env.CONTROLLER_DATABASE_URL ??
       "postgres://waf:waf@127.0.0.1:5432/waf",
