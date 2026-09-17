@@ -1,25 +1,24 @@
 import {
   useEffect,
   useMemo,
-  useRef,
   useState,
   type Dispatch,
   type ReactNode,
   type SetStateAction,
 } from "react";
 import InputBase from "@mui/material/InputBase";
-import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 
 import { FieldRow, TableValue } from "../components/fields.tsx";
-import { draftKey } from "../components/table-block.tsx";
 import {
+  AddRow,
   EditorField,
   editorInputSx,
   RowAction,
   SubRow,
   SubRows,
 } from "./editor-kit.tsx";
+import { PairAddDialog, pairKey, type PairsAdd } from "./PairsTable.tsx";
 import { useT } from "../i18n/index.ts";
 import { usePageBar } from "../layout/PageBarHost.tsx";
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
@@ -238,22 +237,27 @@ const pairInputSx = editorInputSx;
 
 export function PairRows({
   rows,
+  nameHelp,
+  valueLabel,
   namePlaceholder,
   valuePlaceholder,
   mono,
-  addLabel,
+  add,
   extra,
   onChange,
 }: {
   rows: Doc[];
+  nameHelp: string;
+  valueLabel: string;
   namePlaceholder: string;
   valuePlaceholder: string;
   mono?: boolean;
-  addLabel: string;
+  add: PairsAdd;
   extra?: (row: Doc, patch: (patch: Doc) => void) => ReactNode;
   onChange: (next: Doc[]) => void;
 }) {
   const t = useT();
+  const [adding, setAdding] = useState(false);
   const patchAt = (index: number, patch: Doc) =>
     onChange(
       rows.map((item, i) => {
@@ -271,18 +275,6 @@ export function PairRows({
     );
 
   const font = mono === true ? "monospace" : undefined;
-
-  const [draftName, setDraftName] = useState("");
-  const [draftValue, setDraftValue] = useState("");
-  const nameRef = useRef<HTMLInputElement>(null);
-  const ready = draftName.trim() !== "" && draftValue.trim() !== "";
-  const add = () => {
-    onChange([...rows, { name: draftName.trim(), value: draftValue.trim() }]);
-    setDraftName("");
-    setDraftValue("");
-    nameRef.current?.focus();
-  };
-  const onKey = draftKey(ready, add);
 
   return (
     <SubRows>
@@ -317,37 +309,24 @@ export function PairRows({
           {extra?.(row, (patch) => patchAt(index, patch))}
         </SubRow>
       ))}
-      <SubRow
-        actions={
-          <RowAction
-            color="success"
-            title={addLabel}
-            disabled={!ready}
-            icon={<AddIcon sx={{ fontSize: 16 }} />}
-            onClick={add}
-          />
-        }
-      >
-        <EditorField width={190}>
-          <InputBase
-            inputRef={nameRef}
-            value={draftName}
-            placeholder={namePlaceholder}
-            onChange={(e) => setDraftName(e.target.value)}
-            onKeyDown={onKey}
-            sx={{ ...pairInputSx, fontFamily: font }}
-          />
-        </EditorField>
-        <EditorField grow>
-          <InputBase
-            value={draftValue}
-            placeholder={valuePlaceholder}
-            onChange={(e) => setDraftValue(e.target.value)}
-            onKeyDown={onKey}
-            sx={{ ...pairInputSx, fontFamily: font }}
-          />
-        </EditorField>
-      </SubRow>
+      <AddRow label={add.button} onAdd={() => setAdding(true)} />
+      {adding && (
+        <PairAddDialog
+          t={t}
+          add={add}
+          nameHelp={nameHelp}
+          valueLabel={valueLabel}
+          namePlaceholder={namePlaceholder}
+          valuePlaceholder={valuePlaceholder}
+          mono={mono}
+          taken={rows.map((row) => pairKey(asString(row.name), asString(row.value)))}
+          onClose={() => setAdding(false)}
+          onAdd={(row) => {
+            onChange([...rows, row]);
+            setAdding(false);
+          }}
+        />
+      )}
     </SubRows>
   );
 }

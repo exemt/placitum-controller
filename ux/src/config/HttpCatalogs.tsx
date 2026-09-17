@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -38,7 +38,6 @@ import {
 } from "../components/settings-table.tsx";
 import { SectionBleed } from "../components/settings-table.tsx";
 import { Modal } from "../components/Modal.tsx";
-import { DraftAddCell, draftKey } from "../components/table-block.tsx";
 import { TableIconButton } from "../components/data-table/index.ts";
 import {
   DialogLines,
@@ -735,6 +734,7 @@ function StoreSection({ catalog }: { catalog: CatalogDraft }) {
   const t = useT();
   const rows = catalog.stores;
   const [more, setMore] = useState<BodyStoreRow | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const save = (row: BodyStoreRow, spec: BodyStoreRow["spec"]) =>
     catalog.patchStore(row.uuid, spec);
@@ -798,7 +798,7 @@ function StoreSection({ catalog }: { catalog: CatalogDraft }) {
         {rows.length === 0 && (
           <TableRow>
             <TableCell colSpan={5} sx={cellSx}>
-              <Button size="small" startIcon={<AddIcon />} onClick={() => catalog.addStore()}>
+              <Button size="small" startIcon={<AddIcon />} onClick={() => setCreating(true)}>
                 {t("httpCat.storeCreate")}
               </Button>
             </TableCell>
@@ -806,6 +806,16 @@ function StoreSection({ catalog }: { catalog: CatalogDraft }) {
         )}
       </TableBody>
     </Table>
+
+    {creating && (
+      <StoreAddDialog
+        onClose={() => setCreating(false)}
+        onCreate={(spec) => {
+          catalog.addStore(spec);
+          setCreating(false);
+        }}
+      />
+    )}
 
     {more !== null && (
       <StoreDialog
@@ -831,12 +841,72 @@ const STORE_MORE_HINT: Record<(typeof STORE_MORE)[number], string> = {
   db: "httpCat.storeDbHint",
 };
 
-function storeLine(row: BodyStoreRow, spec: BodyStoreRow["spec"]): string {
-  const parts = ["driver=redis", `url=${row.url === "" ? "?" : row.url}`];
+function storeLine(url: string, spec: BodyStoreRow["spec"]): string {
+  const parts = ["driver=redis", `url=${url === "" ? "?" : url}`];
   for (const [key, value] of Object.entries(spec)) {
     parts.push(`${key}=${value}`);
   }
   return `waf_store ${parts.join(" ")};`;
+}
+
+const STORE_MAIN = ["ttl", "retain_ttl", "max"] as const;
+
+const STORE_MAIN_HINT: Record<(typeof STORE_MAIN)[number], string> = {
+  ttl: "httpCat.storeTtlHint",
+  retain_ttl: "httpCat.storeRetainHint",
+  max: "httpCat.storeMaxHint",
+};
+
+function StoreAddDialog({
+  onClose,
+  onCreate,
+}: {
+  onClose: () => void;
+  onCreate: (spec: BodyStoreRow["spec"]) => void;
+}) {
+  const t = useT();
+  const [draft, setDraft] = useState<Record<(typeof STORE_MAIN)[number], string>>({
+    ...STORE_HINTS,
+  } as Record<(typeof STORE_MAIN)[number], string>);
+
+  const spec = (): BodyStoreRow["spec"] => {
+    const out: BodyStoreRow["spec"] = {};
+    for (const key of STORE_MAIN) {
+      const value = draft[key].trim();
+      if (value !== "") out[key] = value;
+    }
+    return out;
+  };
+
+  const line = storeLine("", spec());
+
+  return (
+    <Modal
+      onClose={onClose}
+      title={t("httpCat.storeAddTitle")}
+      actions={
+        <>
+          <Modal.Cancel />
+          <Modal.Submit onClick={() => onCreate(spec())}>{t("common.create")}</Modal.Submit>
+        </>
+      }
+    >
+      <Stack spacing={1.75}>
+        {STORE_MAIN.map((key) => (
+          <DialogRow key={key} label={`${key}=`} hint={t(STORE_MAIN_HINT[key])}>
+            <DialogText
+              mono
+              width={120}
+              value={draft[key]}
+              placeholder={STORE_HINTS[key]}
+              onChange={(next) => setDraft((prev) => ({ ...prev, [key]: next }))}
+            />
+          </DialogRow>
+        ))}
+        <DialogLines title={t("httpCat.storeLine")} lines={[line]} />
+      </Stack>
+    </Modal>
+  );
 }
 
 function StoreDialog({
@@ -912,7 +982,7 @@ function StoreDialog({
                 wordBreak: "break-all",
               }}
             >
-              {storeLine(row, draft)}
+              {storeLine(row.url, draft)}
             </Box>
           </Box>
         </Stack>
@@ -929,15 +999,7 @@ const STORE_HINTS: Record<string, string> = {
 function FormatSection({ catalog }: { catalog: CatalogDraft }) {
   const t = useT();
   const rows = catalog.formats;
-  const [draft, setDraft] = useState({ name: "", body: "" });
-  const nameRef = useRef<HTMLInputElement>(null);
-  const ready = draft.name.trim() !== "";
-  const create = () => {
-    catalog.addFormat({ name: draft.name.trim(), format: draft.body });
-    setDraft({ name: "", body: "" });
-    nameRef.current?.focus();
-  };
-  const onKey = draftKey(ready, create);
+  const [addOpen, setAddOpen] = useState(false);
 
   const save = (row: LogFormatRow, patch: Partial<Omit<LogFormatRow, "uuid">>) =>
     catalog.patchFormat(row.uuid, patch);
@@ -952,7 +1014,14 @@ function FormatSection({ catalog }: { catalog: CatalogDraft }) {
               {t("httpCat.name")}
             </Head>
             <Head hint={t("httpCat.formatBodyHint")}>{t("httpCat.body")}</Head>
-            <Head width={48} />
+            <TableCell sx={{ ...headSx, width: 48, textAlign: "right" }}>
+              <TableIconButton
+                color="success"
+                icon={<AddIcon sx={{ fontSize: 16 }} />}
+                tooltip={t("httpCat.formatAdd")}
+                onClick={() => setAddOpen(true)}
+              />
+            </TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -984,34 +1053,102 @@ function FormatSection({ catalog }: { catalog: CatalogDraft }) {
               </TableRow>
             );
           })}
-          <TableRow>
-            <TableCell sx={cellSx}>
-              <InputBase
-                inputRef={nameRef}
-                value={draft.name}
-                placeholder="main"
-                inputProps={{ "aria-label": t("httpCat.name") }}
-                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                onKeyDown={onKey}
-                sx={{ ...dataInputSx, fontFamily: "monospace" }}
-              />
-            </TableCell>
-            <TableCell sx={cellSx}>
-              <InputBase
-                value={draft.body}
-                placeholder="$remote_addr $status"
-                inputProps={{ "aria-label": t("httpCat.body") }}
-                onChange={(e) => setDraft({ ...draft, body: e.target.value })}
-                onKeyDown={onKey}
-                sx={dataInputSx}
-              />
-            </TableCell>
-            <DraftAddCell label={t("common.create")} ready={ready} onAdd={create} />
-          </TableRow>
+          {rows.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={3} sx={{ ...cellSx, color: "text.secondary" }}>
+                {t("httpCat.formatsEmpty")}
+              </TableCell>
+            </TableRow>
+          )}
         </TableBody>
       </Table>
       </SectionBleed>
+
+      {addOpen && (
+        <FormatAddDialog
+          taken={rows.map((row) => row.name)}
+          onClose={() => setAddOpen(false)}
+          onCreate={(input) => {
+            catalog.addFormat(input);
+            setAddOpen(false);
+          }}
+        />
+      )}
     </Stack>
+  );
+}
+
+const FORMAT_NAME_RE = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
+
+function FormatAddDialog({
+  taken,
+  onClose,
+  onCreate,
+}: {
+  taken: readonly string[];
+  onClose: () => void;
+  onCreate: (input: { name: string; format: string }) => void;
+}) {
+  const t = useT();
+  const [name, setName] = useState("");
+  const [body, setBody] = useState("");
+
+  const trimmedName = name.trim();
+  const trimmedBody = body.trim();
+  const nameBad = trimmedName !== "" && !FORMAT_NAME_RE.test(trimmedName);
+  const nameTaken = taken.includes(trimmedName);
+  const quoted = trimmedBody.includes("'");
+  const ready = trimmedName !== "" && !nameBad && !nameTaken && trimmedBody !== "" && !quoted;
+
+  const notice = nameBad
+    ? t("httpCat.formatNameBad")
+    : nameTaken
+      ? t("httpCat.formatNameTaken")
+      : quoted
+        ? t("httpCat.formatQuote")
+        : null;
+
+  const create = () => {
+    if (ready) {
+      onCreate({ name: trimmedName, format: trimmedBody });
+    }
+  };
+
+  return (
+    <Modal
+      onClose={onClose}
+      title={t("httpCat.formatAddTitle")}
+      dirty={name !== "" || body !== ""}
+      notice={notice === null ? null : { severity: "warning", text: notice }}
+      onEnter={create}
+      actions={
+        <>
+          <Modal.Cancel />
+          <Modal.Submit disabled={!ready} onClick={create}>
+            {t("common.create")}
+          </Modal.Submit>
+        </>
+      }
+    >
+      <Stack spacing={1.75}>
+        <DialogRow label={t("httpCat.name")} hint={t("httpCat.formatNameHint")}>
+          <DialogText mono value={name} placeholder="main" onChange={setName} />
+        </DialogRow>
+        <DialogRow label={t("httpCat.body")} hint={t("httpCat.formatBodyHint")}>
+          <DialogText
+            mono
+            width={340}
+            value={body}
+            placeholder="$remote_addr $status"
+            onChange={setBody}
+          />
+        </DialogRow>
+        <DialogLines
+          title={t("httpCat.storeLine")}
+          lines={[`log_format ${trimmedName === "" ? "?" : trimmedName} '${trimmedBody}';`]}
+        />
+      </Stack>
+    </Modal>
   );
 }
 

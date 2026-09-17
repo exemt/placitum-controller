@@ -1229,9 +1229,20 @@ function HeaderRow({
     <EditorRow label={label} help={hint}>
       <PairRows
         rows={rows}
+        nameHelp={t("config.proxyHeader.nameHint")}
+        valueLabel={t("config.varValue")}
         namePlaceholder="X-Real-IP"
         valuePlaceholder="$remote_addr"
-        addLabel={t("common.add")}
+        add={{
+          button: t("config.header.add"),
+          title: t("config.proxyHeader.addTitle"),
+          hint: t("config.proxyHeader.addHint"),
+          directive: "proxy_set_header",
+          emitted: t("config.header.emitted"),
+          nothing: t("config.proxyHeader.nothing"),
+          empty: t("config.proxyHeader.empty"),
+          dup: t("config.proxyHeader.dup"),
+        }}
         onChange={(next) =>
           onChange(setKey(value, fieldKey, next.length === 0 ? undefined : next))
         }

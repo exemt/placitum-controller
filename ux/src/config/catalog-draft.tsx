@@ -94,7 +94,7 @@ export interface CatalogDraft {
   addDeny: (input: Omit<DenyResponseRow, "uuid">) => void;
   removeDeny: (uuid: string) => void;
   patchStore: (uuid: string, spec: BodyStoreRow["spec"]) => void;
-  addStore: () => void;
+  addStore: (spec: BodyStoreRow["spec"]) => void;
   patchFormat: (uuid: string, patch: Partial<Omit<LogFormatRow, "uuid">>) => void;
   addFormat: (input: { name: string; format: string }) => void;
   removeFormat: (uuid: string) => void;
@@ -243,7 +243,7 @@ export function useHttpCatalogDraft(): CatalogDraft {
     [patchRows],
   );
 
-  const addStore = useCallback<CatalogDraft["addStore"]>(() => {
+  const addStore = useCallback<CatalogDraft["addStore"]>((spec) => {
     const uuid = `${NEW_ID}${String(++seq.current)}`;
     patchRows((cur) => ({
       ...cur,
@@ -254,7 +254,7 @@ export function useHttpCatalogDraft(): CatalogDraft {
           name: "hot",
           driver: "redis",
           url: "",
-          spec: { ttl: "30s", retain_ttl: "5m", max: "8m" },
+          spec,
         },
       ],
     }));

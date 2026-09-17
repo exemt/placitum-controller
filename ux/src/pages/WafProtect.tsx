@@ -38,7 +38,6 @@ import {
   CondTable,
   asConds,
   condTail,
-  condsDraft,
   readyConds,
   withConds,
   type Cond,
@@ -1467,7 +1466,7 @@ function CallDialog({
   onClose: () => void;
   onApply: (conds: Cond[]) => void;
 }) {
-  const [conds, setConds] = useState<Cond[]>(condsDraft(row.conds ?? []));
+  const [conds, setConds] = useState<Cond[]>(row.conds ?? []);
 
   const done = readyConds(conds);
 

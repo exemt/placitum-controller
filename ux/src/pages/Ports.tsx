@@ -205,6 +205,7 @@ function PortForm({
         {id !== null && (
           <IconButton
             size="small"
+            color="error"
             aria-label={t("ports.deleteAria")}
             onClick={() => setConfirm(true)}
           >

@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -15,7 +16,12 @@ import {
   TableNoticeRow,
   type FilterOption,
 } from "../components/data-table/index.ts";
-import { DialogAlert, DialogLines } from "../components/dialog-kit.tsx";
+import {
+  DialogAlert,
+  DialogFrame,
+  DialogLines,
+  DialogPick,
+} from "../components/dialog-kit.tsx";
 import { Modal } from "../components/Modal.tsx";
 import { flushTableSx, HeadCell, headCellSx } from "../components/table-block.tsx";
 import { GRIP_W } from "../components/row-drag.tsx";
@@ -74,10 +80,6 @@ export function readyConds(conds: Cond[]): Cond[] {
   return conds.filter((cond) => cond.value.trim() !== "" && cond.dataset !== "");
 }
 
-export function condsDraft(conds: Cond[]): Cond[] {
-  return conds.length === 0 ? [NEW_COND] : conds;
-}
-
 const OP_OPTIONS: FilterOption<"in" | "not in">[] = [
   { value: "in", label: "in" },
   { value: "not in", label: "not in" },
@@ -123,6 +125,7 @@ export function CondTable({
   onChange: (next: Cond[]) => void;
 }) {
   const catalog = useCatalog();
+  const [adding, setAdding] = useState(false);
 
   const datasets = (catalog?.datasets ?? []).filter(
     (row) => row.kind === "list" && row.in_nginx !== false,
@@ -165,7 +168,7 @@ export function CondTable({
               color="success"
               icon={<AddIcon />}
               tooltip={t("cond.add")}
-              onClick={() => onChange([...conds, NEW_COND])}
+              onClick={() => setAdding(true)}
             />
           </TableRow>
         </TableHead>
@@ -233,7 +236,94 @@ export function CondTable({
           ))}
         </TableBody>
       </Table>
+      {adding && (
+        <CondAddDialog
+          t={t}
+          datasets={datasets}
+          datasetOptions={datasetOptions}
+          onClose={() => setAdding(false)}
+          onAdd={(cond) => {
+            onChange([...conds, cond]);
+            setAdding(false);
+          }}
+        />
+      )}
     </Box>
+  );
+}
+
+function CondAddDialog({
+  t,
+  datasets,
+  datasetOptions,
+  onClose,
+  onAdd,
+}: {
+  t: Translate;
+  datasets: { name: string; type: string }[];
+  datasetOptions: (current: string) => FilterOption<string>[];
+  onClose: () => void;
+  onAdd: (cond: Cond) => void;
+}) {
+  const [draft, setDraft] = useState<Cond>(NEW_COND);
+
+  const value = draft.value.trim();
+  const ready = value !== "" && draft.dataset !== "";
+  const op = draft.negate === true ? "not in" : "in";
+  const line = `if ${value === "" ? "…" : value} ${op} ${draft.dataset === "" ? "…" : draft.dataset}`;
+
+  const submit = () => {
+    if (ready) {
+      onAdd({ ...draft, value });
+    }
+  };
+
+  return (
+    <Modal
+      onClose={onClose}
+      title={t("cond.addTitle")}
+      actions={
+        <>
+          <Modal.Cancel />
+          <Modal.Submit disabled={!ready} onClick={submit}>
+            {t("common.add")}
+          </Modal.Submit>
+        </>
+      }
+    >
+      <Stack spacing={2}>
+        <DialogFrame label={t("cond.value")} hint={t("cond.valueHint")}>
+          <VariableEdit
+            value={draft.value}
+            datasetType={datasets.find((row) => row.name === draft.dataset)?.type}
+            onChange={(next) => setDraft((prev) => ({ ...prev, value: next }))}
+          />
+        </DialogFrame>
+        <DialogPick
+          mono
+          label={t("cond.op")}
+          hint={t("cond.opHint")}
+          value={op}
+          options={OP_OPTIONS}
+          onChange={(next) =>
+            setDraft((prev) => {
+              const { negate: _negate, ...rest } = prev;
+
+              return next === "not in" ? { ...rest, negate: true } : rest;
+            })
+          }
+        />
+        <DialogPick
+          mono
+          label={t("cond.dataset")}
+          hint={t("cond.datasetHint")}
+          value={draft.dataset}
+          options={datasetOptions(draft.dataset)}
+          onChange={(dataset) => setDraft((prev) => ({ ...prev, dataset }))}
+        />
+        <DialogLines title={t("cond.lineTitle")} lines={[line]} />
+      </Stack>
+    </Modal>
   );
 }
 
@@ -252,7 +342,7 @@ export function CondDialog({
   onClose: () => void;
   onApply: (next: Cond[]) => void;
 }) {
-  const [draft, setDraft] = useState<Cond[]>(condsDraft(conds));
+  const [draft, setDraft] = useState<Cond[]>(conds);
   const done = readyConds(draft);
 
   return (

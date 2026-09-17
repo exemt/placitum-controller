@@ -19,7 +19,7 @@ import {
   TableNoticeRow,
   type FilterOption,
 } from "../components/data-table/index.ts";
-import { DialogAlert } from "../components/dialog-kit.tsx";
+import { DialogAlert, DialogFrame, DialogPick } from "../components/dialog-kit.tsx";
 import { Modal } from "../components/Modal.tsx";
 import { AddCell, RowActions, TextCell } from "../components/rules-table.tsx";
 import { flushTableSx, HeadCell, TableBlock } from "../components/table-block.tsx";
@@ -244,6 +244,7 @@ function ClausesTable({
   others: string[];
   onChange: (next: ActionClause[]) => void;
 }) {
+  const [adding, setAdding] = useState(false);
   const names = datasets.map((row) => row.name);
 
   const kindOptions: FilterOption<RowKind>[] = [
@@ -317,7 +318,7 @@ function ClausesTable({
               color="success"
               icon={<AddIcon />}
               tooltip={t("actionProfiles.addClause")}
-              onClick={() => onChange([...clauses, NEW_CLAUSE])}
+              onClick={() => setAdding(true)}
             />
           </TableRow>
         </TableHead>
@@ -427,7 +428,139 @@ function ClausesTable({
           })}
         </TableBody>
       </Table>
+      {adding && (
+        <ClauseDialog
+          t={t}
+          datasets={datasets}
+          kindOptions={kindOptions}
+          valueOps={valueOps}
+          refOps={refOps}
+          datasetOptions={datasetOptions}
+          condOptions={condOptions}
+          onClose={() => setAdding(false)}
+          onAdd={(clause) => {
+            onChange([...clauses, clause]);
+            setAdding(false);
+          }}
+        />
+      )}
     </Box>
+  );
+}
+
+function ClauseDialog({
+  t,
+  datasets,
+  kindOptions,
+  valueOps,
+  refOps,
+  datasetOptions,
+  condOptions,
+  onClose,
+  onAdd,
+}: {
+  t: Translate;
+  datasets: Dataset[];
+  kindOptions: FilterOption<RowKind>[];
+  valueOps: FilterOption<ActionCondOp>[];
+  refOps: FilterOption<ActionCondOp>[];
+  datasetOptions: (current: string) => FilterOption<string>[];
+  condOptions: (current: string) => FilterOption<string>[];
+  onClose: () => void;
+  onAdd: (clause: ActionClause) => void;
+}) {
+  const [draft, setDraft] = useState<ActionClause>(NEW_CLAUSE);
+
+  const ref = opIsRef(draft.op);
+  const withDataset = opTakesDataset(draft.op);
+  const dataset = datasets.find((row) => row.name === draft.dataset);
+  const ready = clauseReady(draft);
+
+  const submit = () => {
+    if (ready) {
+      onAdd(draft);
+    }
+  };
+
+  return (
+    <Modal
+      onClose={onClose}
+      title={t("actionProfiles.clauseNewDialog")}
+      actions={
+        <>
+          <Modal.Cancel />
+          <Modal.Submit disabled={!ready} onClick={submit}>
+            {t("common.add")}
+          </Modal.Submit>
+        </>
+      }
+    >
+      <Stack spacing={2}>
+        <DialogPick
+          label={t("actionProfiles.clauseKind")}
+          hint={t("actionProfiles.clauseKindHint")}
+          value={ref ? "cond" : "value"}
+          options={kindOptions}
+          onChange={(kind) => setDraft(kind === "cond" ? NEW_REF : NEW_CLAUSE)}
+        />
+        {ref ? (
+          <DialogPick
+            mono
+            label={t("actionProfiles.condCol")}
+            hint={t("actionProfiles.clauseCondHint")}
+            value={draft.cond}
+            options={condOptions(draft.cond)}
+            onChange={(cond) => setDraft((prev) => ({ ...prev, cond }))}
+          />
+        ) : (
+          <DialogFrame label={t("cond.value")} hint={t("cond.valueHint")}>
+            <VariableEdit
+              value={draft.value}
+              catalog={ACTION_CATALOG}
+              datasetType={withDataset ? dataset?.type : undefined}
+              onChange={(value) => setDraft((prev) => ({ ...prev, value }))}
+            />
+          </DialogFrame>
+        )}
+        <DialogPick
+          mono
+          label={t("actionProfiles.clauseOp")}
+          hint={t("actionProfiles.clauseOpHint")}
+          value={draft.op}
+          options={ref ? refOps : valueOps}
+          onChange={(op) =>
+            setDraft((prev) =>
+              opTakesDataset(op) ? { ...prev, op, text: "" } : { ...prev, op, dataset: "" },
+            )
+          }
+        />
+        {!ref &&
+          (withDataset ? (
+            <DialogPick
+              mono
+              label={t("actionProfiles.clauseList")}
+              hint={t("actionProfiles.clauseListHint")}
+              value={draft.dataset}
+              options={datasetOptions(draft.dataset)}
+              onChange={(name) => setDraft((prev) => ({ ...prev, dataset: name }))}
+            />
+          ) : (
+            <TextField
+              size="small"
+              label={t("actionProfiles.clauseTextLabel")}
+              placeholder="/logout"
+              value={draft.text}
+              helperText={t("actionProfiles.clauseTextHint")}
+              onChange={(e) => {
+                const text = e.target.value;
+
+                setDraft((prev) => ({ ...prev, text }));
+              }}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+          ))}
+      </Stack>
+    </Modal>
   );
 }
 
@@ -450,9 +583,7 @@ export function ConditionDialog({
 }) {
   const [name, setName] = useState(cond?.name ?? "");
   const [any, setAny] = useState(cond?.any === true);
-  const [clauses, setClauses] = useState<ActionClause[]>(
-    cond === null || cond.rows.length === 0 ? [NEW_CLAUSE] : cond.rows,
-  );
+  const [clauses, setClauses] = useState<ActionClause[]>(cond?.rows ?? []);
 
   const trimmed = name.trim();
   const nameTaken = taken.includes(trimmed);

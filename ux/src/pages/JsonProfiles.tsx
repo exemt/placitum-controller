@@ -12,6 +12,7 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 
 import { Form } from "../components/Form.tsx";
+import { Modal } from "../components/Modal.tsx";
 import {
   DataTable,
   DraftCell,
@@ -936,6 +937,8 @@ function BindingsTable({
   documents: FilterOption<string>[];
   onChange: (next: JsonBinding[]) => void;
 }) {
+  const [adding, setAdding] = useState(false);
+
   const matches: FilterOption<JsonBinding["match"]>[] = [
     { value: "exact", label: t("json.matches.exact") },
     { value: "prefix", label: t("json.matches.prefix") },
@@ -958,12 +961,7 @@ function BindingsTable({
                 color="success"
                 icon={<AddIcon />}
                 tooltip={t("common.add")}
-                onClick={() =>
-                  onChange([
-                    ...rows,
-                    { methods: [], path: "/", match: "prefix", schema: "" },
-                  ])
-                }
+                onClick={() => setAdding(true)}
               />
             </TableCell>
           </TableRow>
@@ -1010,6 +1008,7 @@ function BindingsTable({
               />
               <TableCell align="right">
                 <TableIconButton
+                  color="error"
                   icon={<DeleteIcon />}
                   tooltip={t("common.delete")}
                   onClick={() => onChange(rows.filter((_row, i) => i !== index))}
@@ -1019,6 +1018,18 @@ function BindingsTable({
           ))}
         </TableBody>
       </Table>
+      {adding && (
+        <BindingDialog
+          t={t}
+          documents={documents}
+          matches={matches}
+          onClose={() => setAdding(false)}
+          onAdd={(binding) => {
+            onChange([...rows, binding]);
+            setAdding(false);
+          }}
+        />
+      )}
     </TableBlock>
   );
 }
@@ -1036,6 +1047,8 @@ function FrameBindingsTable({
   disabled: boolean;
   onChange: (next: JsonFrameBinding[]) => void;
 }) {
+  const [adding, setAdding] = useState(false);
+
   const matches: FilterOption<JsonFrameBinding["match"]>[] = [
     { value: "exact", label: t("json.matches.exact") },
     { value: "prefix", label: t("json.matches.prefix") },
@@ -1078,19 +1091,7 @@ function FrameBindingsTable({
                 icon={<AddIcon />}
                 tooltip={t("common.add")}
                 disabled={disabled}
-                onClick={() =>
-                  onChange([
-                    ...rows,
-                    {
-                      path: "/ws/",
-                      match: "prefix",
-                      direction: "c2s",
-                      subprotocol: "",
-                      discriminator: { pointer: "/type", value: "" },
-                      schema: "",
-                    },
-                  ])
-                }
+                onClick={() => setAdding(true)}
               />
             </TableCell>
           </TableRow>
@@ -1157,6 +1158,7 @@ function FrameBindingsTable({
               />
               <TableCell align="right">
                 <TableIconButton
+                  color="error"
                   icon={<DeleteIcon />}
                   tooltip={t("common.delete")}
                   disabled={disabled}
@@ -1167,6 +1169,237 @@ function FrameBindingsTable({
           ))}
         </TableBody>
       </Table>
+      {adding && (
+        <FrameBindingDialog
+          t={t}
+          documents={documents}
+          matches={matches}
+          directions={directions}
+          onClose={() => setAdding(false)}
+          onAdd={(binding) => {
+            onChange([...rows, binding]);
+            setAdding(false);
+          }}
+        />
+      )}
     </TableBlock>
+  );
+}
+
+const METHOD_PRESETS = ["GET", "POST", "PUT", "PATCH", "DELETE"];
+
+function parseMethod(raw: string): string | undefined {
+  const upper = raw.trim().toUpperCase();
+
+  return /^[A-Z]+$/.test(upper) ? upper : undefined;
+}
+
+function schemaOptions(t: Translate, documents: FilterOption<string>[]): FilterOption<string>[] {
+  return documents.length > 0 ? documents : [{ value: "", label: t("json.sourceEmpty") }];
+}
+
+function BindingDialog({
+  t,
+  documents,
+  matches,
+  onClose,
+  onAdd,
+}: {
+  t: Translate;
+  documents: FilterOption<string>[];
+  matches: FilterOption<JsonBinding["match"]>[];
+  onClose: () => void;
+  onAdd: (binding: JsonBinding) => void;
+}) {
+  const [draft, setDraft] = useState<JsonBinding>(() => ({
+    methods: [],
+    path: "/",
+    match: "prefix",
+    schema: documents[0]?.value ?? "",
+  }));
+
+  const patch = (part: Partial<JsonBinding>) => setDraft((prev) => ({ ...prev, ...part }));
+  const ready = draft.path.startsWith("/") && draft.schema !== "";
+
+  const submit = () => {
+    if (ready) {
+      onAdd(draft);
+    }
+  };
+
+  return (
+    <Modal
+      onClose={onClose}
+      spacing={0}
+      title={t("json.bindingNewDialog")}
+      onEnter={submit}
+      actions={
+        <>
+          <Modal.Cancel />
+          <Modal.Submit disabled={!ready} onClick={submit}>
+            {t("common.add")}
+          </Modal.Submit>
+        </>
+      }
+    >
+      <SettingsTable aside={false}>
+        <Chips
+          t={t}
+          freeSolo
+          label={t("json.bindingMethods")}
+          helper={t("json.bindingMethodsHint")}
+          value={draft.methods}
+          options={METHOD_PRESETS}
+          parse={parseMethod}
+          placeholder={t("json.anyMethod")}
+          onChange={(value) => patch({ methods: value ?? [] })}
+        />
+        <Text
+          label={t("json.bindingPath")}
+          helper={t("json.bindingPathHint")}
+          placeholder="/api/orders"
+          value={draft.path}
+          mono
+          onChange={(path) => patch({ path: path.trim() })}
+        />
+        <Pick
+          select
+          label={t("json.bindingMatch")}
+          helper={t("json.bindingMatchHint")}
+          value={draft.match}
+          options={matches}
+          onChange={(match) => patch({ match })}
+        />
+        <Pick
+          select
+          label={t("json.bindingSchema")}
+          helper={t("json.bindingSchemaHint")}
+          value={draft.schema}
+          options={schemaOptions(t, documents)}
+          onChange={(schema) => patch({ schema })}
+        />
+      </SettingsTable>
+    </Modal>
+  );
+}
+
+function FrameBindingDialog({
+  t,
+  documents,
+  matches,
+  directions,
+  onClose,
+  onAdd,
+}: {
+  t: Translate;
+  documents: FilterOption<string>[];
+  matches: FilterOption<JsonFrameBinding["match"]>[];
+  directions: FilterOption<JsonFrameBinding["direction"]>[];
+  onClose: () => void;
+  onAdd: (binding: JsonFrameBinding) => void;
+}) {
+  const [path, setPath] = useState("/ws/");
+  const [match, setMatch] = useState<JsonFrameBinding["match"]>("prefix");
+  const [direction, setDirection] = useState<JsonFrameBinding["direction"]>("c2s");
+  const [subprotocol, setSubprotocol] = useState("");
+  const [pointer, setPointer] = useState("/type");
+  const [value, setValue] = useState("");
+  const [schema, setSchema] = useState(documents[0]?.value ?? "");
+
+  const ready =
+    path.startsWith("/") &&
+    schema !== "" &&
+    (pointer === "" || (pointer.startsWith("/") && value !== ""));
+
+  const submit = () => {
+    if (!ready) {
+      return;
+    }
+
+    onAdd({
+      path,
+      match,
+      direction,
+      subprotocol,
+      discriminator: pointer === "" ? null : { pointer, value },
+      schema,
+    });
+  };
+
+  return (
+    <Modal
+      onClose={onClose}
+      spacing={0}
+      title={t("json.frameBindingNewDialog")}
+      onEnter={submit}
+      actions={
+        <>
+          <Modal.Cancel />
+          <Modal.Submit disabled={!ready} onClick={submit}>
+            {t("common.add")}
+          </Modal.Submit>
+        </>
+      }
+    >
+      <SettingsTable aside={false}>
+        <Text
+          label={t("json.bindingPath")}
+          helper={t("json.frameBindingPathHint")}
+          placeholder="/ws/chat"
+          value={path}
+          mono
+          onChange={(next) => setPath(next.trim())}
+        />
+        <Pick
+          select
+          label={t("json.bindingMatch")}
+          helper={t("json.bindingMatchHint")}
+          value={match}
+          options={matches}
+          onChange={setMatch}
+        />
+        <Pick
+          select
+          label={t("json.bindingDirection")}
+          helper={t("json.bindingDirectionHint")}
+          value={direction}
+          options={directions}
+          onChange={setDirection}
+        />
+        <Text
+          label={t("json.bindingSubprotocol")}
+          helper={t("json.bindingSubprotocolHint")}
+          placeholder={t("json.anySubprotocol")}
+          value={subprotocol}
+          onChange={(next) => setSubprotocol(next.trim())}
+        />
+        <Text
+          label={t("json.bindingPointer")}
+          helper={t("json.bindingPointerHint")}
+          placeholder="/type"
+          value={pointer}
+          mono
+          onChange={(next) => setPointer(next.trim())}
+        />
+        {pointer !== "" && (
+          <Text
+            label={t("json.bindingValue")}
+            helper={t("json.bindingValueHint")}
+            placeholder="msg"
+            value={value}
+            mono
+            onChange={setValue}
+          />
+        )}
+        <Pick
+          select
+          label={t("json.bindingSchema")}
+          helper={t("json.bindingSchemaHint")}
+          value={schema}
+          options={schemaOptions(t, documents)}
+          onChange={setSchema}
+        />
+      </SettingsTable>
+    </Modal>
   );
 }

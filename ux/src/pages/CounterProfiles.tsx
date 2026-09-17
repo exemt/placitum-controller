@@ -73,7 +73,7 @@ import type {
   InspectorMeta,
 } from "../api.ts";
 import { COUNTER_AXES, COUNTER_DIRECTIONS, COUNTER_OPCODES, fetchActions, fetchDatasets, fetchInspectors, verbsFor, weakeningVerbs } from "../api.ts";
-import { axisLabel, verbLabel } from "../components/action-select.tsx";
+import { ACTION_CODE_RE, axisLabel, verbLabel } from "../components/action-select.tsx";
 import ChannelNotice, { pageNoticeSx } from "../components/ChannelNotice.tsx";
 import { useT, type Translate } from "../i18n/index.ts";
 import { thunkError } from "../errors.ts";
@@ -1569,6 +1569,7 @@ function JudgeDialog({
 }) {
   const fresh = group === null;
   const [draft, setDraft] = useState<JudgeGroup>(group ?? blank);
+  const [adding, setAdding] = useState(false);
 
   const counters = Object.keys(shared?.counters ?? {}).sort();
   const counterOptions = counters.map((name) => ({ value: name, label: name }));
@@ -1676,22 +1677,7 @@ function JudgeDialog({
                   color="success"
                   icon={<AddIcon />}
                   tooltip={t("common.add")}
-                  onClick={() =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      levels: [
-                        ...prev.levels,
-                        {
-                          counter: prev.counter,
-                          axis: prev.axis,
-                          at: 90,
-                          action: "deny",
-                          score: 0,
-                          code: "",
-                        },
-                      ],
-                    }))
-                  }
+                  onClick={() => setAdding(true)}
                 />
               </TableCell>
             </TableRow>
@@ -1756,7 +1742,113 @@ function JudgeDialog({
             ))}
           </TableBody>
         </Table>
+        {adding && (
+          <LevelDialog
+            t={t}
+            actions={actionOptions}
+            onClose={() => setAdding(false)}
+            onAdd={(next) => {
+              setDraft((prev) => ({
+                ...prev,
+                levels: [...prev.levels, { ...next, counter: prev.counter, axis: prev.axis }],
+              }));
+              setAdding(false);
+            }}
+          />
+        )}
       </TableBlock>
+    </Modal>
+  );
+}
+
+function LevelDialog({
+  t,
+  actions,
+  onClose,
+  onAdd,
+}: {
+  t: Translate;
+  actions: FilterOption<CounterJudgeRule["action"]>[];
+  onClose: () => void;
+  onAdd: (level: Omit<CounterJudgeRule, "counter" | "axis">) => void;
+}) {
+  const [at, setAt] = useState("90");
+  const [action, setAction] = useState<CounterJudgeRule["action"]>("deny");
+  const [score, setScore] = useState("40");
+  const [code, setCode] = useState("");
+
+  const atValue = Number.parseFloat(at.replace(",", "."));
+  const scoreValue = Number(score);
+  const ready =
+    at.trim() !== "" &&
+    Number.isFinite(atValue) &&
+    atValue >= 0 &&
+    atValue <= 100 &&
+    (action === "deny" || (score !== "" && scoreValue >= 1 && scoreValue <= 100)) &&
+    (code === "" || ACTION_CODE_RE.test(code));
+
+  const submit = () => {
+    if (!ready) {
+      return;
+    }
+
+    onAdd({
+      at: atValue,
+      action,
+      score: action === "score" ? scoreValue : 0,
+      code,
+    });
+  };
+
+  return (
+    <Modal
+      onClose={onClose}
+      spacing={0}
+      title={t("counter.levelNewDialog")}
+      onEnter={submit}
+      actions={
+        <>
+          <Modal.Cancel />
+          <Modal.Submit disabled={!ready} onClick={submit}>
+            {t("common.add")}
+          </Modal.Submit>
+        </>
+      }
+    >
+      <SettingsTable aside={false}>
+        <Text
+          label={t("counter.at")}
+          helper={t("counter.atHint")}
+          placeholder="90"
+          value={at}
+          onChange={(raw) => setAt(raw.replace(/[^0-9.,]/g, ""))}
+        />
+        <Pick
+          select
+          label={t("counter.action")}
+          helper={t("counter.actionHint")}
+          value={action}
+          options={actions}
+          onChange={setAction}
+        />
+        {action === "score" && (
+          <Text
+            label={t("counter.score")}
+            helper={t("counter.scoreHint")}
+            placeholder="40"
+            value={score}
+            onChange={(raw) => setScore(raw.replace(/\D/g, ""))}
+          />
+        )}
+        <Text
+          label={t("counter.code")}
+          helper={t("counter.codeHint")}
+          placeholder="COUNTER_LEVEL"
+          value={code}
+          mono
+          onChange={(raw) => setCode(raw.trim().toUpperCase())}
+        />
+      </SettingsTable>
     </Modal>
   );
 }
@@ -1776,7 +1868,7 @@ function MeasureTable({
   enabled: Record<MeasurePhase, boolean>;
   onChange: (next: MeasureRow[]) => void;
 }) {
-  const [editing, setEditing] = useState<number | null>(null);
+  const [editing, setEditing] = useState<{ index: number | null } | null>(null);
   const counters = Object.keys(shared?.counters ?? {})
     .filter((name) => shared?.counters[name]?.fill !== "note")
     .sort();
@@ -1794,6 +1886,19 @@ function MeasureTable({
 
   const patch = (index: number, part: Partial<MeasureRow>) =>
     onChange(rows.map((row, i) => (i === index ? { ...row, ...part } : row)));
+
+  const apply = (rule: MeasureRow) => {
+    if (editing === null) {
+      return;
+    }
+
+    onChange(
+      editing.index === null
+        ? [...rows, rule]
+        : rows.map((row, i) => (i === editing.index ? rule : row)),
+    );
+    setEditing(null);
+  };
 
   const phaseOptions: FilterOption<MeasurePhase>[] = [
     { value: "response", label: t("counter.phaseResponse") },
@@ -1856,9 +1961,7 @@ function MeasureTable({
                 icon={<AddIcon />}
                 tooltip={t("common.add")}
                 disabled={disabled || counters.length === 0}
-                onClick={() =>
-                  onChange([...rows, { ...measureRule(counters[0] ?? ""), phase: newPhase }])
-                }
+                onClick={() => setEditing({ index: null })}
               />
             </TableCell>
           </TableRow>
@@ -1904,7 +2007,7 @@ function MeasureTable({
                 onChange={(regex) => patch(index, { regex })}
               />
               <TableCell
-                onClick={() => !disabled && setEditing(index)}
+                onClick={() => !disabled && setEditing({ index })}
                 sx={{ cursor: disabled ? "default" : "pointer" }}
               >
                 <Typography variant="caption" color="text.secondary">
@@ -1913,6 +2016,7 @@ function MeasureTable({
               </TableCell>
               <TableCell align="right">
                 <TableIconButton
+                  color="error"
                   icon={<DeleteIcon />}
                   tooltip={t("common.delete")}
                   onClick={() => onChange(rows.filter((_row, i) => i !== index))}
@@ -1922,16 +2026,16 @@ function MeasureTable({
           ))}
         </TableBody>
       </Table>
-      {editing !== null && rows[editing] !== undefined && (
+      {editing !== null && (
         <MeasureDialog
           t={t}
-          rule={rows[editing]}
+          rule={editing.index === null ? null : (rows[editing.index] ?? null)}
+          blank={{ ...measureRule(counters[0] ?? ""), phase: newPhase }}
+          counters={counterOptions}
+          sources={sourceOptions}
           shared={shared}
           onClose={() => setEditing(null)}
-          onSave={(rule) => {
-            patch(editing, rule);
-            setEditing(null);
-          }}
+          onSave={apply}
         />
       )}
     </TableBlock>
@@ -1956,18 +2060,28 @@ function parseMethod(raw: string): string | undefined {
 function MeasureDialog({
   t,
   rule,
+  blank,
+  counters,
+  sources,
   shared,
   onClose,
   onSave,
 }: {
   t: Translate;
-  rule: MeasureRow;
+  rule: MeasureRow | null;
+  blank: MeasureRow;
+  counters: FilterOption<string>[];
+  sources: FilterOption<CounterMeasureRule["source"]>[];
   shared: CounterSharedDoc | null;
   onClose: () => void;
   onSave: (rule: MeasureRow) => void;
 }) {
-  const [draft, setDraft] = useState<MeasureRow>(rule);
+  const fresh = rule === null;
+  const [draft, setDraft] = useState<MeasureRow>(rule ?? blank);
   const frame = draft.phase === "frame";
+  const ready =
+    !fresh ||
+    (draft.counter !== "" && (draft.source !== "regex_count" || draft.regex.trim() !== ""));
 
   const declared = COUNTER_AXES.filter(
     (axis) =>
@@ -1982,12 +2096,12 @@ function MeasureDialog({
       onClose={onClose}
       spacing={0}
       size="md"
-      title={t("counter.measureDialog")}
+      title={fresh ? t("counter.measureNewDialog") : t("counter.measureDialog")}
       actions={
         <>
           <Modal.Cancel />
-          <Modal.Submit onClick={() => onSave(draft)}>
-            {t("common.save")}
+          <Modal.Submit disabled={!ready} onClick={() => onSave(draft)}>
+            {fresh ? t("common.add") : t("common.save")}
           </Modal.Submit>
         </>
       }
@@ -2006,6 +2120,42 @@ function MeasureDialog({
               setDraft((prev) => movedMeasure(prev, phase === "frame" ? "frame" : "response"))
             }
           />
+          {fresh && (
+            <>
+              <Pick
+                select
+                label={t("counter.counter")}
+                helper={t("counter.measureCounterHint")}
+                value={draft.counter}
+                options={counters}
+                onChange={(counter) => setDraft((prev) => ({ ...prev, counter, axes: [] }))}
+              />
+              <Pick
+                select
+                label={t("counter.source")}
+                helper={t("counter.sourceHint")}
+                value={draft.source}
+                options={sources}
+                onChange={(source) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    source,
+                    regex: source === "regex_count" ? prev.regex : "",
+                  }))
+                }
+              />
+              {draft.source === "regex_count" && (
+                <Text
+                  label={t("counter.regex")}
+                  helper={t("counter.regexHint")}
+                  placeholder={'"id"\\s*:'}
+                  value={draft.regex}
+                  mono
+                  onChange={(regex) => setDraft((prev) => ({ ...prev, regex }))}
+                />
+              )}
+            </>
+          )}
           {frame ? (
             <>
               <Chips

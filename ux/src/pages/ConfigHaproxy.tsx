@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import InputBase from "@mui/material/InputBase";
 import Stack from "@mui/material/Stack";
@@ -9,6 +10,7 @@ import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
+import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 
 import { Duration, Flag, Num, Pick, Text } from "../components/fields.tsx";
@@ -22,12 +24,8 @@ import {
   SettingsTable,
 } from "../components/settings-table.tsx";
 import { TableIconButton } from "../components/data-table/index.ts";
-import {
-  DraftAddCell,
-  draftKey,
-  flushTableSx,
-  HeadCell,
-} from "../components/table-block.tsx";
+import { Modal } from "../components/Modal.tsx";
+import { flushTableSx, HeadCell, headCellSx } from "../components/table-block.tsx";
 import { editorChipSx } from "../config/editor-kit.tsx";
 import ChannelNotice from "../components/ChannelNotice.tsx";
 import { useChannel } from "../convergence.tsx";
@@ -141,24 +139,8 @@ function ServersTable({
   onChange: (next: HaproxyServerWire[]) => void;
 }) {
   const t = useT();
-  const [name, setName] = useState("");
-  const [host, setHost] = useState("");
-  const [port, setPort] = useState("");
-  const nameRef = useRef<HTMLInputElement>(null);
+  const [adding, setAdding] = useState(false);
   const inputSx = { ...dataInputSx, fontFamily: "monospace" } as const;
-
-  const ready = name.trim() !== "" && host.trim() !== "";
-  const add = () => {
-    const row: HaproxyServerWire = { name: name.trim(), host: host.trim() };
-    const p = parseNum(port);
-    if (p !== undefined) row.port = p;
-    onChange([...rows, row]);
-    setName("");
-    setHost("");
-    setPort("");
-    nameRef.current?.focus();
-  };
-  const onKey = draftKey(ready, add);
 
   const patchAt = (index: number, patch: Partial<HaproxyServerWire>) =>
     onChange(
@@ -193,7 +175,16 @@ function ServersTable({
               help={t("haproxy.help.serverPort")}
               width={110}
             />
-            <HeadCell label="" width={48} />
+            <TableCell sx={{ ...headCellSx, width: 48, minWidth: 48 }}>
+              <Box sx={{ display: "flex", justifyContent: "flex-end", width: "100%" }}>
+                <TableIconButton
+                  color="success"
+                  icon={<AddIcon sx={{ fontSize: 16 }} />}
+                  tooltip={t("common.add")}
+                  onClick={() => setAdding(true)}
+                />
+              </Box>
+            </TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -240,43 +231,103 @@ function ServersTable({
               </TableCell>
             </TableRow>
           )}
-          <TableRow>
-            <TableCell sx={cellSx}>
-              <InputBase
-                inputRef={nameRef}
-                value={name}
-                placeholder="edge-01"
-                inputProps={{ "aria-label": t("haproxy.servers.name") }}
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={onKey}
-                sx={inputSx}
-              />
-            </TableCell>
-            <TableCell sx={cellSx}>
-              <InputBase
-                value={host}
-                placeholder="edge-01"
-                inputProps={{ "aria-label": t("haproxy.servers.host") }}
-                onChange={(e) => setHost(e.target.value)}
-                onKeyDown={onKey}
-                sx={inputSx}
-              />
-            </TableCell>
-            <TableCell sx={cellSx}>
-              <InputBase
-                value={port}
-                placeholder="8080"
-                inputProps={{ "aria-label": t("haproxy.servers.port") }}
-                onChange={(e) => setPort(e.target.value)}
-                onKeyDown={onKey}
-                sx={inputSx}
-              />
-            </TableCell>
-            <DraftAddCell label={t("common.add")} ready={ready} onAdd={add} />
-          </TableRow>
         </TableBody>
       </Table>
+      {adding && (
+        <ServerDialog
+          taken={rows.map((row) => row.name)}
+          onClose={() => setAdding(false)}
+          onAdd={(row) => {
+            onChange([...rows, row]);
+            setAdding(false);
+          }}
+        />
+      )}
     </SectionBleed>
+  );
+}
+
+const SERVER_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/;
+const SERVER_HOST_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,253}$/;
+
+function ServerDialog({
+  taken,
+  onClose,
+  onAdd,
+}: {
+  taken: readonly string[];
+  onClose: () => void;
+  onAdd: (row: HaproxyServerWire) => void;
+}) {
+  const t = useT();
+  const [name, setName] = useState("");
+  const [host, setHost] = useState("");
+  const [port, setPort] = useState("");
+
+  const trimmedName = name.trim();
+  const trimmedHost = host.trim();
+  const portValue = parseNum(port);
+  const nameTaken = taken.includes(trimmedName);
+  const ready =
+    SERVER_NAME_RE.test(trimmedName) &&
+    !nameTaken &&
+    SERVER_HOST_RE.test(trimmedHost) &&
+    (port === "" || (portValue !== undefined && portValue >= 1 && portValue <= 65535));
+
+  const submit = () => {
+    if (!ready) {
+      return;
+    }
+    const row: HaproxyServerWire = { name: trimmedName, host: trimmedHost };
+    if (portValue !== undefined) row.port = portValue;
+    onAdd(row);
+  };
+
+  return (
+    <Modal
+      onClose={onClose}
+      spacing={0}
+      dirty={name !== "" || host !== "" || port !== ""}
+      title={t("haproxy.servers.addTitle")}
+      notice={
+        nameTaken ? { severity: "warning", text: t("haproxy.servers.nameTaken") } : null
+      }
+      onEnter={submit}
+      actions={
+        <>
+          <Modal.Cancel />
+          <Modal.Submit disabled={!ready} onClick={submit}>
+            {t("common.add")}
+          </Modal.Submit>
+        </>
+      }
+    >
+      <SettingsTable aside={false}>
+        <Text
+          mono
+          label={t("haproxy.servers.name")}
+          helper={t("haproxy.help.serverName")}
+          placeholder="edge-04"
+          value={name}
+          onChange={setName}
+        />
+        <Text
+          mono
+          label={t("haproxy.servers.host")}
+          helper={t("haproxy.help.serverHost")}
+          placeholder="edge-04"
+          value={host}
+          onChange={setHost}
+        />
+        <Text
+          label={t("haproxy.servers.port")}
+          helper={t("haproxy.help.serverPort")}
+          placeholder="8080"
+          value={port}
+          onChange={(raw) => setPort(raw.replace(/\D/g, ""))}
+        />
+      </SettingsTable>
+    </Modal>
   );
 }
 

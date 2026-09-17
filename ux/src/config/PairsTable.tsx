@@ -54,11 +54,11 @@ export type PairsAdd = {
   dup: string;
 };
 
-function pairKey(name: string, value: string): string {
+export function pairKey(name: string, value: string): string {
   return `${name.trim().toLowerCase()} ${value.trim()}`;
 }
 
-function AddDialog({
+export function PairAddDialog({
   t,
   add,
   flag,
@@ -289,7 +289,7 @@ export function PairsTable({
         </Table>
       </SectionBleed>
       {adding && (
-        <AddDialog
+        <PairAddDialog
           t={t}
           add={add}
           flag={flag}

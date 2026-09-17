@@ -90,16 +90,6 @@ const newGroup = (index: number): RewriteGroup => ({
 const DIRECTIONS = ["c2s", "s2c"] as const;
 const OPCODES = ["text", "binary", "continuation"] as const;
 
-const newBodyOp = (): RewriteBodyOp => ({
-  op: "replace",
-  pattern: "",
-  to: "",
-  text: "",
-  maxMatches: null,
-});
-
-const newHeaderOp = (): RewriteHeaderOp => ({ op: "set", name: "", value: "" });
-
 export default function RewriteProfiles() {
   const t = useT();
   const dispatch = useAppDispatch();
@@ -773,6 +763,22 @@ function GroupDialog({
   );
 }
 
+function bodyKinds(t: Translate): FilterOption<RewriteBodyOpKind>[] {
+  return [
+    { value: "replace", label: t("rewrite.ops.replace") },
+    { value: "remove", label: t("rewrite.ops.remove") },
+    { value: "insert_before", label: t("rewrite.ops.insert_before") },
+    { value: "insert_after", label: t("rewrite.ops.insert_after") },
+  ];
+}
+
+function headerKinds(t: Translate): FilterOption<RewriteHeaderOp["op"]>[] {
+  return [
+    { value: "set", label: t("rewrite.headerSet") },
+    { value: "unset", label: t("rewrite.headerUnset") },
+  ];
+}
+
 function BodyOpsTable({
   t,
   rows,
@@ -782,103 +788,202 @@ function BodyOpsTable({
   rows: RewriteBodyOp[];
   onChange: (next: RewriteBodyOp[]) => void;
 }) {
+  const [adding, setAdding] = useState(false);
+
   const patch = (index: number, part: Partial<RewriteBodyOp>) =>
     onChange(rows.map((row, i) => (i === index ? { ...row, ...part } : row)));
 
-  const kinds: FilterOption<RewriteBodyOpKind>[] = [
-    { value: "replace", label: t("rewrite.ops.replace") },
-    { value: "remove", label: t("rewrite.ops.remove") },
-    { value: "insert_before", label: t("rewrite.ops.insert_before") },
-    { value: "insert_after", label: t("rewrite.ops.insert_after") },
-  ];
+  const kinds = bodyKinds(t);
 
   return (
-    <TableBlock title={t("rewrite.bodyOps")} label={t("rewrite.bodyOpsHint")}>
-      <Table size="small" sx={flushTableSx}>
-        <TableHead>
-          <TableRow>
-            <HeadCell label={t("rewrite.op")} width={150} />
-            <HeadCell label={t("rewrite.pattern")} help={t("rewrite.patternHint")} />
-            <HeadCell label={t("rewrite.replacement")} help={t("rewrite.replacementHint")} />
-            <HeadCell
-              label={t("rewrite.maxMatches")}
-              help={t("rewrite.maxMatchesHint")}
-              width={90}
-            />
-            <TableCell align="right" sx={{ width: 44 }}>
-              <TableIconButton
-                color="success"
-                icon={<AddIcon />}
-                tooltip={t("common.add")}
-                onClick={() => onChange([...rows, newBodyOp()])}
-              />
-            </TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {rows.length === 0 && (
-            <TableNoticeRow colSpan={5} kind="empty" message={t("rewrite.bodyEmpty")} />
-          )}
-          {rows.map((row, index) => (
-            <TableRow key={index}>
-              <FilterSelect
-                value={row.op}
-                width={150}
-                options={kinds}
-                unset={row.op}
-                onChange={(op) =>
-                  patch(index, {
-                    op,
-                    to: op === "replace" ? row.to : "",
-                    text: op === "replace" || op === "remove" ? "" : row.text,
-                  })
-                }
-              />
-              <LongTextCell
-                value={row.pattern}
-                placeholder="debug-token=[a-z0-9]+"
-                title={t("rewrite.pattern")}
-                hint={t("rewrite.patternHint")}
-                onChange={(pattern) => patch(index, { pattern })}
-              />
-              <LongTextCell
-                value={row.op === "replace" ? row.to : row.text}
-                placeholder={row.op === "remove" ? "—" : "$1********$2"}
-                title={t("rewrite.replacement")}
-                hint={t("rewrite.replacementHint")}
-                disabled={row.op === "remove"}
-                onChange={(value) =>
-                  patch(
-                    index,
-                    row.op === "replace" ? { to: value } : { text: value },
-                  )
-                }
-              />
-              <DraftCell
-                value={row.maxMatches === null ? "" : String(row.maxMatches)}
-                placeholder="256"
+    <>
+      <TableBlock title={t("rewrite.bodyOps")} label={t("rewrite.bodyOpsHint")}>
+        <Table size="small" sx={flushTableSx}>
+          <TableHead>
+            <TableRow>
+              <HeadCell label={t("rewrite.op")} width={150} />
+              <HeadCell label={t("rewrite.pattern")} help={t("rewrite.patternHint")} />
+              <HeadCell label={t("rewrite.replacement")} help={t("rewrite.replacementHint")} />
+              <HeadCell
+                label={t("rewrite.maxMatches")}
+                help={t("rewrite.maxMatchesHint")}
                 width={90}
-                onChange={(raw) => {
-                  const parsed = Number.parseInt(raw.trim(), 10);
-
-                  patch(index, {
-                    maxMatches: Number.isFinite(parsed) && parsed > 0 ? parsed : null,
-                  });
-                }}
               />
-              <TableCell align="right">
+              <TableCell align="right" sx={{ width: 44 }}>
                 <TableIconButton
-                  color="error"
-                  icon={<DeleteIcon />}
-                  tooltip={t("common.delete")}
-                  onClick={() => onChange(rows.filter((_row, i) => i !== index))}
+                  color="success"
+                  icon={<AddIcon />}
+                  tooltip={t("common.add")}
+                  onClick={() => setAdding(true)}
                 />
               </TableCell>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableBlock>
+          </TableHead>
+          <TableBody>
+            {rows.length === 0 && (
+              <TableNoticeRow colSpan={5} kind="empty" message={t("rewrite.bodyEmpty")} />
+            )}
+            {rows.map((row, index) => (
+              <TableRow key={index}>
+                <FilterSelect
+                  value={row.op}
+                  width={150}
+                  options={kinds}
+                  unset={row.op}
+                  onChange={(op) =>
+                    patch(index, {
+                      op,
+                      to: op === "replace" ? row.to : "",
+                      text: op === "replace" || op === "remove" ? "" : row.text,
+                    })
+                  }
+                />
+                <LongTextCell
+                  value={row.pattern}
+                  placeholder="debug-token=[a-z0-9]+"
+                  title={t("rewrite.pattern")}
+                  hint={t("rewrite.patternHint")}
+                  onChange={(pattern) => patch(index, { pattern })}
+                />
+                <LongTextCell
+                  value={row.op === "replace" ? row.to : row.text}
+                  placeholder={row.op === "remove" ? "—" : "$1********$2"}
+                  title={t("rewrite.replacement")}
+                  hint={t("rewrite.replacementHint")}
+                  disabled={row.op === "remove"}
+                  onChange={(value) =>
+                    patch(
+                      index,
+                      row.op === "replace" ? { to: value } : { text: value },
+                    )
+                  }
+                />
+                <DraftCell
+                  value={row.maxMatches === null ? "" : String(row.maxMatches)}
+                  placeholder="256"
+                  width={90}
+                  onChange={(raw) => {
+                    const parsed = Number.parseInt(raw.trim(), 10);
+
+                    patch(index, {
+                      maxMatches: Number.isFinite(parsed) && parsed > 0 ? parsed : null,
+                    });
+                  }}
+                />
+                <TableCell align="right">
+                  <TableIconButton
+                    color="error"
+                    icon={<DeleteIcon />}
+                    tooltip={t("common.delete")}
+                    onClick={() => onChange(rows.filter((_row, i) => i !== index))}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableBlock>
+      {adding && (
+        <BodyOpDialog
+          t={t}
+          onClose={() => setAdding(false)}
+          onAdd={(op) => {
+            onChange([...rows, op]);
+            setAdding(false);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function BodyOpDialog({
+  t,
+  onClose,
+  onAdd,
+}: {
+  t: Translate;
+  onClose: () => void;
+  onAdd: (op: RewriteBodyOp) => void;
+}) {
+  const [op, setOp] = useState<RewriteBodyOpKind>("replace");
+  const [pattern, setPattern] = useState("");
+  const [value, setValue] = useState("");
+  const [matches, setMatches] = useState("");
+
+  const insert = op === "insert_before" || op === "insert_after";
+  const maxMatches = matches === "" ? null : Number(matches);
+  const ready =
+    pattern.trim() !== "" &&
+    (!insert || value !== "") &&
+    (maxMatches === null || maxMatches > 0);
+
+  const submit = () => {
+    if (!ready) {
+      return;
+    }
+
+    onAdd({
+      op,
+      pattern,
+      to: op === "replace" ? value : "",
+      text: insert ? value : "",
+      maxMatches,
+    });
+  };
+
+  return (
+    <Modal
+      onClose={onClose}
+      spacing={0}
+      dirty={pattern !== "" || value !== "" || matches !== ""}
+      title={t("rewrite.bodyOpNewDialog")}
+      onEnter={submit}
+      actions={
+        <>
+          <Modal.Cancel />
+          <Modal.Submit disabled={!ready} onClick={submit}>
+            {t("common.add")}
+          </Modal.Submit>
+        </>
+      }
+    >
+      <SettingsTable aside={false}>
+        <Pick
+          select
+          label={t("rewrite.op")}
+          helper={t("rewrite.opHint")}
+          value={op}
+          options={bodyKinds(t)}
+          onChange={setOp}
+        />
+        <Text
+          label={t("rewrite.pattern")}
+          helper={t("rewrite.patternHint")}
+          placeholder="debug-token=[a-z0-9]+"
+          value={pattern}
+          mono
+          onChange={setPattern}
+        />
+        {op !== "remove" && (
+          <Text
+            label={t("rewrite.replacement")}
+            helper={t("rewrite.replacementHint")}
+            placeholder={insert ? "<!-- filtered -->" : "$1********$2"}
+            value={value}
+            mono
+            onChange={setValue}
+          />
+        )}
+        <Text
+          label={t("rewrite.maxMatches")}
+          helper={t("rewrite.maxMatchesHint")}
+          placeholder="256"
+          value={matches}
+          onChange={(raw) => setMatches(raw.replace(/\D/g, ""))}
+        />
+      </SettingsTable>
+    </Modal>
   );
 }
 
@@ -891,73 +996,152 @@ function HeaderOpsTable({
   rows: RewriteHeaderOp[];
   onChange: (next: RewriteHeaderOp[]) => void;
 }) {
+  const [adding, setAdding] = useState(false);
+
   const patch = (index: number, part: Partial<RewriteHeaderOp>) =>
     onChange(rows.map((row, i) => (i === index ? { ...row, ...part } : row)));
 
-  const kinds: FilterOption<RewriteHeaderOp["op"]>[] = [
-    { value: "set", label: t("rewrite.headerSet") },
-    { value: "unset", label: t("rewrite.headerUnset") },
-  ];
+  const kinds = headerKinds(t);
 
   return (
-    <TableBlock title={t("rewrite.headerOps")} label={t("rewrite.headerOpsHint")} last>
-      <Table size="small" sx={flushTableSx}>
-        <TableHead>
-          <TableRow>
-            <HeadCell label={t("rewrite.op")} width={150} />
-            <HeadCell label={t("rewrite.headerName")} width={200} />
-            <HeadCell label={t("rewrite.headerValue")} />
-            <TableCell align="right" sx={{ width: 44 }}>
-              <TableIconButton
-                color="success"
-                icon={<AddIcon />}
-                tooltip={t("common.add")}
-                onClick={() => onChange([...rows, newHeaderOp()])}
-              />
-            </TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {rows.length === 0 && (
-            <TableNoticeRow colSpan={4} kind="empty" message={t("rewrite.headersEmpty")} />
-          )}
-          {rows.map((row, index) => (
-            <TableRow key={index}>
-              <FilterSelect
-                value={row.op}
-                width={150}
-                options={kinds}
-                unset={row.op}
-                onChange={(op) =>
-                  patch(index, { op, value: op === "unset" ? "" : row.value })
-                }
-              />
-              <DraftCell
-                value={row.name}
-                placeholder="X-Frame-Options"
-                mono
-                width={200}
-                onChange={(name) => patch(index, { name: name.trim() })}
-              />
-              <LongTextCell
-                value={row.value}
-                placeholder={row.op === "unset" ? "—" : "DENY"}
-                title={t("rewrite.headerValue")}
-                disabled={row.op === "unset"}
-                onChange={(value) => patch(index, { value })}
-              />
-              <TableCell align="right">
+    <>
+      <TableBlock title={t("rewrite.headerOps")} label={t("rewrite.headerOpsHint")} last>
+        <Table size="small" sx={flushTableSx}>
+          <TableHead>
+            <TableRow>
+              <HeadCell label={t("rewrite.op")} width={150} />
+              <HeadCell label={t("rewrite.headerName")} width={200} />
+              <HeadCell label={t("rewrite.headerValue")} />
+              <TableCell align="right" sx={{ width: 44 }}>
                 <TableIconButton
-                  color="error"
-                  icon={<DeleteIcon />}
-                  tooltip={t("common.delete")}
-                  onClick={() => onChange(rows.filter((_row, i) => i !== index))}
+                  color="success"
+                  icon={<AddIcon />}
+                  tooltip={t("common.add")}
+                  onClick={() => setAdding(true)}
                 />
               </TableCell>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableBlock>
+          </TableHead>
+          <TableBody>
+            {rows.length === 0 && (
+              <TableNoticeRow colSpan={4} kind="empty" message={t("rewrite.headersEmpty")} />
+            )}
+            {rows.map((row, index) => (
+              <TableRow key={index}>
+                <FilterSelect
+                  value={row.op}
+                  width={150}
+                  options={kinds}
+                  unset={row.op}
+                  onChange={(op) =>
+                    patch(index, { op, value: op === "unset" ? "" : row.value })
+                  }
+                />
+                <DraftCell
+                  value={row.name}
+                  placeholder="X-Frame-Options"
+                  mono
+                  width={200}
+                  onChange={(name) => patch(index, { name: name.trim() })}
+                />
+                <LongTextCell
+                  value={row.value}
+                  placeholder={row.op === "unset" ? "—" : "DENY"}
+                  title={t("rewrite.headerValue")}
+                  disabled={row.op === "unset"}
+                  onChange={(value) => patch(index, { value })}
+                />
+                <TableCell align="right">
+                  <TableIconButton
+                    color="error"
+                    icon={<DeleteIcon />}
+                    tooltip={t("common.delete")}
+                    onClick={() => onChange(rows.filter((_row, i) => i !== index))}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableBlock>
+      {adding && (
+        <HeaderOpDialog
+          t={t}
+          onClose={() => setAdding(false)}
+          onAdd={(op) => {
+            onChange([...rows, op]);
+            setAdding(false);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function HeaderOpDialog({
+  t,
+  onClose,
+  onAdd,
+}: {
+  t: Translate;
+  onClose: () => void;
+  onAdd: (op: RewriteHeaderOp) => void;
+}) {
+  const [op, setOp] = useState<RewriteHeaderOp["op"]>("set");
+  const [name, setName] = useState("");
+  const [value, setValue] = useState("");
+
+  const ready = name.trim() !== "";
+
+  const submit = () => {
+    if (ready) {
+      onAdd({ op, name: name.trim(), value: op === "set" ? value : "" });
+    }
+  };
+
+  return (
+    <Modal
+      onClose={onClose}
+      spacing={0}
+      dirty={name !== "" || value !== ""}
+      title={t("rewrite.headerOpNewDialog")}
+      onEnter={submit}
+      actions={
+        <>
+          <Modal.Cancel />
+          <Modal.Submit disabled={!ready} onClick={submit}>
+            {t("common.add")}
+          </Modal.Submit>
+        </>
+      }
+    >
+      <SettingsTable aside={false}>
+        <Pick
+          select
+          label={t("rewrite.op")}
+          helper={t("rewrite.headerOpHint")}
+          value={op}
+          options={headerKinds(t)}
+          onChange={setOp}
+        />
+        <Text
+          label={t("rewrite.headerName")}
+          helper={t("rewrite.headerOpsHint")}
+          placeholder={op === "set" ? "X-Frame-Options" : "Server"}
+          value={name}
+          mono
+          onChange={setName}
+        />
+        {op === "set" && (
+          <Text
+            label={t("rewrite.headerValue")}
+            placeholder="DENY"
+            value={value}
+            mono
+            onChange={setValue}
+          />
+        )}
+      </SettingsTable>
+    </Modal>
   );
 }

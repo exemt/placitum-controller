@@ -5,13 +5,12 @@ import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import TableCell from "@mui/material/TableCell";
 import Tooltip from "@mui/material/Tooltip";
-import AddIcon from "@mui/icons-material/Add";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
-import { HEAD_H, TableIconButton, type FilterOption } from "./data-table/index.ts";
+import { HEAD_H, type FilterOption } from "./data-table/index.ts";
 import { BlockHead } from "./BlockHead.tsx";
 import { HintMarkup } from "./fields.tsx";
-import { dataActionCellSx, SectionBleed, useFlushSection } from "./settings-table.tsx";
+import { SectionBleed, useFlushSection } from "./settings-table.tsx";
 
 export const CELL_PX = 1.25;
 
@@ -271,35 +270,4 @@ export function TableBlock<T extends string>({
       </SectionBleed>
     </Box>
   );
-}
-
-export function DraftAddCell({
-  label,
-  ready,
-  onAdd,
-}: {
-  label: string;
-  ready: boolean;
-  onAdd: () => void;
-}) {
-  return (
-    <TableCell sx={dataActionCellSx}>
-      <TableIconButton
-        color="success"
-        icon={<AddIcon sx={{ fontSize: 16 }} />}
-        tooltip={label}
-        disabled={!ready}
-        onClick={onAdd}
-      />
-    </TableCell>
-  );
-}
-
-export function draftKey(ready: boolean, onAdd: () => void) {
-  return (e: { key: string; preventDefault: () => void }) => {
-    if (e.key === "Enter" && ready) {
-      e.preventDefault();
-      onAdd();
-    }
-  };
 }
