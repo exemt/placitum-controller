@@ -1000,8 +1000,6 @@ export const en: DeepString<typeof ru> = {
     orderChanged: "file order changed",
   },
   inspectorCatalog: {
-    copyOff: "A catalog record is not copied: it belongs to the process, not the space.",
-    deleteOff: "A catalog record is not deleted: it ships with the release.",
     editTitle: "Inspector",
     nameHint:
       "Process name — fixed by the process itself. Names for routes and second names with profiles are declared in settings, the Inspectors section.",

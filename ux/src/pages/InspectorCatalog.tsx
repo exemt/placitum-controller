@@ -16,17 +16,12 @@ import MenuBookOutlinedIcon from "@mui/icons-material/MenuBookOutlined";
 import SubjectIcon from "@mui/icons-material/Subject";
 
 import type { InspectorView } from "../fleet.ts";
-import {
-  INSPECTOR_LOG_LEVELS,
-  type InspectorLogLevel,
-  type InspectorMeta,
-} from "../api.ts";
+import { INSPECTOR_LOG_LEVELS, type InspectorLogLevel } from "../api.ts";
 import { Form, formDrawerPaperSx } from "../components/Form.tsx";
 import {
   DataTable,
   RowActionsHead,
   TableIconButton,
-  useRowOps,
   usePager,
 } from "../components/data-table/index.ts";
 import { useT } from "../i18n/index.ts";
@@ -53,9 +48,6 @@ export default function InspectorCatalog() {
   const panelId = useAppSelector((s) => s.pages.inspectorCatalog.panelId);
   const replicas = useAppSelector((s) => s.inspectors.rows);
   const pager = usePager(rows);
-  const ops = useRowOps<InspectorMeta>({
-    nameOf: (row) => row.name,
-  });
 
   usePageBar({
     flush: scope !== null,
@@ -83,7 +75,8 @@ export default function InspectorCatalog() {
           <TableCell>{t("inspectorCatalog.instances")}</TableCell>
           <TableCell>{t("inspectorCatalog.subject")}</TableCell>
           <TableCell>{t("inspectorCatalog.phase")}</TableCell>
-          <RowActionsHead extra={2} />
+          <TableCell>{t("inspectorCatalog.logLevel")}</TableCell>
+          <RowActionsHead />
         </DataTable.Head>
         <DataTable.Body>
           {pager.rows.map((row) => {
@@ -112,18 +105,17 @@ export default function InspectorCatalog() {
                     .map((item) => t(`inspectorCatalog.phaseValue.${item}`))
                     .join(", ")}
                 </TableCell>
-                {ops.cell(
-                  row,
-                  {
-                    copy: t("inspectorCatalog.copyOff"),
-                    remove: t("inspectorCatalog.deleteOff"),
-                  },
-                  <>
+                <TableCell sx={{ fontFamily: "monospace" }}>{row.log_level}</TableCell>
+                <TableCell
+                  align="right"
+                  sx={{ whiteSpace: "nowrap" }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end" }}>
                     <TableIconButton
                       icon={<SubjectIcon />}
                       tooltip={t("inspectorCatalog.logsLink")}
-                      onClick={(e) => {
-                        e.stopPropagation();
+                      onClick={() => {
                         const service = live[0]?.name ?? row.name;
                         navigate(`/logs?service=${encodeURIComponent(service)}`);
                       }}
@@ -136,13 +128,10 @@ export default function InspectorCatalog() {
                           : t("inspectorCatalog.docsOpen")
                       }
                       disabled={row.docs_url === ""}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        window.open(row.docs_url, "_blank", "noopener");
-                      }}
+                      onClick={() => window.open(row.docs_url, "_blank", "noopener")}
                     />
-                  </>,
-                )}
+                  </Stack>
+                </TableCell>
               </TableRow>
             );
           })}
@@ -151,7 +140,6 @@ export default function InspectorCatalog() {
         <DataTable.Error onRetry={() => void dispatch(loadInspectors(scope))} />
         <DataTable.Pager pager={pager} />
       </DataTable>
-      {ops.modals}
       <Drawer
         anchor="right"
         open={panelId !== undefined}
