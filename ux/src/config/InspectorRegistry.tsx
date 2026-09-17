@@ -10,6 +10,7 @@ import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
+import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 
@@ -24,6 +25,7 @@ import {
   DialogAlert,
   DialogFrame,
   DialogInput,
+  DialogLines,
   DialogPick,
   DialogSection,
   type DialogOption,
@@ -116,8 +118,6 @@ const NAME_RE = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
 
 const auditDefault = (name: string) => `waf.audit.inspector.${name}`;
 
-const NEW_INSPECTOR = " new";
-
 export function InspectorRegistry({
   scope,
   value,
@@ -155,7 +155,7 @@ export function InspectorRegistry({
   const processOf = (name: string) => graph[name]?.process ?? name;
   const metaOf = (name: string) => byName.get(processOf(name));
   const unknown = ready ? names.filter((n) => metaOf(n) === undefined) : [];
-  const undeclared = rows.map((r) => r.name).filter((n) => !names.includes(n));
+  const noCatalog = ready && rows.length === 0;
 
   const setGraph = (next: Record<string, Decl>) => {
     const waf = { ...value };
@@ -201,7 +201,15 @@ export function InspectorRegistry({
               <TableCell sx={{ ...headSx, pl: 2, width: NAME_W }}>{t("registry.name")}</TableCell>
               <TableCell sx={{ ...headSx, width: PROFILE_W }}>{t("registry.profile")}</TableCell>
               <TableCell sx={headSx} />
-              <TableCell sx={{ ...headSx, width: ACTIONS_W }} />
+              <TableCell sx={{ ...headSx, width: ACTIONS_W, textAlign: "right" }}>
+                <TableIconButton
+                  color="success"
+                  icon={<AddIcon />}
+                  disabled={noCatalog}
+                  tooltip={noCatalog ? t("registry.addNoCatalog") : t("registry.add")}
+                  onClick={() => setAdding(true)}
+                />
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -282,52 +290,17 @@ export function InspectorRegistry({
         </Table>
       </SectionBleed>
 
-      <Box sx={{ width: 320 }}>
-        <Picker
-          key={`add-${names.length}-${adding}`}
-          value=""
-          placeholder={
-            ready && undeclared.length === 0
-              ? t("registry.allDeclared")
-              : t("registry.addInspector")
-          }
-          options={[
-            ...rows
-              .filter((row) => !names.includes(row.name))
-              .map((row) => ({ value: row.name, hint: row.subject })),
-            ...rows
-              .filter((row) => names.includes(row.name))
-              .map((row) => ({
-                value: row.name,
-                hint: row.subject,
-                note: t("registry.declared"),
-                disabled: true,
-              })),
-            { value: NEW_INSPECTOR, label: t("registry.declare") },
-          ]}
-          onChange={(n) => {
-            if (n === "") {
-              return;
-            }
-            if (n === NEW_INSPECTOR) {
-              setAdding(true);
-              return;
-            }
-            setGraph({ ...graph, [n]: {} });
+      {adding && (
+        <AddDialog
+          rows={rows}
+          graph={graph}
+          onClose={() => setAdding(false)}
+          onAdd={(name, decl) => {
+            setAdding(false);
+            setGraph({ ...graph, [name]: clean(name, decl) });
           }}
         />
-      </Box>
-
-      <DeclareDialog
-        open={adding}
-        rows={rows}
-        taken={names}
-        onClose={() => setAdding(false)}
-        onDone={(name, decl) => {
-          setAdding(false);
-          setGraph({ ...graph, [name]: clean(name, decl) });
-        }}
-      />
+      )}
 
       <SettingsDialog
         name={editing ?? undefined}
@@ -395,96 +368,124 @@ function profilesOf(
     .map((row) => ({ value: row.name }));
 }
 
-function DeclareDialog({
-  open,
+function declLine(name: string, subject: string, profile: string): string {
+  const parts = [`subject=${subject}`];
+  if (profile !== "" && profile !== "default") {
+    parts.push(`profile=${profile}`);
+  }
+  return `waf_inspector ${name === "" ? "?" : name} ${parts.join(" ")};`;
+}
+
+function AddDialog({
   rows,
-  taken,
+  graph,
   onClose,
-  onDone,
+  onAdd,
 }: {
-  open: boolean;
   rows: InspectorMeta[];
-  taken: string[];
+  graph: Record<string, Decl>;
   onClose: () => void;
-  onDone: (name: string, decl: { process?: string; profile?: string }) => void;
+  onAdd: (name: string, decl: Decl) => void;
 }) {
   const t = useT();
   const catalog = useCatalog();
-  const [name, setName] = useState("");
   const [process, setProcess] = useState("");
+  const [name, setName] = useState("");
+  const [named, setNamed] = useState(false);
   const [profile, setProfile] = useState("");
 
-  useEffect(() => {
-    if (open) {
-      setName("");
-      setProcess("");
-      setProfile("");
-    }
-  }, [open]);
-
+  const taken = Object.keys(graph);
+  const used = new Set(taken.map((key) => graph[key]?.process ?? key));
   const meta = rows.find((row) => row.name === process);
   const nameBad = nameError(name, taken, t);
   const ok = name !== "" && nameBad === undefined && meta !== undefined;
 
   const profileOptions = profilesOf(catalog, meta?.subject);
 
+  const pick = (next: string) => {
+    setProcess(next);
+    setProfile("");
+    if (!named) {
+      setName(next);
+    }
+  };
+
   return (
     <Modal
-      open={open}
       onClose={onClose}
-      title={t("registry.declare")}
+      title={t("registry.addTitle")}
       hint={t("registry.declareBlurb")}
+      dirty={process !== "" || name !== "" || profile !== ""}
       actions={
         <>
           <Modal.Cancel />
           <Modal.Submit
             disabled={!ok}
-            onClick={() => onDone(name, { process, profile: profile || undefined })}
+            onClick={() => onAdd(name, { process, profile: profile || undefined })}
           >
-            {t("common.create")}
+            {t("common.add")}
           </Modal.Submit>
         </>
       }
     >
       <Stack spacing={1.25}>
+        <DialogPick
+          mono
+          label={t("registry.process")}
+          hint={t("registry.processHint")}
+          value={process}
+          options={processOptions(rows, process, t, used)}
+          onChange={pick}
+        />
         <DialogInput
           label={t("common.name")}
           hint={t("registry.nameHint")}
           placeholder="modsec-strict"
           value={name}
           error={nameBad !== undefined}
-          onChange={setName}
+          onChange={(next) => {
+            setName(next);
+            setNamed(next !== "");
+          }}
         />
         {nameBad !== undefined && <DialogAlert tone="warning" text={nameBad} />}
-        <DialogPick
-          mono
-          label={t("registry.process")}
-          hint={t("registry.processHint")}
-          value={process}
-          options={processOptions(rows, process, t)}
-          onChange={setProcess}
-        />
         <DialogFrame label={t("registry.profile")} hint={t("registry.profileDeclareHint")}>
           <Picker
             free
             plain
+            disabled={meta === undefined}
             value={profile}
             onChange={setProfile}
-            placeholder={t("registry.profilePick")}
+            placeholder={
+              meta !== undefined && profileOptions.length === 0
+                ? t("registry.noProfileSource")
+                : t("registry.profilePick")
+            }
             options={profileOptions}
             unknownLabel={t("registry.ownProfile")}
           />
         </DialogFrame>
+        <DialogLines
+          title={t("registry.line")}
+          lines={meta === undefined ? [] : [declLine(name, meta.subject, profile)]}
+          empty={t("registry.lineEmpty")}
+        />
       </Stack>
     </Modal>
   );
 }
 
-function processOptions(rows: InspectorMeta[], value: string, t: Translate): DialogOption[] {
+function processOptions(
+  rows: InspectorMeta[],
+  value: string,
+  t: Translate,
+  used?: ReadonlySet<string>,
+): DialogOption[] {
   const options: DialogOption[] = rows.map((row) => ({
     value: row.name,
     label: row.name,
     hint: `${row.subject} · ${row.phases.join(", ")}`,
+    ...(used?.has(row.name) === true ? { tag: t("registry.declared") } : {}),
   }));
   if (value === "") {
     options.unshift({ value: "", label: t("registry.processPick") });
