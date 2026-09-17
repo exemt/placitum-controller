@@ -2,6 +2,20 @@ export const HAPROXY_BALANCE = ["roundrobin", "leastconn", "source"] as const;
 
 export type HaproxyBalance = (typeof HAPROXY_BALANCE)[number];
 
+export const HAPROXY_MODES = ["http", "tcp"] as const;
+
+export type HaproxyMode = (typeof HAPROXY_MODES)[number];
+
+// One entry port with its own backend over the shared servers. With sendProxy a tcp frontend
+// passes connections on with PROXY protocol v2, and the nodes see the real client address.
+export interface HaproxyFrontend {
+  name: string;
+  port: number;
+  mode: HaproxyMode;
+  serverPort?: number;
+  sendProxy?: boolean;
+}
+
 export interface HaproxyServer {
   name: string;
   host: string;
@@ -23,6 +37,7 @@ export interface HaproxySettings {
   frontend?: {
     port?: number;
   };
+  frontends?: HaproxyFrontend[];
   backend?: {
     balance?: HaproxyBalance;
     check?: {

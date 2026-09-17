@@ -1,5 +1,5 @@
-import { isHaproxyBalance } from "./compile/haproxy.ts";
-import type { HaproxyServer, HaproxySettings } from "./model/haproxy.ts";
+import { isHaproxyBalance, isHaproxyMode } from "./compile/haproxy.ts";
+import type { HaproxyFrontend, HaproxyServer, HaproxySettings } from "./model/haproxy.ts";
 
 export type ParseOk<T> = { ok: true; value: T };
 export type ParseFail = { ok: false; error: string };
@@ -18,6 +18,8 @@ const HOST_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,253}$/;
 const PATH_RE = /^\/[^\s"']*$/;
 
 const MAX_SERVERS = 64;
+const MAX_FRONTENDS = 8;
+const FRONTEND_NAME_RE = /^[a-z][a-z0-9_]{0,31}$/;
 
 function asInt(
   value: unknown,
@@ -60,6 +62,46 @@ function parseServer(raw: unknown, index: number): HaproxyServer | ParseFail {
   const port = asInt(raw.port, `server_port_${index}`, 1, 65535);
   if (failed(port)) return port;
   if (port !== undefined) out.port = port;
+
+  return out;
+}
+
+function parseFrontend(raw: unknown, index: number): HaproxyFrontend | ParseFail {
+  if (!isRecord(raw)) {
+    return { ok: false, error: `invalid_frontend_${index}` };
+  }
+
+  const name = String(raw.name ?? "").trim();
+  if (!FRONTEND_NAME_RE.test(name)) {
+    return { ok: false, error: `invalid_frontend_name_${index}` };
+  }
+
+  const port = asInt(raw.port, `frontend_port_${index}`, 1, 65535);
+  if (failed(port)) return port;
+  if (port === undefined) {
+    return { ok: false, error: `invalid_frontend_port_${index}` };
+  }
+
+  const mode = absent(raw.mode) ? "http" : raw.mode;
+  if (!isHaproxyMode(mode)) {
+    return { ok: false, error: `invalid_frontend_mode_${index}` };
+  }
+
+  const out: HaproxyFrontend = { name, port, mode };
+
+  const serverPort = asInt(raw.server_port, `frontend_server_port_${index}`, 1, 65535);
+  if (failed(serverPort)) return serverPort;
+  if (serverPort !== undefined) out.serverPort = serverPort;
+
+  if (!absent(raw.send_proxy)) {
+    if (typeof raw.send_proxy !== "boolean") {
+      return { ok: false, error: `invalid_frontend_send_proxy_${index}` };
+    }
+    if (raw.send_proxy && mode !== "tcp") {
+      return { ok: false, error: `send_proxy_needs_tcp_${index}` };
+    }
+    if (raw.send_proxy) out.sendProxy = true;
+  }
 
   return out;
 }
@@ -125,6 +167,37 @@ export function parseHaproxySettingsBody(
     if (failed(port)) return port;
     if (port !== undefined) {
       out.frontend = { port };
+    }
+  }
+
+  if (!absent(body.frontends)) {
+    if (!Array.isArray(body.frontends)) {
+      return { ok: false, error: "invalid_frontends" };
+    }
+    if (body.frontends.length > MAX_FRONTENDS) {
+      return { ok: false, error: "too_many_frontends" };
+    }
+
+    const frontends: HaproxyFrontend[] = [];
+    const names = new Set<string>();
+    const ports = new Set<number>();
+
+    for (const [index, raw] of body.frontends.entries()) {
+      const row = parseFrontend(raw, index);
+      if ("ok" in row && row.ok === false) {
+        return row;
+      }
+      const frontend = row as HaproxyFrontend;
+      if (names.has(frontend.name) || ports.has(frontend.port)) {
+        return { ok: false, error: "duplicate_frontend" };
+      }
+      names.add(frontend.name);
+      ports.add(frontend.port);
+      frontends.push(frontend);
+    }
+
+    if (frontends.length > 0) {
+      out.frontends = frontends;
     }
   }
 
@@ -267,6 +340,15 @@ export function jsonHaproxySettings(
 
   if (settings.frontend !== undefined) {
     out.frontend = { ...settings.frontend };
+  }
+
+  if (settings.frontends !== undefined) {
+    out.frontends = settings.frontends.map((row) => {
+      const fe: Record<string, unknown> = { name: row.name, port: row.port, mode: row.mode };
+      if (row.serverPort !== undefined) fe.server_port = row.serverPort;
+      if (row.sendProxy !== undefined) fe.send_proxy = row.sendProxy;
+      return fe;
+    });
   }
 
   if (settings.backend !== undefined) {

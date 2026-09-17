@@ -1,7 +1,9 @@
 import { sha256 } from "./zip.ts";
 import {
   HAPROXY_BALANCE,
+  HAPROXY_MODES,
   type HaproxyBalance,
+  type HaproxyMode,
   type HaproxyServer,
   type HaproxySettings,
 } from "../model/haproxy.ts";
@@ -95,6 +97,69 @@ export function renderHaproxyCfg(settings: HaproxySettings): string {
     );
   }
 
+  const tail = dockerDns ? " resolvers docker init-addr last,libc,none" : "";
+  const frontends = settings.frontends ?? [];
+
+  if (frontends.length > 0) {
+    out.push(
+      "defaults",
+      "    log                     global",
+      "    option                  dontlognull",
+      `    timeout connect         ${fmtMs(connect)}`,
+      `    timeout client          ${fmtMs(client)}`,
+      `    timeout server          ${fmtMs(server)}`,
+      `    timeout tunnel          ${fmtMs(tunnel)}`,
+    );
+
+    for (const fe of frontends) {
+      const http = fe.mode === "http";
+
+      out.push("", `frontend fe_${fe.name}`, `    mode ${fe.mode}`);
+      if (http) {
+        out.push(
+          "    option                  httplog",
+          "    option                  http-keep-alive",
+          "    option                  forwardfor",
+          `    timeout http-keep-alive ${fmtMs(keepalive)}`,
+        );
+      } else {
+        out.push("    option                  tcplog");
+      }
+      out.push(
+        `    bind *:${fe.port}`,
+        `    default_backend be_${fe.name}`,
+        "",
+        `backend be_${fe.name}`,
+        `    mode ${fe.mode}`,
+        `    balance ${balance}`,
+      );
+      if (http) {
+        out.push(`    option httpchk GET ${checkPath}`, `    http-check expect status ${checkStatus}`);
+      }
+
+      const proxy = !http && fe.sendProxy === true ? " send-proxy-v2 check-send-proxy" : "";
+      for (const row of servers) {
+        const addr = `${row.host}:${fe.serverPort ?? row.port ?? fe.port}`;
+        out.push(`    server ${row.name} ${addr} check inter ${fmtMs(inter)}${proxy}${tail}`);
+      }
+    }
+
+    if (statsOn) {
+      out.push(
+        "",
+        "listen stats",
+        "    mode http",
+        `    bind *:${statsPort}`,
+        "    stats enable",
+        "    stats uri /",
+        "    stats refresh 5s",
+      );
+    }
+
+    out.push("");
+    return out.join("\n");
+  }
+
   out.push(
     "defaults",
     "    mode                    http",
@@ -119,7 +184,6 @@ export function renderHaproxyCfg(settings: HaproxySettings): string {
     `    http-check expect status ${checkStatus}`,
   );
 
-  const tail = dockerDns ? " resolvers docker init-addr last,libc,none" : "";
   for (const row of servers) {
     const addr = `${row.host}:${row.port ?? HAPROXY_DEFAULTS.frontendPort}`;
     out.push(`    server ${row.name} ${addr} check inter ${fmtMs(inter)}${tail}`);
@@ -193,6 +257,10 @@ export function jsonHaproxyConf(
   pointer: HaproxyConfPointer,
 ): Record<string, unknown> {
   return { rev: pointer.rev, sha256: pointer.sha256 };
+}
+
+export function isHaproxyMode(value: unknown): value is HaproxyMode {
+  return typeof value === "string" && (HAPROXY_MODES as readonly string[]).includes(value);
 }
 
 export function isHaproxyBalance(value: unknown): value is HaproxyBalance {

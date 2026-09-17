@@ -2359,6 +2359,14 @@ export interface HaproxyServerWire {
   port?: number;
 }
 
+export interface HaproxyFrontendWire {
+  name: string;
+  port: number;
+  mode: "http" | "tcp";
+  server_port?: number;
+  send_proxy?: boolean;
+}
+
 export interface HaproxySettingsWire {
   process?: {
     maxconn?: number;
@@ -2374,6 +2382,7 @@ export interface HaproxySettingsWire {
   frontend?: {
     port?: number;
   };
+  frontends?: HaproxyFrontendWire[];
   backend?: {
     balance?: HaproxyBalance;
     check?: {

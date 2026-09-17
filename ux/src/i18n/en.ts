@@ -2948,6 +2948,9 @@ export const en: DeepString<typeof ru> = {
         "The defaults section: applies to the entry point and to edge connections. Tunnel covers websocket and socket.io after the upgrade; it outlives timeout server.",
       frontend: "Entry point",
       frontendHint: "The port the balancer listens on.",
+      frontends: "Entry points",
+      frontendsHint:
+        "Set by the installer when the machine runs several nodes: traffic ports, the mode and how connections reach the nodes. In tcp mode with PROXY protocol the nodes terminate TLS themselves and see the real client address.",
       backend: "Edge cluster",
       backendHint:
         "Where traffic goes: the balancing algorithm and the health check. A failed edge leaves rotation until the first successful answer.",
@@ -2995,6 +2998,13 @@ export const en: DeepString<typeof ru> = {
       serverName: "Name of the server line; the stats page labels the edge with it.",
       serverHost: "Edge address: a compose service name or a DNS name.",
       serverPort: "Edge port. Empty means the entry port.",
+    },
+    frontends: {
+      name: "Name",
+      port: "bind",
+      mode: "mode",
+      serverPort: "Node port",
+      proxy: "PROXY",
     },
     servers: {
       name: "Name",

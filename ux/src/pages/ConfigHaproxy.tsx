@@ -94,6 +94,10 @@ function prune(input: HaproxySettingsWire): HaproxySettingsWire {
     out.frontend = { port: input.frontend.port };
   }
 
+  if (input.frontends !== undefined && input.frontends.length > 0) {
+    out.frontends = input.frontends.map((row) => ({ ...row }));
+  }
+
   const backend: NonNullable<HaproxySettingsWire["backend"]> = {};
   if (input.backend?.balance !== undefined) backend.balance = input.backend.balance;
   const check: NonNullable<NonNullable<HaproxySettingsWire["backend"]>["check"]> = {};
@@ -627,6 +631,41 @@ export default function ConfigHaproxy() {
               </>
             ) : (
               <>
+          {(draft.frontends ?? []).length > 0 ? (
+          <SettingsGroup
+            title={t("haproxy.group.frontends")}
+            hint={t("haproxy.group.frontendsHint")}
+          >
+            <SectionBleed>
+              <Table size="small" sx={serversTableSx}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={headSx}>{t("haproxy.frontends.name")}</TableCell>
+                    <TableCell sx={headSx}>{t("haproxy.frontends.port")}</TableCell>
+                    <TableCell sx={headSx}>{t("haproxy.frontends.mode")}</TableCell>
+                    <TableCell sx={headSx}>{t("haproxy.frontends.serverPort")}</TableCell>
+                    <TableCell sx={headSx}>{t("haproxy.frontends.proxy")}</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {(draft.frontends ?? []).map((row) => (
+                    <TableRow key={row.name}>
+                      <TableCell sx={{ ...cellSx, fontFamily: "monospace" }}>{row.name}</TableCell>
+                      <TableCell sx={{ ...cellSx, fontFamily: "monospace" }}>{row.port}</TableCell>
+                      <TableCell sx={{ ...cellSx, fontFamily: "monospace" }}>{row.mode}</TableCell>
+                      <TableCell sx={{ ...cellSx, fontFamily: "monospace" }}>
+                        {row.server_port ?? row.port}
+                      </TableCell>
+                      <TableCell sx={{ ...cellSx, fontFamily: "monospace" }}>
+                        {row.send_proxy === true ? "send-proxy-v2" : "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </SectionBleed>
+          </SettingsGroup>
+          ) : (
           <SettingsGroup
             title={t("haproxy.group.frontend")}
             hint={t("haproxy.group.frontendHint")}
@@ -646,6 +685,7 @@ export default function ConfigHaproxy() {
               }
             />
           </SettingsGroup>
+          )}
           <SettingsGroup
             title={t("haproxy.group.backend")}
             hint={t("haproxy.group.backendHint")}
