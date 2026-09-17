@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useSearchParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import Collapse from "@mui/material/Collapse";
@@ -40,7 +41,9 @@ import {
   rangeISO,
   snapshotPreset,
   weekStart,
+  RANGE_PRESETS,
   type DateRange,
+  type RangePreset,
 } from "../components/data-table/index.ts";
 import { useT } from "../i18n/index.ts";
 import { FieldPick, FilterPick } from "../components/pick-multi.tsx";
@@ -73,9 +76,9 @@ import {
   ColumnPicker,
   FieldInput,
   GroupAxes,
-  QueryLine,
   RAY_TAIL_MIN,
   RayToggle,
+  SEARCH_KINDS,
   SearchSection,
   TIME_MS_MIN,
   TimeOrderToggle,
@@ -83,7 +86,6 @@ import {
   ToolbarSection,
   clock,
   emptyFields,
-  queryTerms,
   rayTail,
   readFiltersOpen,
   readGroupOpen,
@@ -106,6 +108,19 @@ import {
   type ListCol,
   type SearchKind,
 } from "./incident-toolbar.tsx";
+import { QueryLine } from "./incident-query-line.tsx";
+import {
+  DEFAULT_QUERY,
+  QUERY_METHODS,
+  QUERY_PHASES,
+  QUERY_VERDICTS,
+  formatState,
+  parseQuery,
+  resolveQuery,
+  type QueryCtx,
+  type QueryState,
+  type Suggestion,
+} from "./incident-query.ts";
 
 const METHODS = ["", "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"] as const;
 
@@ -136,6 +151,7 @@ export default function Incidents() {
   const locale = useAppSelector((s) => s.ui.locale);
   const scope = useAppSelector((s) => s.session.scope);
   const [routes, setRoutes] = useState<Map<string, RouteLocation>>(new Map());
+  const [routesReady, setRoutesReady] = useState(false);
   useEffect(() => {
     if (scope === null) {
       return;
@@ -147,7 +163,12 @@ export default function Incidents() {
           setRoutes(new Map(rows.map((row) => [row.uuid, row])));
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (alive) {
+          setRoutesReady(true);
+        }
+      });
     return () => {
       alive = false;
     };
@@ -495,10 +516,121 @@ export default function Incidents() {
   }, [applied, verdict]);
   const cols = useMemo(() => visibleCols(hidden, forced), [hidden, forced]);
 
-  const terms = useMemo(
-    () => queryTerms({ range, verdict, fields: applied, routeName }),
-    [range, verdict, applied, routes],
+  const queryCtx = useMemo<QueryCtx>(
+    () => ({
+      presets: RANGE_PRESETS,
+      snapshot: (preset) => snapshotPreset(preset as RangePreset, new Date(), weekStart(locale)),
+      routes: routeOptions.map((row) => ({ id: row.value, name: row.label })),
+    }),
+    [locale, routeOptions],
   );
+
+  const queryText = useMemo(
+    () => formatState({ range, verdict, fields: applied }, queryCtx.routes),
+    [range, verdict, applied, queryCtx],
+  );
+
+  const queryValues = useMemo(() => {
+    const lists: Record<string, Suggestion[]> = {
+      time: RANGE_PRESETS.map((id) => ({
+        value: id,
+        insert: id,
+        detail: t(`incidentsPage.range.${id}`),
+      })),
+      verdict: QUERY_VERDICTS.map((id) => ({ value: id, insert: id })),
+      method: QUERY_METHODS.map((id) => ({ value: id, insert: id })),
+      phase: QUERY_PHASES.map((id) => ({
+        value: id,
+        insert: id,
+        detail: t(`incidentsPage.phaseValue.${id}`),
+      })),
+      inspector: [...declared].sort().map((name) => ({ value: name, insert: name })),
+      server: serverOptions.map((row) => ({
+        value: row.value,
+        insert: row.value,
+        detail: row.label === row.value ? undefined : row.label,
+      })),
+      route: routeOptions.map((row) => ({ value: row.label, insert: row.label })),
+    };
+    return (field: string) => lists[field] ?? null;
+  }, [declared, routeOptions, serverOptions, t]);
+
+  const applyQuery = (next: QueryState) => {
+    setDraft(next.fields);
+    setApplied(next.fields);
+    setVerdict(next.verdict);
+    setRange(next.range);
+    setSearchFields((prev) => {
+      const wanted = SEARCH_KINDS.filter((kind) => next.fields[kind] !== "" && !prev.includes(kind));
+      return wanted.length === 0 ? prev : [...prev, ...wanted];
+    });
+    setSeed(null);
+    setPage(0);
+  };
+
+  const [params, setParams] = useSearchParams();
+  const [linked, setLinked] = useState<string | null>(() => params.get("q"));
+  const [seed, setSeed] = useState<string | null>(null);
+
+  useEffect(() => setSeed(null), [queryText]);
+
+  useEffect(() => {
+    if (linked === null || (!routesReady && scope !== null)) {
+      return;
+    }
+    const result = resolveQuery(parseQuery(linked), queryCtx);
+    if (result.errors.length === 0) {
+      applyQuery(result.state);
+    } else {
+      setSeed(linked);
+    }
+    setLinked(null);
+  }, [linked, routesReady, scope, queryCtx]);
+
+  useEffect(() => {
+    if (linked !== null || seed !== null) {
+      return;
+    }
+    const want = queryText === DEFAULT_QUERY ? null : queryText;
+    if (params.get("q") === want) {
+      return;
+    }
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (want === null) {
+          next.delete("q");
+        } else {
+          next.set("q", want);
+        }
+        return next;
+      },
+      { replace: true },
+    );
+  }, [queryText, linked, seed, params, setParams]);
+
+  const loadTop = async (field: string, state: QueryState): Promise<Suggestion[]> => {
+    const span = rangeISO(state.range);
+    const page = await fetchAuditGroups(
+      {
+        ...state.fields,
+        verdict: state.verdict === "all" ? "" : state.verdict,
+        from: span.from,
+        to: span.to,
+        limit: 20,
+      },
+      [field as AuditGroupDim],
+      { key: "hits", dir: "desc" },
+    );
+    return page.items
+      .map((row) => ({ value: row.keys[field as AuditGroupDim] ?? "", count: row.hits }))
+      .filter((row) => row.value !== "" && row.value !== "0")
+      .map((row) => ({
+        value: field === "asn" ? `AS${row.value}` : row.value,
+        insert: row.value,
+        count: row.count,
+      }));
+  };
 
   const filterChips: { key: string; label: string; clear: () => void }[] = [];
   {
@@ -923,7 +1055,13 @@ export default function Incidents() {
   return (
     <Box sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
       <QueryLine
-        terms={terms}
+        text={queryText}
+        seed={seed}
+        ctx={queryCtx}
+        scope={scope}
+        values={queryValues}
+        loadTop={loadTop}
+        onApply={applyQuery}
         onReset={filtered || verdict !== "all" ? resetFilters : undefined}
       />
       <SearchSection
