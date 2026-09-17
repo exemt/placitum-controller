@@ -50,11 +50,6 @@ INSERT INTO public.deny_responses (id, http_space_id, name, type, spec, "positio
 INSERT INTO public.deny_responses (id, http_space_id, name, type, spec, "position") VALUES ('e27350bb-0762-4b39-9417-b086409a7778', (select id from public.http_spaces where name = 'default'), 'malformed', 'http', '{"status": 400}', 30) ON CONFLICT DO NOTHING;
 INSERT INTO public.deny_responses (id, http_space_id, name, type, spec, "position") VALUES ('e9abfb73-dca6-4dd2-a484-61193f2d0e7b', (select id from public.http_spaces where name = 'default'), 'ws_policy', 'websocket', '{"code": 1008, "reason": "policy violation"}', 62) ON CONFLICT DO NOTHING;
 
-INSERT INTO public.inspectors (id, http_space_id, name, subject, "position", conf, created_at, updated_at, phases, description, docs_url, log_level) VALUES ('0d249ed3-1921-4e9f-80c6-ee7c84334072', (select id from public.http_spaces where name = 'default'), 'vlai', 'waf.req.vlai', 30, '# inspector.conf — локальная очередь процесса
-queue_max     8;
-queue_full    drop;
-queue_expand  off;
-', '2026-09-12 15:27:33.935897+00', '2026-09-12 15:27:34.665214+00', '{request}', 'Классификатор серьёзности: ML-модель оценивает описание в теле, отвечает score.', '', 'info') ON CONFLICT DO NOTHING;
 INSERT INTO public.inspectors (id, http_space_id, name, subject, "position", conf, created_at, updated_at, phases, description, docs_url, log_level) VALUES ('34b8eed9-7107-43bc-8859-a6d13dd4f03c', (select id from public.http_spaces where name = 'default'), 'rewrite', 'waf.req.rewrite', 0, '# inspector.conf — локальная очередь процесса
 queue_max     16;
 queue_full    drop;
