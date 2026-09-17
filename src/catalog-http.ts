@@ -54,7 +54,7 @@ export function catalogRouter(pool: Pool): Router {
           ),
           pool.query(
             `select name, subject, phases from inspectors
-              where http_space_id = $1 order by position, name`,
+              where http_space_id = $1 and installed order by position, name`,
             [scope],
           ),
           pool.query(

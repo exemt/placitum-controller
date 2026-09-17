@@ -28,6 +28,7 @@ import { spaceSelectors } from "./state/slices/spaces.ts";
 import {
   createInspector,
   deleteInspector,
+  setInstalledInspectors,
   updateInspector,
 } from "./state/thunks/inspectors.ts";
 import type { AppDispatch, RootState } from "./state/types.ts";
@@ -327,6 +328,54 @@ export function inspectorsRouter(
       res.json(jsonInspector(row));
     } catch (err) {
       next(err);
+    }
+  });
+
+  // The installer sets which shipped processes run; an unknown or still used name refuses the whole set.
+  router.put("/installed", async (req: Request, res: Response, next) => {
+    try {
+      const scope = scopeOf(req);
+
+      if (scope === undefined) {
+        res.status(400).json({ error: "invalid_scope" });
+        return;
+      }
+
+      const raw = (req.body as { names?: unknown } | undefined)?.names;
+
+      if (!Array.isArray(raw) || raw.some((name) => typeof name !== "string")) {
+        res.status(400).json({ error: "invalid_names" });
+        return;
+      }
+
+      const names = [...new Set(raw as string[])];
+      const shipped = new Set(await repo.shippedNames(scope));
+      const unknown = names.filter((name) => !shipped.has(name));
+
+      if (unknown.length > 0) {
+        res.status(400).json({ error: "unknown_inspector", names: unknown });
+        return;
+      }
+
+      const leaving = selectInspectorsInSpace(getState(), scope)
+        .map((row) => row.name)
+        .filter((name) => !names.includes(name));
+
+      for (const name of leaving) {
+        const uses = usesOf(getState(), scope, name);
+
+        if (uses.length > 0) {
+          res.status(409).json({ error: "inspector_in_use", name, uses });
+          return;
+        }
+      }
+
+      await dispatch(setInstalledInspectors({ httpSpaceId: scope, names })).unwrap();
+
+      log("info", "inspectors installed", { names });
+      res.json({ installed: names });
+    } catch (err) {
+      sendWriteError(err, res, next);
     }
   });
 

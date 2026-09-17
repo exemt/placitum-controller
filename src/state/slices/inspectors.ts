@@ -5,6 +5,7 @@ import { hydrateModel } from "../hydrate.ts";
 import {
   createInspector,
   deleteInspector,
+  setInstalledInspectors,
   updateInspector,
 } from "../thunks/inspectors.ts";
 
@@ -45,6 +46,15 @@ const inspectorsSlice = createSlice({
     });
     builder.addCase(updateInspector.fulfilled, (state, action) => {
       adapter.upsertOne(state, metaOf(action.payload));
+    });
+    builder.addCase(setInstalledInspectors.fulfilled, (state, action) => {
+      const space = action.meta.arg.httpSpaceId;
+      const stale = Object.values(state.entities)
+        .filter((row) => row !== undefined && row.httpSpaceId === space)
+        .map((row) => row!.id);
+
+      adapter.removeMany(state, stale);
+      adapter.upsertMany(state, action.payload);
     });
     builder.addCase(deleteInspector.fulfilled, (state, action) => {
       adapter.removeOne(state, action.payload.id);

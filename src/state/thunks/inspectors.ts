@@ -2,7 +2,7 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 
 import { pgWriteReject } from "../../http-error.ts";
 import type { InspectorInsert, InspectorPatch } from "../../inspectors.ts";
-import type { Inspector } from "../../model/http-space.ts";
+import type { Inspector, InspectorMeta } from "../../model/http-space.ts";
 import type { ThunkExtra } from "../extra.ts";
 
 type ThunkCfg = { extra: ThunkExtra; rejectValue: { status: number; error: string } };
@@ -38,6 +38,14 @@ export const updateInspector = createAsyncThunk<
     return mapped === undefined ? Promise.reject(err) : rejectWithValue(mapped);
   }
 });
+
+export const setInstalledInspectors = createAsyncThunk<
+  InspectorMeta[],
+  { httpSpaceId: string; names: readonly string[] },
+  ThunkCfg
+>("inspectors/installed", async ({ httpSpaceId, names }, { extra }) =>
+  extra.inspectors.setInstalled(httpSpaceId, names),
+);
 
 export const deleteInspector = createAsyncThunk<
   Inspector,

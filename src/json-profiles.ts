@@ -112,7 +112,7 @@ export class JsonProfileRepo {
 
   async inspectorNames(httpSpaceId: string): Promise<string[]> {
     const { rows } = await this.pool.query<{ name: string }>(
-      `select name from inspectors where http_space_id = $1 order by name`,
+      `select name from inspectors where http_space_id = $1 and installed order by name`,
       [httpSpaceId],
     );
 

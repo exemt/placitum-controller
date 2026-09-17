@@ -96,9 +96,10 @@ curl -fsS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/
 psql "$CONTROLLER_DATABASE_URL" -c "select name from http_spaces"
 ```
 
-A fresh installation shows an empty configuration tree, an inspector catalog of nine processes and
-a `default` profile for every subsystem. The `vlai` classifier is not in the catalog: the core
-installer adds it when the installation runs it. If the panel shows a yellow warning about the key
+A fresh installation shows an empty configuration tree, an inspector catalog of the processes the
+installation runs and a `default` profile for every subsystem. The catalog ships ten processes; the
+core installer marks the ones it runs through `PUT /api/<space>/inspectors/installed`, and the rest
+do not exist for the panel, routes and the build. `vlai` ships turned off. If the panel shows a yellow warning about the key
 fingerprint, no `contour-pin.json` with the installation fingerprint is mounted and the browser
 does not verify the public key.
 

@@ -99,7 +99,7 @@ export async function exportNginx(pool: Pool, httpSpaceId: string): Promise<Ngin
       [httpSpaceId],
     ),
     pool.query(
-      `select * from inspectors where http_space_id = $1 order by position, name`,
+      `select * from inspectors where http_space_id = $1 and installed order by position, name`,
       [httpSpaceId],
     ),
     pool.query(

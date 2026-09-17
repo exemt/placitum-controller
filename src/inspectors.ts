@@ -84,15 +84,16 @@ export class InspectorRepo {
     this.pool = pool;
   }
 
+  // Only installed processes: one turned off by the installer does not exist for the rest.
   async list(httpSpaceId?: string): Promise<InspectorMeta[]> {
     const { rows } =
       httpSpaceId === undefined
         ? await this.pool.query<InspectorRow>(
-            `select ${META_COLS} from inspectors order by position, name`,
+            `select ${META_COLS} from inspectors where installed order by position, name`,
           )
         : await this.pool.query<InspectorRow>(
             `select ${META_COLS} from inspectors
-              where http_space_id = $1
+              where http_space_id = $1 and installed
               order by position, name`,
             [httpSpaceId],
           );
@@ -103,7 +104,7 @@ export class InspectorRepo {
   async get(id: string): Promise<Inspector | null> {
     const { rows } = await this.pool.query<InspectorRow>(
       `select ${META_COLS}, conf
-         from inspectors where id = $1`,
+         from inspectors where id = $1 and installed`,
       [id],
     );
 
@@ -120,6 +121,27 @@ export class InspectorRepo {
     return rows.length === 0
       ? DEFAULT_INSPECTOR_SETTINGS
       : { log_level: levelOf(rows[0].log_level) };
+  }
+
+  // Every shipped process of the space, installed or not.
+  async shippedNames(httpSpaceId: string): Promise<string[]> {
+    const { rows } = await this.pool.query<{ name: string }>(
+      `select name from inspectors where http_space_id = $1 order by name`,
+      [httpSpaceId],
+    );
+
+    return rows.map((row) => row.name);
+  }
+
+  async setInstalled(httpSpaceId: string, names: readonly string[]): Promise<InspectorMeta[]> {
+    await this.pool.query(
+      `update inspectors
+          set installed = (name = any($2::text[])), updated_at = now()
+        where http_space_id = $1 and installed <> (name = any($2::text[]))`,
+      [httpSpaceId, names],
+    );
+
+    return this.list(httpSpaceId);
   }
 
   settingsSource(): InspectorSettingsSource {

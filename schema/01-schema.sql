@@ -255,6 +255,7 @@ CREATE TABLE public.inspectors (
     description text DEFAULT ''::text NOT NULL,
     docs_url text DEFAULT ''::text NOT NULL,
     log_level text DEFAULT 'info'::text NOT NULL,
+    installed boolean DEFAULT true NOT NULL,
     CONSTRAINT inspectors_log_level_check CHECK ((log_level = ANY (ARRAY['debug'::text, 'info'::text, 'notice'::text, 'warn'::text, 'error'::text, 'crit'::text, 'alert'::text]))),
     CONSTRAINT inspectors_phases_filled CHECK ((COALESCE(array_length(phases, 1), 0) > 0)),
     CONSTRAINT inspectors_phases_known CHECK ((phases <@ ARRAY['request'::text, 'response'::text, 'frame'::text]))
@@ -273,6 +274,8 @@ COMMENT ON COLUMN public.inspectors.description IS 'Описание проце�
 COMMENT ON COLUMN public.inspectors.docs_url IS 'Ссылка на документацию процесса. Пусто, пока доков нет.';
 
 COMMENT ON COLUMN public.inspectors.log_level IS 'Уровень журнала процесса: словарь error_log nginx без emerg. Едет в поколение (settings.log_level), применяется без рестарта.';
+
+COMMENT ON COLUMN public.inspectors.installed IS 'Процесс запущен в установке: выключенный установщиком для панели, маршрутов и сборки как будто не существует.';
 
 CREATE TABLE public.ip_asn_addresses (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
