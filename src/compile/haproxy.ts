@@ -125,8 +125,10 @@ export function renderHaproxyCfg(settings: HaproxySettings): string {
       } else {
         out.push("    option                  tcplog");
       }
+      for (const address of fe.addresses ?? ["*"]) {
+        out.push(`    bind ${address}:${fe.port}`);
+      }
       out.push(
-        `    bind *:${fe.port}`,
         `    default_backend be_${fe.name}`,
         "",
         `backend be_${fe.name}`,

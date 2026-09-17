@@ -651,7 +651,9 @@ export default function ConfigHaproxy() {
                   {(draft.frontends ?? []).map((row) => (
                     <TableRow key={row.name}>
                       <TableCell sx={{ ...cellSx, fontFamily: "monospace" }}>{row.name}</TableCell>
-                      <TableCell sx={{ ...cellSx, fontFamily: "monospace" }}>{row.port}</TableCell>
+                      <TableCell sx={{ ...cellSx, fontFamily: "monospace" }}>
+                        {(row.addresses ?? ["*"]).map((address) => `${address}:${row.port}`).join(" ")}
+                      </TableCell>
                       <TableCell sx={{ ...cellSx, fontFamily: "monospace" }}>{row.mode}</TableCell>
                       <TableCell sx={{ ...cellSx, fontFamily: "monospace" }}>
                         {row.server_port ?? row.port}

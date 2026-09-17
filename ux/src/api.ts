@@ -2365,6 +2365,7 @@ export interface HaproxyFrontendWire {
   mode: "http" | "tcp";
   server_port?: number;
   send_proxy?: boolean;
+  addresses?: string[];
 }
 
 export interface HaproxySettingsWire {

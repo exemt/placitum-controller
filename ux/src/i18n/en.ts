@@ -2950,7 +2950,7 @@ export const en: DeepString<typeof ru> = {
       frontendHint: "The port the balancer listens on.",
       frontends: "Entry points",
       frontendsHint:
-        "Set by the installer when the machine runs several nodes: traffic ports, the mode and how connections reach the nodes. In tcp mode with PROXY protocol the nodes terminate TLS themselves and see the real client address.",
+        "Set by the installer when the machine runs several nodes: traffic addresses and ports, the mode and how connections reach the nodes. In tcp mode with PROXY protocol the nodes terminate TLS themselves and see the real client address.",
       backend: "Edge cluster",
       backendHint:
         "Where traffic goes: the balancing algorithm and the health check. A failed edge leaves rotation until the first successful answer.",

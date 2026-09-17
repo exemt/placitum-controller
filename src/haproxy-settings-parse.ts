@@ -19,7 +19,9 @@ const PATH_RE = /^\/[^\s"']*$/;
 
 const MAX_SERVERS = 64;
 const MAX_FRONTENDS = 8;
+const MAX_ADDRESSES = 8;
 const FRONTEND_NAME_RE = /^[a-z][a-z0-9_]{0,31}$/;
+const IPV4_RE = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
 
 function asInt(
   value: unknown,
@@ -101,6 +103,23 @@ function parseFrontend(raw: unknown, index: number): HaproxyFrontend | ParseFail
       return { ok: false, error: `send_proxy_needs_tcp_${index}` };
     }
     if (raw.send_proxy) out.sendProxy = true;
+  }
+
+  if (!absent(raw.addresses)) {
+    if (!Array.isArray(raw.addresses) || raw.addresses.length === 0 || raw.addresses.length > MAX_ADDRESSES) {
+      return { ok: false, error: `invalid_frontend_addresses_${index}` };
+    }
+
+    const addresses: string[] = [];
+
+    for (const address of raw.addresses) {
+      if (typeof address !== "string" || !IPV4_RE.test(address) || addresses.includes(address)) {
+        return { ok: false, error: `invalid_frontend_addresses_${index}` };
+      }
+      addresses.push(address);
+    }
+
+    out.addresses = addresses;
   }
 
   return out;
@@ -347,6 +366,7 @@ export function jsonHaproxySettings(
       const fe: Record<string, unknown> = { name: row.name, port: row.port, mode: row.mode };
       if (row.serverPort !== undefined) fe.server_port = row.serverPort;
       if (row.sendProxy !== undefined) fe.send_proxy = row.sendProxy;
+      if (row.addresses !== undefined) fe.addresses = [...row.addresses];
       return fe;
     });
   }

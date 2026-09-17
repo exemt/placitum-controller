@@ -8,12 +8,14 @@ export type HaproxyMode = (typeof HAPROXY_MODES)[number];
 
 // One entry port with its own backend over the shared servers. With sendProxy a tcp frontend
 // passes connections on with PROXY protocol v2, and the nodes see the real client address.
+// addresses: where the port listens; without them, on every address.
 export interface HaproxyFrontend {
   name: string;
   port: number;
   mode: HaproxyMode;
   serverPort?: number;
   sendProxy?: boolean;
+  addresses?: string[];
 }
 
 export interface HaproxyServer {
