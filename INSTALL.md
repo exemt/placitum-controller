@@ -98,8 +98,8 @@ psql "$CONTROLLER_DATABASE_URL" -c "select name from http_spaces"
 
 A fresh installation shows an empty configuration tree, an inspector catalog of ten processes and
 a `default` profile for every subsystem. If the panel shows a yellow warning about the key
-fingerprint, the image was built without `VITE_CONTOUR_FINGERPRINT` and the browser does not
-verify the public key.
+fingerprint, no `contour-pin.json` with the installation fingerprint is mounted and the browser
+does not verify the public key.
 
 ## Upgrading
 

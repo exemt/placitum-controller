@@ -7,9 +7,6 @@ WORKDIR /ux
 COPY ux/package.json ux/package-lock.json ./
 RUN npm ci
 COPY ux/ ./
-# Contour key fingerprint for the panel: `sh bootstrap/secrets.sh --fingerprint` in placitum-core.
-ARG VITE_CONTOUR_FINGERPRINT=""
-ENV VITE_CONTOUR_FINGERPRINT=$VITE_CONTOUR_FINGERPRINT
 RUN npm run build
 
 FROM node:22-alpine

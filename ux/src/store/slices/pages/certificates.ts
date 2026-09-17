@@ -70,7 +70,7 @@ export const loadCryptoStatus = createAsyncThunk(
     }
     try {
       const crypto = await fetchCrypto(scope);
-      return { crypto, check: checkFingerprint(crypto.fingerprint) };
+      return { crypto, check: await checkFingerprint(crypto.fingerprint) };
     } catch (err: unknown) {
       return rejectWithValue(String(err));
     }
@@ -92,7 +92,7 @@ export const uploadCertificateThunk = createAsyncThunk(
   ) => {
     try {
       const crypto = await fetchCrypto(input.scope);
-      if (checkFingerprint(crypto.fingerprint) === "mismatch") {
+      if ((await checkFingerprint(crypto.fingerprint)) === "mismatch") {
         return rejectWithValue("fingerprint_mismatch");
       }
 
@@ -140,7 +140,7 @@ export const uploadCrlThunk = createAsyncThunk(
   ) => {
     try {
       const crypto = await fetchCrypto(input.scope);
-      if (checkFingerprint(crypto.fingerprint) === "mismatch") {
+      if ((await checkFingerprint(crypto.fingerprint)) === "mismatch") {
         return rejectWithValue("fingerprint_mismatch");
       }
 

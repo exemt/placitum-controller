@@ -1105,9 +1105,9 @@ export const en: DeepString<typeof ru> = {
     upload: "Encrypt and upload",
     cryptoUnavailable: "Contour key unavailable: certificate upload is disabled.",
     pinMismatch:
-      "The contour public key fingerprint does not match the one pinned at build time — upload disabled. The controller's key may have been swapped.",
+      "The contour public key fingerprint does not match the one pinned at installation — upload disabled. The controller's key may have been swapped.",
     noPin:
-      "No fingerprint pin configured at build time (VITE_CONTOUR_FINGERPRINT). Verify manually: {fingerprint}",
+      "No fingerprint pin in this installation (contour-pin.json). Verify manually: {fingerprint}",
   },
   profiles: {
     lockedDelete: "The default profile is not deleted: the space refers to it.",

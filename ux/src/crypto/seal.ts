@@ -89,9 +89,33 @@ export async function sealPemToBase64(
 
 export type FingerprintCheck = "match" | "mismatch" | "no_pin";
 
-export function checkFingerprint(fingerprint: string): FingerprintCheck {
-  const pinned = import.meta.env.VITE_CONTOUR_FINGERPRINT;
-  if (pinned === undefined || pinned === "") {
+// The installation writes the key fingerprint next to the panel files; the API never sets it.
+// A pin that fails to load blocks sealing instead of turning into no_pin.
+let pin: Promise<string> | null = null;
+
+function contourPin(): Promise<string> {
+  pin ??= fetch("/contour-pin.json", { cache: "no-store" })
+    .then(async (res) => {
+      if (!res.ok) {
+        throw new Error(`contour-pin.json: ${res.status}`);
+      }
+      const body: unknown = await res.json();
+      const value = (body as { fingerprint?: unknown } | null)?.fingerprint;
+      if (typeof value !== "string") {
+        throw new Error("contour-pin.json: no fingerprint");
+      }
+      return value;
+    })
+    .catch((err: unknown) => {
+      pin = null;
+      throw err;
+    });
+  return pin;
+}
+
+export async function checkFingerprint(fingerprint: string): Promise<FingerprintCheck> {
+  const pinned = await contourPin();
+  if (pinned === "") {
     return "no_pin";
   }
   return pinned === fingerprint ? "match" : "mismatch";

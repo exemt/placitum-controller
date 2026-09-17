@@ -68,16 +68,16 @@ Or straight from GitHub, without a clone:
 docker buildx build -t placitum/controller "https://github.com/exemt/placitum-controller.git#develop"
 ```
 
-The fingerprint of the public contour key is baked into the panel at build time. The browser uses
-it to check that the API returned the real key. `sh bootstrap/secrets.sh --fingerprint` in
-placitum-core prints the fingerprint; pass it like this:
+The browser checks that the API returned the real contour key against a fingerprint in
+`/app/ux/dist/contour-pin.json`. The image ships the file with an empty fingerprint, and the panel
+shows a warning. The installation mounts its own file over it, read-only:
 
-```sh
-docker build --build-arg VITE_CONTOUR_FINGERPRINT=sha256:… -t placitum/controller .
+```json
+{ "fingerprint": "sha256:…" }
 ```
 
-Without the fingerprint the image still builds, but the panel shows a warning. Rebuild the image
-after changing the key. The core installer does all of this for you.
+`sh bootstrap/secrets.sh --fingerprint` in placitum-core prints the fingerprint. The core installer
+writes and mounts the file for you, so one image serves any installation.
 
 Check that the controller is up:
 
@@ -134,8 +134,8 @@ npm run ux
 ```
 
 It opens on http://localhost:5173 and sends `/api` requests to the controller on :8080, so the
-controller must be running. The dev server takes the key fingerprint from
-`VITE_CONTOUR_FINGERPRINT` in `ux/.env` or the environment; without it the panel shows a warning.
+controller must be running. The dev server serves `ux/public/contour-pin.json` with an empty
+fingerprint, so the panel shows a warning.
 To have the controller serve the panel on :8080 itself, build it with `npm run ux:build`.
 
 Type check:

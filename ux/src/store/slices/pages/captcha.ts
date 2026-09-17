@@ -238,7 +238,7 @@ export const sealCaptchaSecret = createAsyncThunk(
     try {
       const crypto = await fetchCrypto(scope);
 
-      if (checkFingerprint(crypto.fingerprint) === "mismatch") {
+      if ((await checkFingerprint(crypto.fingerprint)) === "mismatch") {
         return rejectWithValue("fingerprint_mismatch");
       }
 
