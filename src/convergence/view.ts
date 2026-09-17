@@ -34,7 +34,7 @@ export interface ConvergenceSnapshot {
   scope: string;
   lamp: ConvergenceLamp;
   worst: ChannelView["state"];
-  channels: (ChannelView & { key: string; send: string; page: string })[];
+  channels: (ChannelView & { key: string; send: string; page: string; inspector: string | null })[];
 }
 
 function managesNginx(row: {
@@ -173,7 +173,7 @@ export function snapshotConvergence(
       blocked: blockedOf(state, scope, spec),
     });
 
-    return { ...view, key: spec.key, send: spec.send, page: spec.page };
+    return { ...view, key: spec.key, send: spec.send, page: spec.page, inspector: spec.inspector ?? null };
   });
 
   const states = channels.map((row) => row.state);

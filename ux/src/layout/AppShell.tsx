@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
@@ -30,6 +30,10 @@ import TuneIcon from "@mui/icons-material/Tune";
 
 import { useT } from "../i18n/index.ts";
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
+import {
+  loadInspectors,
+  selectInstalledInspectors,
+} from "../store/slices/pages/inspector-catalog.ts";
 import { setScope } from "../store/slices/session.ts";
 import { toggleLocale, toggleTheme } from "../store/slices/ui.ts";
 import ConfigLamp from "./ConfigLamp.tsx";
@@ -46,6 +50,8 @@ type NavPage = {
   key: string;
   icon?: ReactNode;
   alsoEndsWith?: string;
+  // The inspector the page configures: without it in the catalog the page is not in the menu.
+  process?: string;
 };
 
 type NavGroup = {
@@ -71,16 +77,16 @@ const NAV: NavNode[] = [
     icon: <PolicyIcon />,
     children: [
       { kind: "page", to: "/inspectors", key: "nav.inspectorCatalog" },
-      { kind: "page", to: "/rules/profiles", key: "nav.ruleSets" },
-      { kind: "page", to: "/ip/profiles", key: "nav.ip" },
-      { kind: "page", to: "/auth", key: "nav.auth" },
-      { kind: "page", to: "/captcha", key: "nav.captcha" },
-      { kind: "page", to: "/json", key: "nav.json" },
-      { kind: "page", to: "/counter", key: "nav.counter" },
-      { kind: "page", to: "/vlai", key: "nav.vlai" },
-      { kind: "page", to: "/rewrite", key: "nav.rewrite" },
-      { kind: "page", to: "/cookie", key: "nav.cookie" },
-      { kind: "page", to: "/actions", key: "nav.actions" },
+      { kind: "page", to: "/rules/profiles", key: "nav.ruleSets", process: "modsec" },
+      { kind: "page", to: "/ip/profiles", key: "nav.ip", process: "ip" },
+      { kind: "page", to: "/auth", key: "nav.auth", process: "auth" },
+      { kind: "page", to: "/captcha", key: "nav.captcha", process: "captcha" },
+      { kind: "page", to: "/json", key: "nav.json", process: "json" },
+      { kind: "page", to: "/counter", key: "nav.counter", process: "counter" },
+      { kind: "page", to: "/vlai", key: "nav.vlai", process: "vlai" },
+      { kind: "page", to: "/rewrite", key: "nav.rewrite", process: "rewrite" },
+      { kind: "page", to: "/cookie", key: "nav.cookie", process: "cookie" },
+      { kind: "page", to: "/actions", key: "nav.actions", process: "action" },
     ],
   },
   {
@@ -101,7 +107,7 @@ const NAV: NavNode[] = [
           },
         ],
       },
-      { kind: "page", to: "/rules", key: "nav.rules" },
+      { kind: "page", to: "/rules", key: "nav.rules", process: "modsec" },
       {
         kind: "group",
         key: "nav.ipData",
@@ -158,6 +164,24 @@ function groupActive(node: NavGroup, pathname: string): boolean {
   );
 }
 
+function visibleNav(
+  nodes: readonly NavNode[],
+  installed: ReadonlySet<string> | null,
+): NavNode[] {
+  if (installed === null) {
+    return [...nodes];
+  }
+
+  return nodes.flatMap((node): NavNode[] => {
+    if (node.kind === "page") {
+      return node.process === undefined || installed.has(node.process) ? [node] : [];
+    }
+
+    const children = visibleNav(node.children, installed);
+    return children.length === 0 ? [] : [{ ...node, children }];
+  });
+}
+
 function navIndent(depth: number): number {
   return depth === 0 ? 2 : 4 + depth * 2;
 }
@@ -169,6 +193,18 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const connection = useAppSelector((s) => s.session.connection);
   const themeMode = useAppSelector((s) => s.ui.themeMode);
   const locale = useAppSelector((s) => s.ui.locale);
+  const scope = useAppSelector((s) => s.session.scope);
+  const installed = useAppSelector(selectInstalledInspectors);
+  const nav = useMemo(
+    () => visibleNav(NAV, scope === null ? null : installed),
+    [scope, installed],
+  );
+
+  useEffect(() => {
+    if (scope !== null) {
+      void dispatch(loadInspectors(scope));
+    }
+  }, [dispatch, scope]);
 
   const chipColor =
     connection === "online"
@@ -280,7 +316,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         }}
       >
         <Box sx={{ flexGrow: 1, overflowY: "auto" }}>
-          <NavList nodes={NAV} depth={0} pathname={location.pathname} />
+          <NavList nodes={nav} depth={0} pathname={location.pathname} />
         </Box>
         <Box
           sx={{

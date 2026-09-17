@@ -23,6 +23,7 @@ import {
 import { useT } from "../i18n/index.ts";
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import { sendConvergenceChannel } from "../store/slices/convergence.ts";
+import { selectInstalledInspectors } from "../store/slices/pages/inspector-catalog.ts";
 import { pageBarBtnSx } from "../components/PageBar.tsx";
 
 const LAMP_CHIP: Record<
@@ -50,6 +51,7 @@ export default function ConfigLamp() {
   const sending = useAppSelector((s) => s.convergence.sending);
   const error = useAppSelector((s) => s.convergence.error);
   const { snapshot } = useConvergence();
+  const installed = useAppSelector(selectInstalledInspectors);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
 
   if (snapshot === null) {
@@ -57,7 +59,10 @@ export default function ConfigLamp() {
   }
 
   const label = t(`convergence.lamp.${snapshot.lamp}`);
-  const unsent = snapshot.channels.filter((row) => canSendState(row.state));
+  const channels = snapshot.channels.filter(
+    (row) => row.inspector === null || installed === null || installed.has(row.inspector),
+  );
+  const unsent = channels.filter((row) => canSendState(row.state));
 
   const open = (event: MouseEvent<HTMLElement>) => setAnchor(event.currentTarget);
   const close = () => setAnchor(null);
@@ -128,7 +133,7 @@ export default function ConfigLamp() {
           </Typography>
         )}
 
-        {snapshot.channels.map((channel) => {
+        {channels.map((channel) => {
           if (channel.state === "nobody") {
             return null;
           }

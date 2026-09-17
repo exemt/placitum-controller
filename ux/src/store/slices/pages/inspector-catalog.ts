@@ -1,4 +1,9 @@
-import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import {
+  createAsyncThunk,
+  createSelector,
+  createSlice,
+  type PayloadAction,
+} from "@reduxjs/toolkit";
 
 import {
   fetchInspector,
@@ -125,3 +130,12 @@ const inspectorCatalogSlice = createSlice({
 
 export const { openPanel, closePanel } = inspectorCatalogSlice.actions;
 export default inspectorCatalogSlice.reducer;
+
+// Processes the installation runs; null until the catalog loads or when it fails, so nothing is hidden.
+export const selectInstalledInspectors = createSelector(
+  (state: { pages: { inspectorCatalog: InspectorCatalogState } }) => state.pages.inspectorCatalog,
+  (catalog): ReadonlySet<string> | null =>
+    catalog.error !== null || (catalog.loading && catalog.rows.length === 0)
+      ? null
+      : new Set(catalog.rows.map((row) => row.name)),
+);

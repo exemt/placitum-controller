@@ -2252,6 +2252,7 @@ export interface ChannelView {
   key: string;
   send: string;
   page: string;
+  inspector: string | null;
 }
 
 export interface ConvergenceSnapshot {
