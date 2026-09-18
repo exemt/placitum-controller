@@ -145,8 +145,8 @@ export const en: DeepString<typeof ru> = {
   },
   convergence: {
     title: "Configuration delivery",
-    blurb: "What is saved, what was sent, and what the members applied.",
-    sendAll: "Send all",
+    blurb: "What is saved, what was applied, and what the members confirmed.",
+    sendAll: "Apply all",
     channel: {
       nginx: "nginx configuration",
       agent: "Agent settings",
@@ -190,15 +190,15 @@ export const en: DeepString<typeof ru> = {
     },
     lamp: {
       green: "configuration applied",
-      yellow: "something to send",
+      yellow: "something to apply",
       red: "configuration not applied",
     },
-    sendFailed: "Send failed",
+    sendFailed: "Apply failed",
   },
   logsPage: {
     title: "Logs",
     blurb:
-      "waf.log: access_log and error_log lines from the nodes, plus the log of every process on the contour.",
+      "waf.log: access_log and error_log lines from the nodes, plus the log of every process on the installation.",
     time: "Time",
     writer: "written by",
     service: "service",
@@ -217,7 +217,7 @@ export const en: DeepString<typeof ru> = {
     levels: {
       button: "Log levels",
       title: "Log levels",
-      hint: "Contour services. A level applies right away, without a restart: the service switches its threshold and logs “log level applied”. “From environment” is the start value from the variable on the right — the level returns to it.",
+      hint: "Installation services. A level applies right away, without a restart: the service switches its threshold and logs “log level applied”. “From environment” is the start value from the variable on the right — the level returns to it.",
       service: "service",
       level: "level",
       env: "variable",
@@ -579,7 +579,7 @@ export const en: DeepString<typeof ru> = {
       actionCol: {
         from: "Sender",
         to: "Receiver",
-        do: "Ask",
+        do: "Signal",
         apply: "About",
         code: "Reason",
         amount: "Amount",
@@ -642,8 +642,8 @@ export const en: DeepString<typeof ru> = {
       noStore: "The original was never stored.",
       archived: "original in the archive",
       archivedUntil: "original in the archive until {date}",
-      stored: "original in the exchange ({store})",
-      released: "original already released by the exchange",
+      stored: "original in the buffer ({store})",
+      released: "original already released by the buffer",
       view: "view",
       showOriginal: "view",
       hideOriginal: "collapse",
@@ -701,13 +701,13 @@ export const en: DeepString<typeof ru> = {
     },
     reason: {
       absent: "Was not stored.",
-      discarded: "No address: the object was not kept in the exchange.",
+      discarded: "No address: the object was not kept in the buffer.",
       ttl_expired: "The object was deleted when its retention ran out.",
       expired: "Retention has run out.",
       store_disabled: "The archive for this kind is not open to search.",
       driver_unsupported: "Not in the archive — search cannot reach it.",
-      store_error: "The exchange answered with an error.",
-      store_unconfigured: "No exchange configured on this route.",
+      store_error: "The buffer answered with an error.",
+      store_unconfigured: "No buffer configured on this route.",
       oversize: "Over waf_body_limit — not stored.",
       streaming_not_supported: "Streaming bodies are not stored.",
       transform_failed: "Masking failed.",
@@ -896,7 +896,7 @@ export const en: DeepString<typeof ru> = {
   exception: {
     title: "What to do when there is no verdict",
     hint:
-      "The wave ended without a usable verdict: the inspector stayed silent, replied with garbage, the bus did not answer, or the exchange did not hand over the object. The route decides the outcome, not the inspector.",
+      "The wave ended without a usable verdict: the inspector stayed silent, replied with garbage, the bus did not answer, or the buffer did not hand over the object. The route decides the outcome, not the inspector.",
     edit: "Edit exceptions",
     none: "as above",
     pass: "let through",
@@ -911,7 +911,7 @@ export const en: DeepString<typeof ru> = {
     },
     class: {
       timeout: "No answer in time",
-      absent: "Nobody to ask",
+      absent: "Nobody to signal",
       bus: "Bus",
       body: "Object unavailable",
       inspector: "Inspector could not check",
@@ -921,7 +921,7 @@ export const en: DeepString<typeof ru> = {
       timeout: "The phase budget (waf_deadline) ran out, or an active inspector timed out. A malformed reply lands here too: for the wave it is indistinguishable from silence.",
       absent: "No subscriber on this phase's subject — the inspector is not running or the name is wrong. Known at once, no need to wait for the deadline.",
       bus: "The bus did not answer, the publish failed, or the wait slots ran out (waf_max_inflight).",
-      body: "The exchange neither returned nor accepted the object: a store failure, exhausted body holds, a failed lift of a rewrite.",
+      body: "The buffer neither returned nor accepted the object: a store failure, exhausted body holds, a failed lift of a rewrite.",
       inspector: "The inspector answered “could not check”: unknown profile, a schema version mismatch, a neighbouring service it could not reach. It used to pick for the route itself — answering allow or deny.",
       overload: "The inspector shed the request at the door: its queue is full, or the budget expired before the work began. Nothing is broken — in a minute the same request would pass — which is why this class is separate from “could not check”.",
     },
@@ -942,7 +942,7 @@ export const en: DeepString<typeof ru> = {
     close: "Close",
     add: "Add",
     save: "Save",
-    send: "Send",
+    send: "Apply",
     upload: "Upload",
     download: "Download",
     reset: "Reset",
@@ -1206,7 +1206,7 @@ export const en: DeepString<typeof ru> = {
     },
     errors: {
       fingerprint_mismatch:
-        "The contour public key fingerprint does not match the one pinned at build time. Upload cancelled.",
+        "The installation public key fingerprint does not match the one pinned at build time. Upload cancelled.",
       not_a_ca:
         "This is not a CA: the certificate has no BasicConstraints CA:TRUE. mTLS needs a root or intermediate certificate, not a leaf.",
       invalid_crl:
@@ -1217,9 +1217,9 @@ export const en: DeepString<typeof ru> = {
       key_mismatch: "The private key does not match this certificate.",
       key_required: "Server TLS requires a private key.",
       key_not_allowed:
-        "An mTLS root must not carry a private key — only the public half belongs in the contour.",
+        "An mTLS root must not carry a private key — only the public half belongs in the installation.",
       invalid_certificate: "The file does not parse as a PEM certificate.",
-      undecryptable: "The envelope could not be opened with the contour key.",
+      undecryptable: "The envelope could not be opened with the installation key.",
       crypto_unavailable: "The crypto service is unavailable: nothing can parse the certificate.",
     },
     empty: "No server certificates yet — upload the first one.",
@@ -1230,7 +1230,7 @@ export const en: DeepString<typeof ru> = {
     deleteConfirm: "Delete “{name}”? Deletion is rejected if it is bound to a server.",
     newTitle: "Upload certificate",
     uploadBlurb:
-      "The certificate and key are encrypted in the browser with the contour public key before reaching the controller. It only ever sees ciphertext.",
+      "The certificate and key are encrypted in the browser with the installation public key before reaching the controller. It only ever sees ciphertext.",
     certFile: "Certificate",
     caFile: "CA certificate",
     keyFile: "Private key",
@@ -1238,9 +1238,9 @@ export const en: DeepString<typeof ru> = {
     chainOptional: "optional",
     noFile: "no file chosen",
     upload: "Encrypt and upload",
-    cryptoUnavailable: "Contour key unavailable: certificate upload is disabled.",
+    cryptoUnavailable: "Installation key unavailable: certificate upload is disabled.",
     pinMismatch:
-      "The contour public key fingerprint does not match the one pinned at installation — upload disabled. The controller's key may have been swapped.",
+      "The installation public key fingerprint does not match the one pinned at installation — upload disabled. The controller's key may have been swapped.",
     noPin:
       "No fingerprint pin in this installation (contour-pin.json). Verify manually: {fingerprint}",
   },
@@ -1405,14 +1405,14 @@ export const en: DeepString<typeof ru> = {
     whenIf: "if {name}",
     whenUnless: "unless {name}",
     whenHint: "Always, or when a condition of the profile holds or fails.",
-    whenNoConditions: "The profile has no conditions — the ask goes on every request. Conditions are declared in the «Conditions» section.",
+    whenNoConditions: "The profile has no conditions — the signal goes on every request. Conditions are declared in the «Conditions» section.",
     sectionRules: "Rules",
     rulesHint:
-      "Asks to neighbours, the route's record and points on the route — on every request of the profile or by condition. No terminal rules: every row fires, in its order.",
+      "Signals to neighbours, the route event and points on the route — on every request of the profile or by condition. No terminal rules: every row fires, in its order.",
     rulesEmpty: "No rules: the inspector stays silent.",
     to: "To",
-    toHint: "The receiving inspector, the route's record or points on the route. This inspector never sends an ask without an addressee.",
-    toModule: "the route's record",
+    toHint: "The receiving inspector, the route event or points on the route. This inspector never sends a signal without an addressee.",
+    toModule: "the route event",
     verb: "What to do",
     verbHint: "The list depends on the receiver: each has its own input actions.",
     params: "Parameters",
@@ -1424,7 +1424,7 @@ export const en: DeepString<typeof ru> = {
     editRule: "Edit the rule",
     removeRule: "Remove the rule",
     unknownTargets: "Targets missing from the registry",
-    noRegistry: "The action dictionary did not arrive: ask selectors are empty.",
+    noRegistry: "The action dictionary did not arrive: signal selectors are empty.",
   },
   cookieProfiles: {
     lockedDelete: "The default profile cannot be deleted: without it the manifest does not build.",
@@ -1496,8 +1496,8 @@ export const en: DeepString<typeof ru> = {
     when: "When",
     whenNoConditions: "The profile has no conditions — the rule runs on every request. Conditions are declared in the Conditions section.",
     to: "To",
-    toHint: "Self — issue or drop the cookie; or a receiving inspector, the route record, score, a dataset write",
-    toModule: "route record",
+    toHint: "Self — issue or drop the cookie; or a receiving inspector, the route event, score, a dataset write",
+    toModule: "route event",
     verb: "Action",
     verbHint: "The list depends on the receiver: each has its own incoming actions.",
     params: "Parameters",
@@ -1535,7 +1535,7 @@ export const en: DeepString<typeof ru> = {
     andIf: "And if",
     andIfNone: "no condition",
     andIfHint: "A profile condition on the request: path, arguments, headers",
-    toSelf: "self — cookie",
+    toSelf: "own cookie",
     selfHint: "Issue or drop the cookie chosen under «When»",
     needTags: "type at least one tag",
     needTagsFix: "fix tag «{tag}»",
@@ -1572,11 +1572,11 @@ export const en: DeepString<typeof ru> = {
     sectionProfileHint:
       "The model reads the description in the body and answers a 0..100 score. The deny threshold stays with the route (waf_score_deny); the profile decides the mode, the full-queue behaviour and the correspondence with neighbours.",
     priorHint:
-      "Whose asks to apply: threshold — a coefficient on the score we hand over, skip — do not check the request (skips inference). Both weaken, so the sender is always named.",
+      "Whose signals to apply: threshold — a coefficient on the score we hand over, skip — do not check the request (skips inference). Both weaken, so the sender is always named.",
     outcomesHint:
-      "What to do ourselves: on a score against a threshold — and on overload, when the request was shed at the door because the queue was full. An ask to a neighbour or the client address written into a live set; prefixes and systems are written by those with geo.",
+      "What to do ourselves: on a score against a threshold — and on overload, when the request was shed at the door because the queue was full. A signal to a neighbour or the client address written into an active set; prefixes and systems are written by those with geo.",
     unknownTargets: "Targets missing from the registry",
-    noRegistry: "The action dictionary did not arrive: ask selectors are empty.",
+    noRegistry: "The action dictionary did not arrive: signal selectors are empty.",
   },
   rewrite: {
     lockedDelete: "The default profile cannot be deleted: the manifest needs it.",
@@ -1591,7 +1591,7 @@ export const en: DeepString<typeof ru> = {
     nameHint: "[a-z_][a-z0-9_-]*. This name is what profile= refers to",
     sectionProfile: "Profile",
     sectionProfileHint:
-      "The inspector edits the upstream response before it reaches the client: the process rewrites the body into the exchange, and the module lifts it at the response-phase seam. Patterns run in Go (RE2) only; nothing from the profile reaches nginx.conf.",
+      "The inspector edits the upstream response before it reaches the client: the process rewrites the body into the buffer, and the module lifts it at the response-phase seam. Patterns run in Go (RE2) only; nothing from the profile reaches nginx.conf.",
     groups: "Modifier groups",
     groupsHint:
       "A group is the unit of switching: its own conditions and its own operations. An enabled group always applies, a disabled one never does — until a neighbour's request (mutate) flips its state.",
@@ -1664,17 +1664,17 @@ export const en: DeepString<typeof ru> = {
     headerOpHint:
       "Set replaces the header value or adds the header; unset drops the header from the response",
     priorHint:
-      "Whose requests to honour: mutate switches the group the sender named (group and mode travel in its ask), skip drops the rewrite entirely. Both weaken the masking, so the sender is always named.",
+      "Whose requests to honour: mutate switches the group the sender named (group and mode travel in its signal), skip drops the rewrite entirely. Both weaken the masking, so the sender is always named.",
     noRegistry: "The action registry did not arrive: request pickers are empty.",
   },
   channel: {
     signals: "Early-wave signals",
     rules: "Rules",
     unknownSenders:
-      "Rules reference senders missing from the registry -- their asks will not arrive",
+      "Rules reference senders missing from the registry -- their signals will not arrive",
   },
   prior: {
-    hint: "A neighbour's action applies only through a rule here; without one the ask shows up in the audit and nowhere else. Both verbs can weaken, so the sender is always named",
+    hint: "A neighbour's action applies only through a rule here; without one the signal shows up in the audit and nowhere else. Both verbs can weaken, so the sender is always named",
     from: "Sender",
     fromAny: "any",
     fromAnyLong: "any sender",
@@ -1682,7 +1682,7 @@ export const en: DeepString<typeof ru> = {
       "The inspector's declaration name from the registry -- what it writes into from on the wire. \"Any\" accepts from everyone, but hardening actions only",
     accept: "Accepted verbs",
     acceptHint:
-      "Verbs the rule applies from this sender. Its other asks stay in the audit",
+      "Verbs the rule applies from this sender. Its other signals stay in the audit",
     codes: "Reasons",
     codesAny: "any",
     codesHint:
@@ -1690,14 +1690,14 @@ export const en: DeepString<typeof ru> = {
     apply: "About what",
     applyAny: "any axis",
     applyHint:
-      "Whom the ask is about -- this request, the address, the session. Empty -- any axis the chosen verbs allow",
+      "Whom the signal is about -- this request, the address, the session. Empty -- any axis the chosen verbs allow",
     counter: "Bucket",
     counterPick: "pick one",
     counterHint:
       "Where accepted notes go: a fill: note bucket of this profile. The name does not travel on the wire; the rule names it",
     addSignal: "Add signal",
     editSignal: "Edit signal",
-    dialogHint: "From whom, which asks and on which reasons to apply",
+    dialogHint: "From whom, which signals and on which reasons to apply",
     broadcastWeakens:
       "A rule without a named sender may only accept hardening actions: weakening from anyone is how a single compromised inspector undoes everyone else's findings. Name the sender",
     empty: "No rules -- the profile listens to nobody, and that is the usual state",
@@ -1705,11 +1705,11 @@ export const en: DeepString<typeof ru> = {
   outcomes: {
     hint: {
       request:
-        "What to do once the request phase is decided: ask a neighbour or write a subject into a live dataset. The condition is the decision itself, not its premises",
+        "What to do once the request phase is decided: signal a neighbour or write a subject into an active dataset. The condition is the decision itself, not its premises",
       response:
-        "The same for the response phase. An ask does travel: prior spans phases, and later response waves see it",
+        "The same for the response phase. A signal does travel: prior spans phases, and later response waves see it",
       rules:
-        "What to do once the request is decided: ask a neighbour or write a subject into a live dataset. The threshold is compared against the score we hand over",
+        "What to do once the request is decided: signal a neighbour or write a subject into an active dataset. The threshold is compared against the score we hand over",
     },
     sectionWhen: "Trigger",
     sectionWhenHint: "what pulls this row",
@@ -1729,17 +1729,17 @@ export const en: DeepString<typeof ru> = {
     outcomeBucketHint: "Own bucket: the row fires on its level",
     outcomeBucketAxis: "Axis",
     outcomeLevelAt: "Threshold, %",
-    outcomeLevelAtHint: "0-100 — percent of the bucket, same scale as judge rules",
+    outcomeLevelAtHint: "0-100 — percent of the bucket, same scale as evaluation rules",
     outcomeAt: "Threshold",
     outcomeAtHint: "Compared against the score we hand over",
     outcomeTo: "To",
-    toModule: "the route's record",
+    toModule: "the route event",
     toScore: "Points on the route",
     toRoute: "the route",
     outcomeToHint: "A receiving inspector, or a dataset write",
-    outcomeToDenyHint: "No asks on deny: it ends the phase, and the ask has nowhere to go",
+    outcomeToDenyHint: "No signals on deny: it ends the phase, and the signal has nowhere to go",
     outcomeToDenyRouteHint:
-      "On deny an ask cannot reach a neighbour: a dataset write and the route's log and archive remain — the module executes those",
+      "On deny a signal cannot reach a neighbour: a dataset write and the route's log and archive remain — the module executes those",
     outcomeWhat: "What",
     outcomeWrite: "Write to dataset",
     outcomeWriteLabel: "Subject",
@@ -1758,7 +1758,7 @@ export const en: DeepString<typeof ru> = {
     outcomeTtlHint: "1h, 15m, 7d",
     outcomeCode: "Reason",
     outcomeCodeHint: "Optional; empty means the decision code",
-    outcomesEmpty: "No initiators -- the inspector decides and stays quiet",
+    outcomesEmpty: "No triggers -- the inspector decides and stays quiet",
     overloadAt: "Queue threshold, %",
     overloadAtHint:
       "How full the inspector's queue must be for the row to fire, 25–100 %. Empty means 100. Below the threshold the row stays silent. From the threshold up to the edge the inspector checks as usual and the request gets a real verdict — the row's action rides along with it: the point of a threshold is to shed before the queue overflows. 100 is the edge only: the request has already been shed, there is no verdict, the module carries out only its own verbs, a list write is still done by the inspector, and what happens to the request itself is decided by the route's “inspector is overloaded” exception",
@@ -1769,8 +1769,8 @@ export const en: DeepString<typeof ru> = {
     outcomeRulesBad: "An id or a range: 942100, 942000-942999",
     outcomeTags: "Tags",
     outcomeTagsHint: "Exactly as the engine reports them: attack-sqli, paranoia-level/1. The event card shows them",
-    addOutcome: "Add initiator",
-    editOutcome: "Outcome initiator",
+    addOutcome: "Add trigger",
+    editOutcome: "Outcome trigger",
     toDataset: "Write to dataset",
     toAll: "Everyone",
     toAny: "everyone",
@@ -1792,9 +1792,9 @@ export const en: DeepString<typeof ru> = {
     nameHint: "Profile name: referenced by profile= in the inspector registry",
     sentHint: "Sent, fingerprint:",
     phases: "Phases",
-    request: "Judge",
+    request: "Evaluation",
     response: "Measure",
-    judgeCount: "Judge rules",
+    judgeCount: "Evaluation rules",
     measureCount: "Metrics",
     sectionProfile: "Profile",
     sectionProfileHint: "Name and description: the rest is phase rules. The call mode lives on the route",
@@ -1806,7 +1806,7 @@ export const en: DeepString<typeof ru> = {
     usedByHint: "Profiles whose rules name this counter",
     profileOff: "off",
     sites: {
-      judge: "judge",
+      judge: "evaluation",
       measure: "measure",
       outcome: "outcome",
       prior: "accept",
@@ -1820,7 +1820,7 @@ export const en: DeepString<typeof ru> = {
     unitHint: "Label for the panel and audit: obj, kb. Does not affect arithmetic",
     fill: "Filled by",
     fillHint:
-      "A bucket has one input: either the inspector's own response measurements or neighbours' signals (note). Judging works the same for both",
+      "A bucket has one input: either the inspector's own response measurements or neighbours' signals (note). Evaluation works the same for both",
     fills: {
       measure: "measurements",
       note: "neighbour signals",
@@ -1839,9 +1839,9 @@ export const en: DeepString<typeof ru> = {
     },
     max: "Capacity",
     maxHint: "In counter units; profile thresholds are written as its percentage",
-    loss: "Loss, %/s",
+    loss: "Decay, %/s",
     axesEmpty:
-      "No axis is on: this counter has nothing to count. Turn on the one that gets judged — address, session, user",
+      "No axis is on: this counter has nothing to count. Turn on the one that gets evaluated — address, session, user",
     axisTierMissing:
       "No capacity on these axes: {axes}. The bucket has nothing to measure threshold percentages against, and neither the controller nor the inspector accepts such a declaration — set a capacity or turn the axis off",
     lossHint: "Percent of capacity per second, fractions allowed. A quiet subject cools in 100/loss seconds: 1 → ~1.5 min, 0.1 → ~17 min, 0.01 → ~2.8 h — the slower, the longer it remembers",
@@ -1872,23 +1872,23 @@ export const en: DeepString<typeof ru> = {
     ownUserFrom: "User axis source",
     ownUserFromHint: "The same for this counter; empty — the shared source from “Key sources”",
     priorHint:
-      "A neighbour's action applies only via a rule here. skip lifts the judging, not the accounting: 'don't check' is not 'don't remember'. " +
-      "note fills the named bucket with percent of its capacity: plus adds, minus drains, −100 clears; the charge lands on the response phase, judging reads it from the subject's next request",
-    sectionRequest: "Request phase: judge",
+      "A neighbour's action applies only via a rule here. skip lifts the evaluation, not the accounting: 'don't check' is not 'don't remember'. " +
+      "note fills the named bucket with percent of its capacity: plus adds, minus drains, −100 clears; the charge lands on the response phase, evaluation reads it from the subject's next request",
+    sectionRequest: "Request phase: evaluation",
     sectionRequestHint:
       "Bucket levels against thresholds: the strictest wins — deny over score, higher score over lower",
     sectionResponse: "Response phase: measure",
     sectionResponseHint:
-      "Rules turn a response into bucket charges; the phase always answers allow — a meter does not judge",
+      "Rules turn a response into bucket charges; the phase always answers allow — a meter does not evaluate",
     sectionPhases: "Phases",
     sectionPhasesHint:
-      "Where the counter works and which deny responses it uses. Metering, judging and outcomes below are one table each across phases: a row carries its own Where column",
+      "Where the counter works and which deny responses it uses. Metering, thresholds and outcomes below are one table each across phases: a row carries its own Where column",
     sectionMeasure: "Metering",
     sectionMeasureHint:
-      "Rules turn a response or a frame into bucket charges; the metering verdict is always allow — a meter does not judge. Where — the application response or WebSocket frames (both sides)",
-    sectionJudge: "Judging and outcomes",
+      "Rules turn a response or a frame into bucket charges; the metering verdict is always allow — a meter does not evaluate. Where — the application response or WebSocket frames (both sides)",
+    sectionJudge: "Thresholds and outcomes",
     sectionJudgeHint:
-      "Bucket levels against thresholds: the stricter one wins — deny over score, a higher score over a lower. On a frame the judge reads the levels in the same trip as the meter: the frame that fills a bucket to its threshold is denied itself",
+      "Bucket levels against thresholds: the stricter one wins — deny over score, a higher score over a lower. On a frame the evaluation reads the levels in the same trip as the meter: the frame that fills a bucket to its threshold is denied itself",
     phaseRequest: "request",
     phaseResponse: "response",
     phaseFrame: "frames",
@@ -1897,12 +1897,12 @@ export const en: DeepString<typeof ru> = {
     whereHint: "The row's phase: response and frame rules share one table, the document splits them into sections itself",
     whereMeasureHint: "The application response (selectors — status, type, method) or WebSocket frames (side and opcode). Foreign selectors are dropped when a row moves",
     whereJudgeHint: "Request or WebSocket frames. The connection axis exists only on frames",
-    sectionFrame: "WebSocket frames: meter and judge",
+    sectionFrame: "WebSocket frames: meter and evaluation",
     sectionFrameHint:
-      "Every frame in both directions: measure rules charge buckets, judge rules read the levels in the same round trip — the frame that fills a bucket to the threshold is denied itself. A deny closes the connection with a Close frame from a type=websocket entry",
-    frameEnabledHint: "A disabled phase answers allow with a reason: frames are neither counted nor judged",
+      "Every frame in both directions: measure rules charge buckets, evaluation rules read the levels in the same round trip — the frame that fills a bucket to the threshold is denied itself. A deny closes the connection with a Close frame from a type=websocket entry",
+    frameEnabledHint: "A disabled phase answers allow with a reason: frames are neither counted nor evaluated",
     frameDenyResponseHint: "A type=websocket catalog entry: the Close frame code and reason. Default — ws_policy",
-    frameOutcomesHint: "On the frame verdict: ask a neighbour or write the subject into a live set",
+    frameOutcomesHint: "On the frame verdict: signal a neighbour or write the subject into an active set",
     anyFrame: "any frame",
     condDirection: "Side",
     condDirectionHint: "c2s — from the client, s2c — from the application. Empty — both",
@@ -1911,20 +1911,20 @@ export const en: DeepString<typeof ru> = {
     directions: { c2s: "client", s2c: "application" },
     opcodes: { text: "text", binary: "binary", continuation: "continuation" },
     phaseEnabled: "Phase enabled",
-    judgeEnabledHint: "A disabled judge answers allow with a reason: accounting continues",
+    judgeEnabledHint: "A disabled evaluation answers allow with a reason: accounting continues",
     measureEnabledHint: "A disabled measure charges nothing: buckets cool down on their own",
-    judge: "Judge rules",
+    judge: "Evaluation rules",
     judgeHint: "A row is a rule: counter, axis, fill threshold and the action. No subject — the rule stays silent",
     judgeEmpty: "No rules — the phase answers allow, and that is a normal state",
-    judgeStair: "Ladder",
+    judgeStair: "Steps",
     judgeStairHint: "Levels of this pair by ascending threshold -- the order a subject walks them. The stricter one wins: deny over score",
-    judgeDialog: "Level ladder",
-    judgeNewDialog: "New level ladder",
+    judgeDialog: "Level steps",
+    judgeNewDialog: "New level steps",
     judgeLevels: "Levels",
     judgeLevelsHint: "The threshold is a percentage of the bucket: natural units differ per counter, a percentage reads the same everywhere",
     judgeLevelsEmpty: "No levels -- a pair without them is not saved",
     levelNewDialog: "New level",
-    judgeCounterHint: "The bucket whose level is judged. Buckets are declared on the «Counters» tab",
+    judgeCounterHint: "The bucket whose level is evaluated. Buckets are declared on the «Counters» tab",
     judgeAxisHint: "The subject whose count is compared with the threshold. Only axes declared on this bucket are offered",
     counter: "Counter",
     at: "At, %",
@@ -1938,7 +1938,7 @@ export const en: DeepString<typeof ru> = {
     codeHint: "Machine reason for the audit and neighbours; empty — COUNTER_LEVEL",
     denyResponse: "Deny response",
     denyResponseHint: "Deny catalog entry name: nginx serves the code and the page. 429 is more honest than 403 — the client can wait it out",
-    outcomesHint: "On the judge's decision: an ask to a neighbour or a subject written into a live set",
+    outcomesHint: "On the evaluation: a signal to a neighbour or a subject written into an active set",
     measure: "Metrics",
     measureHint:
       "A row is a rule: which response, measured how, into which counter. All matching rules fire; condition and multiplier are behind the summary",
@@ -1998,14 +1998,14 @@ export const en: DeepString<typeof ru> = {
     checkContentType: "Body type",
     sectionSchema: "Schema",
     priorHint:
-      "A neighbour's action applies only through a rule here; without one the ask shows up in the audit and nothing else. Both actions can weaken, so the sender is always named — no \"everyone\" here",
+      "A neighbour's action applies only through a rule here; without one the signal shows up in the audit and nothing else. Both actions can weaken, so the sender is always named — no \"everyone\" here",
     priorFrom: "Sender",
     priorAccept: "What to accept",
     priorCodes: "Reasons",
     priorCodesAny: "any",
     priorEmpty: "No rules — the profile listens to no one, and that is a normal state",
     priorUnknownSenders:
-      "Rules name senders absent from the registry — their asks will never arrive",
+      "Rules name senders absent from the registry — their signals will never arrive",
     sectionRequest: "Request phase",
     sectionResponse: "Response phase",
     sectionBindings: "Bindings",
@@ -2064,7 +2064,7 @@ export const en: DeepString<typeof ru> = {
       truncated: "Body truncated",
       unknown_operation: "Call is not in the contract",
       content_type: "Body type is not described",
-      unavailable: "The exchange did not return the body",
+      unavailable: "The buffer did not return the body",
       status: "Response status not described",
       opcode: "Binary frame instead of text",
     },
@@ -2116,7 +2116,7 @@ export const en: DeepString<typeof ru> = {
     frameDenyResponseHint:
       "Catalog entry of type=websocket: the Close code and reason. An entry of another type falls back to 1008",
     frameOutcomesHint: {
-      c2s: "What to do on the client-frame decision: an ask to a same-wave neighbour or an address write into a set",
+      c2s: "What to do on the client-frame decision: a signal to a same-wave neighbour or an address write into a set",
       s2c: "The same for the application output",
     },
   },
@@ -2148,16 +2148,16 @@ export const en: DeepString<typeof ru> = {
       "Always — everyone without a session; by buckets — when a bucket reaches its threshold; never — the session is checked but nobody is redirected",
     prior: "Signals from earlier waves",
     priorHint:
-      "What we accept from the neighbours. Without a rule an ask does not apply at all. " +
+      "What we accept from the neighbours. Without a rule a signal does not apply at all. " +
       "Rules are unordered: any matching one fires. " +
-      "Empty codes mean any; where a charge lands is named by the ask itself",
+      "Empty codes mean any; where a charge lands is named by the signal itself",
     priorFrom: "Sender",
     priorAccept: "What to accept",
     priorAcceptAll: "all actions",
     priorCodes: "Codes",
     priorCodesAny: "any",
     priorEmpty: "No rules — the profile listens to nobody",
-    priorUnknownSenders: "Rules reference senders missing from the registry — their asks will never arrive",
+    priorUnknownSenders: "Rules reference senders missing from the registry — their signals will never arrive",
     sectionProfile: "Profile",
     sectionProfileHint:
       "Name, mode and address: server, widget address, page and how it is shown. The address must match a server location",
@@ -2179,7 +2179,7 @@ export const en: DeepString<typeof ru> = {
       "% full — the \"bucket: ban threshold\" event for the rules; 0 disables the threshold",
     sectionBuckets: "Buckets",
     bucketsHint:
-      "Shared subject score across all instances: neighbours fill it with counter asks, percent of the bucket capacity. A bucket leaks at its loss rate; no capacity — disabled",
+      "Shared subject score across all instances: neighbours fill it with counter signals, percent of the bucket capacity. A bucket leaks at its decay rate; no capacity — disabled",
     bucketCaptchaAt: "Captcha, %",
     bucketBanAt: "Ban, %",
     bucketBanNeedsList: "Banning needs a banned set in the Lists section",
@@ -2190,14 +2190,14 @@ export const en: DeepString<typeof ru> = {
       asnRouter: "Whole ASN",
     },
     bucketMax: "Capacity",
-    bucketLoss: "Loss, %/s",
+    bucketLoss: "Decay, %/s",
     sectionExtra: "Extras",
     sectionRules: "Rules",
     rulesHint:
       "What to do on events: a failed attempt, a passed check, a bucket at a threshold, a client with a valid clearance or without one. No hard-coded attempt loop or auto-ban — these rows decide. The clearance is the only good news the captcha tells its neighbours: drop the counter bucket, discount modsec, skip vlai. Its absence is the reason to switch the neighbours down the chain on: the classifier, the output mask, points",
     rulesEmpty: "No rules: failures heat nobody, a full bucket bans nobody",
     ruleWhen: "When",
-    ruleWhenHint: "Fail and pass happen in the HTTP widget; bucket thresholds and the clearance, present or not, — on the wave, where asks and the route record are available",
+    ruleWhenHint: "Fail and pass happen in the HTTP widget; bucket thresholds and the clearance, present or not, — on the wave, where signals and the route event are available",
     ons: {
       fail: "failed an attempt",
       pass: "passed the check",
@@ -2219,21 +2219,21 @@ export const en: DeepString<typeof ru> = {
     ruleBucketHint: "Empty — any that reached this threshold",
     bucketAny: "any",
     ruleTo: "To",
-    ruleToHint: "A neighbour inspector, the route record, points, an own set or an own bucket",
-    ruleToHttpHint: "An ask cannot travel: fail and pass are not on the wave. A set or a bucket",
+    ruleToHint: "A neighbour inspector, the route event, points, an own set or an own bucket",
+    ruleToHttpHint: "A signal cannot travel: fail and pass are not on the wave. A set or a bucket",
     ruleToWidgetHint:
-      "A neighbour down the chain, the route record, points, an own set or an own bucket. An ask travels only if the request goes on: the captcha let the client through or stands in vote — the widget ends the phase",
+      "A neighbour down the chain, the route event, points, an own set or an own bucket. A signal travels only if the request goes on: the captcha let the client through or stands in vote — the widget ends the phase",
     ruleToChallengeHint:
-      "The captcha showed the widget: an ask reaches a neighbour only if it stands in vote — in active the phase ends. The route record, points, an own set and an own bucket always work",
-    toBucket: "self: change a bucket",
+      "The captcha showed the widget: a signal reaches a neighbour only if it stands in vote — in active the phase ends. The route event, points, an own set and an own bucket always work",
+    toBucket: "own bucket",
     toBucketShort: "into a bucket",
-    toDataset: "nobody: write into a set",
+    toDataset: "dataset: write",
     toDatasetShort: "into a set",
     toAll: "everyone",
     ruleCharge: "Bucket",
     chargeHint: "1..100 — share of capacity; five fails at 20% fill it up",
     ruleList: "Which set",
-    ruleListHint: "A live set: the module cuts by it downstream",
+    ruleListHint: "An active set: the module cuts by it downstream",
     ruleWrite: "What to write",
     ruleWriteHint:
       "The /32 address, subnet, AS number; the clearance id — only where the cookie is known: on pass and for a client with a valid clearance",
@@ -2270,7 +2270,7 @@ export const en: DeepString<typeof ru> = {
     clearanceCookieHint: "Sealed “challenge passed” token. The name lives in the profile only",
     idCookie: "Id cookie",
     idCookieHint:
-      "Short clearance id — the same value that goes into the live clearance dataset. The name is wired elsewhere too: the counter's sess axis reads the cookie by name, so renaming means editing that as well",
+      "Short clearance id — the same value that goes into the active clearance dataset. The name is wired elsewhere too: the counter's sess axis reads the cookie by name, so renaming means editing that as well",
     challengeCookie: "Challenge cookie",
     challengeCookieHint: "The widget ticket: nginx and the counter never read it, rename freely",
     providers: "Providers",
@@ -2299,9 +2299,9 @@ export const en: DeepString<typeof ru> = {
     sitekey: "Site key",
     secretEnv: "Secret: environment variable",
     secretStore: "Secret: store object (uuid)",
-    secretHint: "One of the two; the store is an encrypted contour envelope",
+    secretHint: "One of the two; the store is an encrypted installation envelope",
     secretValue: "Provider secret",
-    secretValueHint: "Encrypted in the browser with the contour key; only the object uuid lands in the profile",
+    secretValueHint: "Encrypted in the browser with the installation key; only the object uuid lands in the profile",
     secretValuePlaceholder: "type and seal",
     sealSecret: "Seal",
     remoteip: "Send the client IP to the provider",
@@ -2334,10 +2334,10 @@ export const en: DeepString<typeof ru> = {
     verifyPerSubnet: "Verifications per subnet",
     limitsHint: "Format 30/m; empty — no limit",
     listEmpty: "No active string lists",
-    sectionList: "Live clearances",
+    sectionList: "Active clearances",
     sectionListHint:
       "The captcha's source of truth: issuing adds an entry, the inspector checks it on every request, deleting the entry kills the clearance",
-    clearanceList: "Live clearance dataset",
+    clearanceList: "Active clearance dataset",
     clearanceListHint:
       "An active string list: the clearance id goes into it. Empty means the clearance rides on its signature alone and cannot be killed from outside",
     clearanceListNone: "None",
@@ -2370,7 +2370,7 @@ export const en: DeepString<typeof ru> = {
       app: "Application session",
     },
     modeHint: {
-      own: "The contour shows the form itself, checks the password and issues the session cookie",
+      own: "The installation shows the form itself, checks the password and issues the session cookie",
       jwt: "A foreign issuer minted the session as a token: the gate reads it and verifies the signature when it has a key",
       app: "The application issued the session as its own cookie: the gate trusts it once it has watched the login",
     },
@@ -2451,7 +2451,7 @@ export const en: DeepString<typeof ru> = {
       app: "Application session",
     },
     externalNote:
-      "No form or ticket for this method: the session is not issued by the contour. The login address below is the application's login page for navigation without a session; empty means 401 for everyone",
+      "No form or ticket for this method: the session is not issued by the installation. The login address below is the application's login page for navigation without a session; empty means 401 for everyone",
     sectionAppLogin: "Application login page",
     sectionAppLoginHint:
       "Where to send navigation without a session: a server location with the application's own login page. Empty — 401 for everyone, no redirect",
@@ -2508,7 +2508,7 @@ export const en: DeepString<typeof ru> = {
     appJsonPath: "Response JSON field",
     appJsonPathHint: "A dotted path in the response body; empty — not checked. Needs a response body capture on the route",
     appJsonEquals: "Expected value",
-    appListRequired: "This method needs a live sessions set: it is the set of trusted application cookies",
+    appListRequired: "This method needs an active sessions set: it is the set of trusted application cookies",
     factorHint: {
       jwt: "A foreign issuer minted the token: the gate reads it by a claims schema and verifies the signature when it has a key",
       app: "The application's cookie, trusted after the gate has watched the login: the login in the form and the response carrying that cookie",
@@ -2535,7 +2535,7 @@ export const en: DeepString<typeof ru> = {
       "Who gets in after signing in. Empty — the login itself is enough; with groups a stranger gets 403 without a second login",
     sectionChannel: "Action channel",
     sectionChannelHint:
-      "Asks from neighbours: cut the session or let through without a login. Without a rule an ask shows up in the audit only",
+      "Signals from neighbours: cut the session or let through without a login. Without a rule a signal shows up in the audit only",
     loginPageBuiltin: "built-in page from the image",
     listSessionsNone: "None",
     deliver: "How to show the form",
@@ -2594,19 +2594,19 @@ export const en: DeepString<typeof ru> = {
     bindHint:
       "Sealed into the cookie: stolen from another network or browser it will not pass. Changing networks means the widget again",
     priorHint:
-      "A neighbour's action applies only through a rule here; without one the ask shows up in the audit and nothing else. Rules are an allow-list: any match fires, there is no order and nothing to drag",
+      "A neighbour's action applies only through a rule here; without one the signal shows up in the audit and nothing else. Rules are an allow-list: any match fires, there is no order and nothing to drag",
     reauthAfter: "Sign-in freshness, s",
     reauthAfterHint:
-      "A younger session ignores the cut-session ask: someone who just signed in is not sent to the form in a loop. 0 — the ask always applies",
+      "A younger session ignores the cut-session signal: someone who just signed in is not sent to the form in a loop. 0 — the signal always applies",
     sectionRules: "Rules",
     rulesSectionHint:
       "What the gate tells its neighbours and the route on its own: no captcha and no vlai for the signed-in, an anonymous client on a closed zone into a counter bucket or a set, a wrong group marked in the journal",
     rulesHint:
-      "What to do on wave events: signed in, anonymous, broken session, wrong group. An ask to a neighbour travels only with «signed in» — deny and redirect end the phase; the other events keep the journal, archive, marker, points and a set write",
+      "What to do on wave events: signed in, anonymous, broken session, wrong group. A signal to a neighbour travels only with «signed in» — deny and redirect end the phase; the other events keep the journal, archive, marker, points and a set write",
     rulesEmpty: "No rules: the gate only listens",
     ruleWhen: "When",
     ruleWhenHint:
-      "The ladder event: about the client, not the verdict — under observation an anonymous client stays anonymous",
+      "The step event: about the client, not the verdict — under observation an anonymous client stays anonymous",
     ons: {
       authenticated: "signed in: the session holds and access is granted",
       anonymous: "anonymous: no cookie at all",
@@ -2614,14 +2614,14 @@ export const en: DeepString<typeof ru> = {
       forbidden: "signed in at the wrong door: not in the access groups",
       overload: "inspector overloaded: the queue is at the threshold or above",
     },
-    ruleToHint: "A neighbour inspector, the route record, points or a live set",
+    ruleToHint: "A neighbour inspector, the route event, points or an active set",
     ruleToDenyHint:
-      "An ask cannot travel: deny and redirect end the phase. The route record, points or a set",
+      "A signal cannot travel: deny and redirect end the phase. The route event, points or a set",
     toAll: "everyone",
     addRule: "Add rule",
     editRule: "Rule",
-    sectionList: "Live sessions",
-    listSessions: "Live session dataset",
+    sectionList: "Active sessions",
+    listSessions: "Active session dataset",
     listSessionsHint:
       "The gate's source of truth: sign-in adds an entry, the inspector checks every request against it, deleting the entry ends the session. Empty means sessions cannot be ended from outside",
     listSessionsEmpty: "No active string lists in this space",
@@ -2760,7 +2760,7 @@ export const en: DeepString<typeof ru> = {
     },
     trigger: "When",
     triggerHint:
-      "Where the address turned up: in a particular list, outside it, or in the profile's own lists. \"In no list\" is the fallback branch — it covers everyone who matched nothing. The last entry is not about the address at all but about the inspector itself: its queue has reached the threshold. The action is the same for all of them: an ask to a neighbour or writing the address into a live dataset.",
+      "Where the address turned up: in a particular list, outside it, or in the profile's own lists. \"In no list\" is the fallback branch — it covers everyone who matched nothing. The last entry is not about the address at all but about the inspector itself: its queue has reached the threshold. The action is the same for all of them: a signal to a neighbour or writing the address into an active dataset.",
     triggers: {
       white: "address in the allowlists",
       black: "address in the denylists",
@@ -2784,10 +2784,10 @@ export const en: DeepString<typeof ru> = {
     addList: "Add a list",
     chooseList: "Choose a list",
     askCodeHint:
-      "The ask's reason: the receiver filters on it when deciding whether to apply. Empty — no reason. [A-Z][A-Z0-9_]*",
+      "The signal's reason: the receiver filters on it when deciding whether to apply. Empty — no reason. [A-Z][A-Z0-9_]*",
     outcomeCodeHint: "What explains the dataset entry. Empty — the decision code. [A-Z][A-Z0-9_]*",
     toDenyRiskHint:
-      "The receiving inspector. An ask does not arrive where the decision is deny: it ends the phase. A marker and writing the address into a dataset always work",
+      "The receiving inspector. A signal does not arrive where the decision is deny: it ends the phase. A marker and writing the address into a dataset always work",
     toDatasetShort: "into a dataset",
     rulesTitle: "Rules",
     rulesHint:
@@ -2805,7 +2805,7 @@ export const en: DeepString<typeof ru> = {
     responseDefault: "default",
     to: "To",
     toHint:
-      "The receiving inspector. There is no \"everyone\" here: an ask without a name reaches all of them, and who listens is the sender's call.",
+      "The receiving inspector. There is no \"everyone\" here: a signal without a name reaches all of them, and who listens is the sender's call.",
     toAll: "everyone",
     verb: "What to do",
     apply: "About whom",
@@ -2813,7 +2813,7 @@ export const en: DeepString<typeof ru> = {
       "This request, the address, the whole provider network, or the session. What to make of it is the receiver's call.",
     verbHint: "Only what the chosen receiver listens to.",
     listDataset: "Which dataset",
-    toDataset: "no one: write the address to a dataset",
+    toDataset: "dataset: write the address",
     ttl: "ttl, sec",
     ttlHint: "0 means forever. Otherwise the address expires on its own.",
     empty: "No profiles yet — create the first one.",
@@ -2828,7 +2828,7 @@ export const en: DeepString<typeof ru> = {
     verbs: {
       challenge: {
         label: "Send to a challenge",
-        hint: "Asks to run the client through a captcha. Whether and which one is the receiver's call.",
+        hint: "Signals to run the client through a captcha. Whether and which one is the receiver's call.",
       },
       threshold: {
         label: "Count stricter or softer",
@@ -2836,11 +2836,11 @@ export const en: DeepString<typeof ru> = {
       },
       skip: {
         label: "Let through unchecked",
-        hint: "Asks the receiver to let this request pass unchecked. Offered to the counter only: for it this means 'count, but do not judge' — the tally goes on, there is no verdict. For everyone else the lever is mode 'off': the same meaning without the bus round trip and without a receiving rule.",
+        hint: "Signals the receiver to let this request pass unchecked. Offered to the counter only: for it this means 'count, but do not evaluate' — the tally goes on, there is no verdict. For everyone else the lever is mode 'off': the same meaning without the bus round trip and without a receiving rule.",
       },
       reauth: {
         label: "Cut the session",
-        hint: "The session looks hijacked: asks to require signing in again.",
+        hint: "The session looks hijacked: signals to require signing in again.",
       },
       note: {
         label: "Change a counter",
@@ -2848,31 +2848,31 @@ export const en: DeepString<typeof ru> = {
       },
       mutate: {
         label: "Toggle modifiers",
-        hint: "Asks rewrite to switch a response modifier group on this request or frame: which one and which way is yours to name; whether it is accepted, the receiver's rule decides by sender and reason.",
+        hint: "Signals rewrite to switch a response modifier group on this request or frame: which one and which way is yours to name; whether it is accepted, the receiver's rule decides by sender and reason.",
       },
       active: {
         label: "Mode 'active'",
-        hint: "Executed by the module: the addressee's call is set to mode 'active' — it is asked and its verdict decides. The axis is the term: 'this request' lasts to the end of the transaction (on frames — this frame), 'connection' — to the end of the frame connection. No grant is needed: any inspector asked on the route may ask; the addressee must be called on it.",
+        hint: "Executed by the module: the addressee's call is set to mode 'active' — it is asked and its verdict decides. The axis is the term: 'this request' lasts to the end of the transaction (on frames — this frame), 'connection' — to the end of the frame connection. No grant is needed: any inspector asked on the route may signal; the addressee must be called on it.",
       },
       passive: {
         label: "Mode 'passive'",
-        hint: "Executed by the module: the addressee's call is set to mode 'passive' — it is asked, its verdict goes to the log and the shadow score but does not decide. The axis is the term (request or frame connection). No grant is needed: any inspector asked on the route may ask.",
+        hint: "Executed by the module: the addressee's call is set to mode 'passive' — it is asked, its verdict goes to the log and the shadow score but does not decide. The axis is the term (request or frame connection). No grant is needed: any inspector asked on the route may signal.",
       },
       vote: {
         label: "Mode 'vote'",
-        hint: "Executed by the module: the addressee's call is set to mode 'vote' — only points are taken from it: a score lands in the sum, a deny counts as 100, and it decides nothing on its own. A denial by the sum is up to the route threshold. The axis is the term (request or frame connection). No grant is needed: any inspector asked on the route may ask.",
+        hint: "Executed by the module: the addressee's call is set to mode 'vote' — only points are taken from it: a score lands in the sum, a deny counts as 100, and it decides nothing on its own. A denial by the sum is up to the route threshold. The axis is the term (request or frame connection). No grant is needed: any inspector asked on the route may signal.",
       },
       off: {
         label: "Mode 'off'",
-        hint: "Executed by the module: the addressee's call is set to mode 'off' — it is not asked on the remaining waves. A quiet relaxation like skip, without the bus round trip. The axis is the term (request or frame connection). No grant is needed: any inspector asked on the route may ask.",
+        hint: "Executed by the module: the addressee's call is set to mode 'off' — it is not asked on the remaining waves. A quiet relaxation like skip, without the bus round trip. The axis is the term (request or frame connection). No grant is needed: any inspector asked on the route may signal.",
       },
       audit: {
         label: "Write to the log",
-        hint: "Executed by the module: whether this request is written to the audit log. 'Write' overrides the route's waf_audit_sample; 'skip' is like a sample miss: denials, inspector silence and archived objects are written anyway. Objects are the 'To record' axis as in the path's object dialog: each with a budget ('whole' — up to the datagram ceiling) and a source (snapshot or unmasked original). Which record — the request's or the response's — is chosen by the 'Record' field, on frames — this frame; both can be set from any phase: on a route with a later phase the request record waits for the outcome. No grant is needed: any inspector asked on the route may ask for this.",
+        hint: "Executed by the module: whether this request is written to the audit log. 'Write' overrides the route's waf_audit_sample; 'skip' is like a sample miss: denials, inspector silence and archived objects are written anyway. Objects are the 'To event' axis as in the path's object dialog: each with a budget ('whole' — up to the datagram ceiling) and a source (snapshot or unmasked original). Which record — the request's or the response's — is chosen by the 'Record' field, on frames — this frame; both can be set from any phase: on a route with a later phase the request record waits for the outcome. No grant is needed: any inspector asked on the route may signal this.",
       },
       archive: {
         label: "Write to the archive",
-        hint: "Executed by the module: whether the request's objects are left to the agent for the archive. 'Keep' overrides the route's when= and works even without waf_archive: the switched-on objects, else the route's set, else everything captured; each object has its own size and source, the TTL covers all. 'Drop' — the objects go with the verdict. Which record — the request's or the response's — is chosen by the 'Record' field, on frames — this frame; both can be set from any phase. No grant is needed: any inspector asked on the route may ask for this.",
+        hint: "Executed by the module: whether the request's objects are left to the agent for the archive. 'Keep' overrides the route's when= and works even without waf_archive: the switched-on objects, else the route's set, else everything captured; each object has its own size and source, the TTL covers all. 'Drop' — the objects go with the verdict. Which record — the request's or the response's — is chosen by the 'Record' field, on frames — this frame; both can be set from any phase. No grant is needed: any inspector asked on the route may signal this.",
       },
       mark: {
         label: "Add a marker",
@@ -2880,7 +2880,7 @@ export const en: DeepString<typeof ru> = {
       },
       score: {
         label: "Points on the route",
-        hint: "Executed by the module: a signed number added to the phase sum of this request (on frames, this frame), next to the neighbours' verdict points. Add and the sum grows; remove and it shrinks, but never below zero: only what was accumulated can be removed. One inspector's contribution stays within a hundred either way, and neighbours see it as its score in prior. What to do with the sum is up to the route threshold (waf_score_deny). From a passive sender the ask is dropped: it affects traffic in no way.",
+        hint: "Executed by the module: a signed number added to the phase sum of this request (on frames, this frame), next to the neighbours' verdict points. Add and the sum grows; remove and it shrinks, but never below zero: only what was accumulated can be removed. One inspector's contribution stays within a hundred either way, and neighbours see it as its score in prior. What to do with the sum is up to the route threshold (waf_score_deny). From a passive sender the signal is dropped: it affects traffic in no way.",
       },
       list: {
         label: "Add to a dataset",
@@ -2888,9 +2888,9 @@ export const en: DeepString<typeof ru> = {
       },
     },
     group: {
-      record: "The route's record",
+      record: "The route event",
       mode: "Inspector mode",
-      ask: "Request to the inspector",
+      ask: "Signal to the inspector",
     },
     audit: {
       record: "Record",
@@ -2900,16 +2900,16 @@ export const en: DeepString<typeof ru> = {
       recordResponse: "response record",
       set: "What to do",
       alertAuditOn:
-        "The record happens regardless of what the route says: waf_audit_sample does not cancel the ask, and the objects enabled below land in the record even where the route's Record axis does not take them.",
+        "The record happens regardless of what the route says: waf_audit_sample does not cancel the signal, and the objects enabled below land in the record even where the route's Record axis does not take them.",
       alertAuditOff:
-        "The same as a sample miss, not a ban: a denial, an inspector's silence and a request that left objects to the archive are written anyway — otherwise the ask would hide evidence.",
+        "The same as a sample miss, not a ban: a denial, an inspector's silence and a request that left objects to the archive are written anyway — otherwise the signal would hide the matches.",
       alertArchiveOn:
-        "The objects stay with the agent regardless of what the route says: the route's when= does not filter the ask, and the archive happens even where there is no waf_archive at all. The ask names its own outcome below.",
+        "The objects stay with the agent regardless of what the route says: the route's when= does not filter the signal, and the archive happens even where there is no waf_archive at all. The signal names its own outcome below.",
       alertArchiveOff:
-        "The objects leave with the verdict: nothing is left to the agent, and the exchange is cleaned right away.",
+        "The objects leave with the verdict: nothing is left to the agent, and the buffer is cleaned right away.",
       alertSourceCapture:
         "The capture's Mask and Do not capture apply, and the route's own lists go on top. The size may be wider than the capture: the module hands what is missing to the agent with the record.",
-      objectShort: "budget and source — the ask's own",
+      objectShort: "budget and source — the signal's own",
       objectAsRoute: "as on the route",
       write: "write to the log",
       skip: "skip",
@@ -2919,9 +2919,9 @@ export const en: DeepString<typeof ru> = {
       ttlHint: "E.g. 30d. Empty — as configured on the route",
       when: "Archive on which outcomes",
       whenHint:
-        "The ask's own filter, not the route's: it does not read the route's when=. \"Any outcome\" — keep it whatever happens",
+        "The signal's own filter, not the route's: it does not read the route's when=. \"Any outcome\" — keep it whatever happens",
       objectsAuditHint:
-        "Objects as in the path's object dialog, the 'To record' axis: a switched-on object goes into the record itself with this budget and from this source; switched off — as on the route",
+        "Objects as in the path's object dialog, the 'To event' axis: a switched-on object goes into the record itself with this budget and from this source; switched off — as on the route",
       objectsArchiveHint:
         "Objects as in the path's object dialog, the 'To archive' axis: switched-on objects stay for the agent with this size and from this source; none switched on — the route's set, or everything captured without one",
       budgetHint: "How many bytes of the object go into the record; empty — the whole object, up to the datagram ceiling. The sum over objects is clamped to it",
@@ -3002,7 +3002,7 @@ export const en: DeepString<typeof ru> = {
   agent: {
     sent: "Version {rev}, {hash}",
     scopeHint:
-      "These settings are the same for every node of the contour. Everything that differs between nodes -- bus address, key, paths, nginx management -- stays on the node itself: that is how the agent reaches the bus, so it cannot arrive over the bus.",
+      "These settings are the same for every node of the installation. Everything that differs between nodes -- bus address, key, paths, nginx management -- stays on the node itself: that is how the agent reaches the bus, so it cannot arrive over the bus.",
     drift: "Saved but not sent yet: nodes keep the previous settings.",
     section: {
       archive: "Archive",
@@ -3243,9 +3243,9 @@ export const en: DeepString<typeof ru> = {
     rawWarn: "Nested objects, servers, and paths will be lost.",
     rawConfirm: "Enable",
     section: {
-      catalogs: "Contour catalogs",
+      catalogs: "Directories",
       catalogsHint:
-        "Lists, deny responses, the exchange and log formats. Servers and paths reference these by name.",
+        "Lists, deny responses, the buffer and log formats. Servers and paths reference these by name.",
       main: "File skeleton",
       mainHint:
         "load_module, worker_processes, events {} — everything above http {}. nginx does not start without it.",
@@ -3316,7 +3316,7 @@ export const en: DeepString<typeof ru> = {
       vars: "Variables",
       varsHint:
         "`waf_var`: a field in the audit record and the inspector message. The module's standard set always travels, ticks add to it; which inspector gets what is set on its declaration. The journal search filters by field name. Not for `waf_local_check` — that reads nginx variables directly.",
-      core: "Core",
+      core: "General",
       coreHint: "Enable WAF and early data. Budget and failures live on the phase card.",
       phaseRequest: "Request phase",
       phaseRequestHint:
@@ -3327,7 +3327,7 @@ export const en: DeepString<typeof ru> = {
       phaseFrame: "Frame phase",
       phaseFrameHint:
         "WebSocket frames from the client after the upgrade: budget and threshold. A frame is held until the verdict (gate); a deny is a Close from a type=websocket entry. Missing key means the request value.",
-      capture: "Capture & deliver",
+      capture: "Capture & respond",
       captureHint:
         "What to capture for inspectors, what of it to show in the audit record, what to archive, and what to deliver to the receiver — as received or with inspector edits. Four columns along the data path. A column is dimmed while inherited; any edit makes it your own.",
       policies: "Inspection failures",
@@ -3421,7 +3421,7 @@ export const en: DeepString<typeof ru> = {
       timeoutHint: "Empty inherits the route waf_deadline.",
       needs: "needs",
       needsHint:
-        "Empty means headers,args. none means no exchange. The list replaces the default entirely.",
+        "Empty means headers,args. none means no buffer. The list replaces the default entirely.",
       body: "body",
       bodyHint: "Body level. Empty means none, or full if needs includes body.",
       after: "after",
@@ -3442,7 +3442,7 @@ export const en: DeepString<typeof ru> = {
       role: "role",
       roleHint: "Empty means mandatory. advisory is not awaited and cannot appear in after.",
       placement: "placement",
-      placementHint: "Empty means remote. local is the same host (exchange, transform_after).",
+      placementHint: "Empty means remote. local is the same host (buffer, transform_after).",
       weight: "weight",
       weightHint:
         "Score multiplier, 0–10. Empty means 1. On advisory it only affects the audit estimate.",
@@ -3484,7 +3484,7 @@ export const en: DeepString<typeof ru> = {
       bodyMaxHolds: "waf_body_max_holds",
       busFlushIntervalMs: "waf_bus_flush_interval",
       busAddress: "bus address",
-      redisExchange: "exchange Redis",
+      redisExchange: "buffer Redis",
       redisInternal: "internal Redis",
       busName: "bus name",
       busConnectTimeoutMs: "bus connect_timeout",
@@ -3626,9 +3626,9 @@ export const en: DeepString<typeof ru> = {
       busAddress:
         "The NATS address the controller runs with (CONTROLLER_NATS_URL). Not editable: the same NATS is used by the agent and the inspectors, and editing one of the three would silently split them. Credentials come from there too.",
       redisExchange:
-        "The combat body exchange (CONTROLLER_REDIS_URL): printed into waf_store; the module puts headers, query and body there, inspectors read them and the agent archives them. Not editable: the agent and the inspectors know the same address. Password hidden.",
+        "The main body buffer (CONTROLLER_REDIS_URL): printed into waf_store; the module puts headers, query and body there, inspectors read them and the agent archives them. Not editable: the agent and the inspectors know the same address. Password hidden.",
       redisInternal:
-        "The contour's internal Redis (CONTROLLER_REDIS_INTERNAL_URL): generation blobs, captcha and counter buckets, gate rosters. The module does not use it. Inspectors and edges keep the same address in one form: the internal key of the redis block in inspector.conf and agent.conf. Password hidden.",
+        "The installation's internal Redis (CONTROLLER_REDIS_INTERNAL_URL): generation blobs, captcha and counter buckets, gate rosters. The module does not use it. Inspectors and edges keep the same address in one form: the internal key of the redis block in inspector.conf and agent.conf. Password hidden.",
       busName: "Connection name in NATS monitoring. Default waf-<hostname>.",
       busConnectTimeoutMs: "Connect timeout. Default 1000 ms.",
       busReconnectWaitMs: "Pause between reconnect attempts. Default 100 ms.",
@@ -3669,11 +3669,11 @@ export const en: DeepString<typeof ru> = {
       frameAuditSample:
         "Only with `all`: record every n-th frame. Empty or 1 — every frame.",
       frameReassemble:
-        "Fragment reassembly: a message split into fin=false frames is glued in the buffer and judged whole — a signature cannot hide between frames. The receiver gets it as a single frame, so leave it off for applications that rely on fragment boundaries. The ceiling is `waf_body_limit frame`. Empty — off.",
+        "Fragment reassembly: a message split into fin=false frames is glued in the buffer and evaluated whole — a signature cannot hide between frames. The receiver gets it as a single frame, so leave it off for applications that rely on fragment boundaries. The ceiling is `waf_body_limit frame`. Empty — off.",
       frameControlRate:
         "Ping and pong above the rate are not forwarded (a bucket per direction, burst is one second of the rate); the connection stays up, Close is never limited. `<n>r/s`, `<n>r/m` or `off`. Empty — `10r/s`.",
       frameCacheTtl:
-        "Verdict cache by payload hash: a repeat of the same frame on this location skips the bus until the entry expires. Only a clean allow from a real inspection is remembered; denies and rewrites never; the counter opts out by itself. Enable where inspectors judge by content and frames repeat (heartbeats, broadcasts). At most an hour. Empty — no cache.",
+        "Verdict cache by payload hash: a repeat of the same frame on this location skips the bus until the entry expires. Only a clean allow from a real inspection is remembered; denies and rewrites never; the counter opts out by itself. Enable where inspectors evaluate by content and frames repeat (heartbeats, broadcasts). At most an hour. Empty — no cache.",
       frameCacheStream:
         "Which side to cache: both, client frames only or application frames only. Not printed without a ttl.",
       denyMode: "fast closes on the first required deny; deterministic waits for the whole wave.",
@@ -3695,7 +3695,7 @@ export const en: DeepString<typeof ru> = {
         " own term and size without rewriting the headers. Without a ttl the" +
         " object is kept forever; the size is trimmed by the agent, not the" +
         " module. `when=` is allow or deny; omit it to archive every outcome." +
-        " No exchange is named here — the contour has exactly one (`waf_store`).",
+        " No buffer is named here — the installation has exactly one (`waf_store`).",
       preview:
         "Request slice carried inside the audit record. The size on the object" +
         " is required: `headers=64k/2k args=8k body=10k` or `none`. Name lists" +
@@ -3942,13 +3942,13 @@ export const en: DeepString<typeof ru> = {
     timeoutHint: "How long to wait for this inspector. Empty — the whole phase budget (waf_deadline).",
     mode: "Mode",
     modeHint:
-      "**active** — the verdict counts.\n**passive** — the inspector is polled, but its verdict decides nothing: the answer only reaches the log.\n**vote** — only points are taken from the inspector: a score lands in the sum as sent, a deny counts as 100 points, and it decides nothing on its own — no denial, no redirect, no traffic edits. How many such votes make a denial is the route threshold waf_score_deny. Neighbours see it, it may ask and control, and it is awaited like an active one.\n**off** — the row is written, but the inspector is not asked until a neighbour changes the mode with a request: any inspector asked on this route may.\n\nThe mode says how the answer counts, not whether to call: that is the call condition, and it is settled first. It fails — the inspector is not asked in any mode.",
+      "**active** — the verdict counts.\n**passive** — the inspector is polled, but its verdict decides nothing: the answer only reaches the log.\n**vote** — only points are taken from the inspector: a score lands in the sum as sent, a deny counts as 100 points, and it decides nothing on its own — no denial, no redirect, no traffic edits. How many such votes make a denial is the route threshold waf_score_deny. Neighbours see it, it may signal and control, and it is awaited like an active one.\n**off** — the row is written, but the inspector is not asked until a neighbour changes the mode with a request: any inspector asked on this route may.\n\nThe mode says how the answer counts, not whether to call: that is the call condition, and it is settled first. It fails — the inspector is not asked in any mode.",
     keep: "Keep",
     keepHint:
       "keep=on: the inspector leaves the transaction open after it answers — the response phase of the same inspector will come back for it. Without it the transaction is dropped with the answer.\n\nOnly in a pair with Resume on the same name in the response phase: one without the other is rejected by the controller and by nginx -t — nobody to keep for, or nothing to keep.",
     resume: "Resume",
     resumeHint:
-      "What to do with the state the request phase kept (Keep). Resuming plays phases 3–4 on the same transaction, with the real request context and inbound score.\n\n**off** — start over from the request context in the exchange.\n**prefer** — resume; no state (instance died, ttl expired, registry was full) — replay quietly.\n**require** — resume; no state — deny (MODSEC_RESUME_LOST) and log an error: for rules that need the request body or the real score a replay is no check at all.\n\nNeeds Keep on the same name in the request phase.",
+      "What to do with the state the request phase kept (Keep). Resuming plays phases 3–4 on the same transaction, with the real request context and inbound score.\n\n**off** — start over from the request context in the buffer.\n**prefer** — resume; no state (instance died, ttl expired, registry was full) — replay quietly.\n**require** — resume; no state — deny (MODSEC_RESUME_LOST) and log an error: for rules that need the request body or the real score a replay is no check at all.\n\nNeeds Keep on the same name in the request phase.",
     timeoutInherit: "phase budget",
     addInspector: "Add inspector",
     addDialogHint:
@@ -4169,9 +4169,9 @@ export const en: DeepString<typeof ru> = {
       "No process behind: {names}. The declaration has no catalog record — the compiler will not accept it.",
     declareBlurb:
       "The name is what a route calls. A second name on the same process with a different profile — that is how a lenient allow_ip and a strict strict_ip are made; the subject, phases and conf stay with the process, the declaration references them.",
-    nameHint: "A letter, then letters, digits, `_` and `-`. Up to 64 names per contour.",
+    nameHint: "A letter, then letters, digits, `_` and `-`. Up to 64 names per installation.",
     nameBad: "Not a name: a letter first, then letters, digits, `_` and `-`, up to 64 characters.",
-    nameUsed: "That name is already in the registry — a contour has no two alike.",
+    nameUsed: "That name is already in the registry — an installation has no two alike.",
     editBlurb:
       "The declaration: the name routes call an inspector by, and the process behind that name. Subject, phases and inspector.conf belong to the process and are edited in the catalog.",
     process: "Process",
@@ -4208,14 +4208,14 @@ export const en: DeepString<typeof ru> = {
     vars: "Request fields",
     varsBlurb: "Which request fields travel in the message to this name.",
     varsHint:
-      "The vars section in the message to this name: the module's standard set and the contour's waf_var. Unticked fields do not travel. The audit record carries every field regardless.",
-    varsOffHint: "Off: no vars section — the inspector reads headers from the exchange.",
+      "The vars section in the message to this name: the module's standard set and the installation's waf_var. Unticked fields do not travel. The audit record carries every field regardless.",
+    varsOffHint: "Off: no vars section — the inspector reads headers from the buffer.",
     varsNone:
       "No field is ticked, and a vars section is never empty: tick fields or switch the block off.",
     varsAllSummary: "all fields",
     varsAll: "all fields — including ones declared later",
     varsBuiltin: "module standard set",
-    varsOwn: "contour waf_var",
+    varsOwn: "installation waf_var",
     varsAllTag: "fields: all",
     varsTag: "fields: {fields}",
     editTitle: "Inspector · {name}",
@@ -4256,7 +4256,7 @@ export const en: DeepString<typeof ru> = {
     level: "Level",
     levelHelp: "error_log threshold. nginx default — error.",
     format: "Format",
-    formatHelp: "A log_format from the contour catalog. Empty — combined.",
+    formatHelp: "A log_format from the installation directory. Empty — combined.",
     formatDefault: "combined",
     conditionLabel: "Condition",
     conditionHelp: "if=$variable: the line is written when the value is neither empty nor 0.",
@@ -4372,7 +4372,7 @@ export const en: DeepString<typeof ru> = {
     ttlNeeded: "ttl needed",
     noShmTitle: "No waf_shm_zone",
     noShm:
-      "The local layer lives in shared memory: without the zone the node rejects the config (nginx -t) instead of silently skipping the checks. The zone is declared once per contour.",
+      "The local layer lives in shared memory: without the zone the node rejects the config (nginx -t) instead of silently skipping the checks. The zone is declared once per installation.",
     off: "Empty means a `waf_local_check none` line: the server's checks are dropped on this location.",
     offRate:
       "Empty means a `waf_local_rate none` line: the server's limits are dropped on this location.",
@@ -4458,23 +4458,23 @@ export const en: DeepString<typeof ru> = {
       subject: "named as (subject)",
       retry: "retry after (retry)",
     },
-    storeCreate: "Create an exchange",
-    storeWhere: "Exchange",
+    storeCreate: "Create an buffer",
+    storeWhere: "Buffer",
     storeWhereHint:
       "Driver and address are not editable: the same redis is declared twice more — by the agent (agent.conf) and by the inspectors (REDIS_URL). The controller prints them from its own environment (CONTROLLER_REDIS_URL); editing one of the three would silently split them, and the module would put objects where nobody reads.",
-    storeUrlUnset: "The controller runs without CONTROLLER_REDIS_URL: no exchange address, the config will not build.",
+    storeUrlUnset: "The controller runs without CONTROLLER_REDIS_URL: no buffer address, the config will not build.",
     storeTtlHint: "Object lifetime during the wave. Default 30s.",
     storeRetainHint: "Until the agent takes archive and preview. Below ttl= — nginx -t.",
     storeMaxHint: "Value cap. A larger waf_body_limit — nginx -t.",
     storeMore: "More parameters",
     storeMoreHint: "Connection pool, timeouts, database number.",
-    storeDialog: "Exchange: more parameters",
-    storeAddTitle: "New exchange",
+    storeDialog: "Buffer: more parameters",
+    storeAddTitle: "New buffer",
     storeLine: "Config line",
     storePoolHint: "Connections per worker, 1…64. Default 4.",
     storeConnectHint: "Connecting to redis. Default 200ms.",
     storeOpHint:
-      "GET/SET inside the request budget. An exchange answering slower must turn the body into unavailable rather than eat the inspectors' deadline. Default 100ms.",
+      "GET/SET inside the request budget. An buffer answering slower must turn the body into unavailable rather than eat the inspectors' deadline. Default 100ms.",
     storeReconnectHint: "Pause between reconnect attempts. Default 500ms.",
     storeDbHint: "Redis database number. Empty means 0.",
     formatNameHint: "This is the name access_log uses.",
@@ -4489,7 +4489,7 @@ export const en: DeepString<typeof ru> = {
     listSize: "Entries",
     deny: "Deny responses",
     denyHint:
-      "waf_deny_response: what the contour answers a blocked client. Name, status and body; referenced by waf_deny_response_default, the score threshold and local checks.",
+      "waf_deny_response: what the installation answers a blocked client. Name, status and body; referenced by waf_deny_response_default, the score threshold and local checks.",
     denyBody: "Body",
     denyBodyHint:
       "What reaches the client: for http a page (`page=@name`, the named location nginx routes to via error_page); for grpc and websocket the `message=` text. The page text itself is edited under Data.",
@@ -4508,12 +4508,12 @@ export const en: DeepString<typeof ru> = {
     fromPages: "from the pages catalog",
     editPages: "Edit page content",
     advanced: "Advanced",
-    advancedHint: "The object exchange and log formats: one or two records per contour.",
-    store: "Object exchange",
+    advancedHint: "The object buffer and log formats: one or two records per installation.",
+    store: "Object buffer",
     storeHint:
-      "waf_store: where body, headers and query string are put so an inspector can read them and the agent can archive them. One per contour.",
-    storeMany: "More than one exchange — the config will not build.",
-    storeNone: "No exchange. Capture and archive will not load: there is nowhere to put the object.",
+      "waf_store: where body, headers and query string are put so an inspector can read them and the agent can archive them. One per installation.",
+    storeMany: "More than one buffer — the config will not build.",
+    storeNone: "No buffer. Capture and archive will not load: there is nowhere to put the object.",
     formats: "Log formats",
     formatsHint: "log_format — nginx access-log formats; access_log refers to them.",
     formatBodyHint: "Directive body without quotes. A single quote inside cannot be expressed.",
@@ -4524,7 +4524,7 @@ export const en: DeepString<typeof ru> = {
   tail: {
     object: "Object",
     objectHint:
-      "**A row is one object of the phase**: `headers`, `args` — the query string, `body`. The columns are what happens to that object: Capture — what inspectors see, To record — what lands in the audit record, To archive — what the agent takes to S3, Deliver — which version the recipient gets.\n\nClicking a row opens the object window: every axis is edited together there, next to the lines that go into the config. A row's object never changes — for another one, delete the row and add the object you need.",
+      "**A row is one object of the phase**: `headers`, `args` — the query string, `body`. The columns are what happens to that object: Capture — what inspectors see, To event — what lands in the event, To archive — what the agent takes to S3, Deliver — which version the recipient gets.\n\nClicking a row opens the object window: every axis is edited together there, next to the lines that go into the config. A row's object never changes — for another one, delete the row and add the object you need.",
     objects: {
       headers: "headers",
       args: "query args",
@@ -4558,20 +4558,20 @@ export const en: DeepString<typeof ru> = {
     objectDialogHintJournal:
       "The phase has no inspectors: nobody to capture or deliver for, so there are no Capture and Deliver axes here. The audit record and the archive remain — they take the object from the traffic itself.\n\nBelow are the warnings and the lines that go into this level's config; only touched axes are written.",
     capture: "Capture",
-    captureShort: "what inspectors see and what goes into the exchange",
-    preview: "To record",
+    captureShort: "what inspectors see and what goes into the buffer",
+    preview: "To event",
     previewShort: "what lands in the audit record and is searched",
     archive: "To archive",
     archiveShort: "what the agent takes to S3 after the verdict",
-    send: "Deliver",
+    send: "To client",
     sendShort: "which version the recipient gets — as received or edited",
     axisOff: "not carried",
     captureHint:
-      "`waf_capture` — **what inspectors see**. A captured object is put into the exchange (Redis) once, before the first wave, and inspectors read it from there; an object that is not captured reaches inspectors as `null`.\n\n**Slice** limits the size, **Mask** replaces a name's value with sha256, **Do not capture** drops the name altogether — all before the exchange, so inspectors never see the original.\n\nA body in the capture makes the first wave wait for the body to be read. The response body capture also sets how much of the response the module holds until the verdict.\n\nThe record and the archive with lists “as captured” show names the way inspectors saw them; their sizes are their own.",
+      "`waf_capture` — **what inspectors see**. A captured object is put into the buffer (Redis) once, before the first wave, and inspectors read it from there; an object that is not captured reaches inspectors as `null`.\n\n**Slice** limits the size, **Mask** replaces a name's value with sha256, **Do not capture** drops the name altogether — all before the buffer, so inspectors never see the original.\n\nA body in the capture makes the first wave wait for the body to be read. The response body capture also sets how much of the response the module holds until the verdict.\n\nThe record and the archive with lists “as captured” show names the way inspectors saw them; their sizes are their own.",
     previewHint:
-      "`waf_preview` — **a slice of the object inside the audit record**. The record goes to the log, and the slice lets you search requests across all traffic. The module cuts the slice itself from what it holds in memory — nobody fetches it from the exchange.\n\n**Budget** — the slice size in bytes of written JSON, required. Headers and args take a second value, the **pair cap**: `30k/2k`.\n\n**Name lists** — as captured or own; own lists replace the capture lists instead of adding to them. On the request phase the slice may be wider than the capture, a response body only within it.\n\nWhich requests are recorded at all is up to the route's sample; denials are always recorded.",
+      "`waf_preview` — **a slice of the object inside the audit record**. The record goes to the log, and the slice lets you search requests across all traffic. The module cuts the slice itself from what it holds in memory — nobody fetches it from the buffer.\n\n**Budget** — the slice size in bytes of written JSON, required. Headers and args take a second value, the **pair cap**: `30k/2k`.\n\n**Name lists** — as captured or own; own lists replace the capture lists instead of adding to them. On the request phase the slice may be wider than the capture, a response body only within it.\n\nWhich requests are recorded at all is up to the route's sample; denials are always recorded.",
     archiveHint:
-      "`waf_archive` — **what the agent takes to S3 after the verdict**: each kind of object into its own bucket. The audit record keeps a link, and the incident card opens the object by it.\n\n**Size** — how many bytes to keep, empty for the whole object. **Keep** and **Outcome** — the lifetime in the archive and on which outcomes to archive. **Name lists** — as captured or own, independent of the capture.\n\nWhere the bytes come from, the module decides itself: if the copy in the exchange is enough — the size is no wider than the capture and own lists open nothing it hid — the agent takes it; otherwise the module hands the original to the agent with the record. The exchange is never written twice, and the request does not wait for it.",
+      "`waf_archive` — **what the agent takes to S3 after the verdict**: each kind of object into its own bucket. The audit record keeps a link, and the incident card opens the object by it.\n\n**Size** — how many bytes to keep, empty for the whole object. **Keep** and **Outcome** — the lifetime in the archive and on which outcomes to archive. **Name lists** — as captured or own, independent of the capture.\n\nWhere the bytes come from, the module decides itself: if the copy in the buffer is enough — the size is no wider than the capture and own lists open nothing it hid — the agent takes it; otherwise the module hands the original to the agent with the record. The buffer is never written twice, and the request does not wait for it.",
     slice: "Slice",
     sliceHint:
       "How many bytes of the object to capture: `64k`, `1m`. Empty — the whole object.\n\n**Headers** are cut at a whole pair, the size counted over the JSON of the pairs. **The query string** and **the body** are cut to a byte prefix.\n\nA size above `waf_body_limit` or `client_max_body_size` fails `nginx -t`. Headers and the query string are further bounded by nginx's header buffers. A body over `waf_body_limit` is handled by the limit policy: deny, cut, or pass without checking the body.",
@@ -4590,7 +4590,7 @@ export const en: DeepString<typeof ru> = {
     sendPickHeadersHint:
       "**Original** — headers as received, inspector `set` and `unset` are not applied.\n\n**Edited** — edits land over the original by name and stack wave after wave, a later edit of a name wins. A name nobody touched goes as received — even if the capture cut or masked it: capture masks do not apply to the recipient.",
     sendPickArgsHint:
-      "**Original** — the query string as received, inspector `set` and `unset` are not applied.\n\n**Edited** — edits land over the original by name: `set` changes a value or appends a pair, `unset` removes every pair with that name, a later edit wins. Capture masks and the slice do not apply to the recipient, and the string never travels through the exchange.",
+      "**Original** — the query string as received, inspector `set` and `unset` are not applied.\n\n**Edited** — edits land over the original by name: `set` changes a value or appends a pair, `unset` removes every pair with that name, a later edit wins. Capture masks and the slice do not apply to the recipient, and the string never travels through the buffer.",
     sendPickFrameHint:
       "**Original** — the frame as received.\n\n**Edited** — the frame payload from the inspector's object (the last one if there were several); the frame is rebuilt with the original opcode and fin flag.\n\nThe frame capture must be whole: a frame wider than the slice is a failed lift, and the direction's policy for an unavailable object decides: close the connection or deliver the original.",
     budget: "Budget",
@@ -4649,10 +4649,10 @@ export const en: DeepString<typeof ru> = {
     ownMaskHint:
       "The name stays, the value is replaced with its sha256. Hashes let you match requests — say, the same token from different addresses — without revealing the value. A name the capture already hashed is not hashed again. Empty — no masks.",
     captureMaskHint:
-      "The name stays, the value is replaced with its sha256 — before the exchange, so inspectors see only the hash. Hashes let you match requests (the same token from different addresses) without revealing the value.\n\nThe record and the archive with lists “as captured” get the same hash. Names are matched case-insensitively.",
+      "The name stays, the value is replaced with its sha256 — before the buffer, so inspectors see only the hash. Hashes let you match requests (the same token from different addresses) without revealing the value.\n\nThe record and the archive with lists “as captured” get the same hash. Names are matched case-insensitively.",
     deny: "Do not capture",
     captureDenyHint:
-      "The name is dropped together with its value before the exchange: inspectors never learn it was there.\n\nThe record and the archive with lists “as captured” do not get it either; with own lists they do, unless those lists drop it themselves. Names are matched case-insensitively.",
+      "The name is dropped together with its value before the buffer: inspectors never learn it was there.\n\nThe record and the archive with lists “as captured” do not get it either; with own lists they do, unless those lists drop it themselves. Names are matched case-insensitively.",
     addName: "add name…",
     whole: "whole",
     no: "no",
@@ -4672,7 +4672,7 @@ export const en: DeepString<typeof ru> = {
     whenSummaryBoth: "everything but redirect",
     alert: {
       capture:
-        "The capture is the only copy of the object inspectors see. The slice cuts the object, Mask and Do not capture apply before the exchange, and the original is out of inspectors' reach. The record and the archive with lists “as captured” show names the same way; their sizes are their own.",
+        "The capture is the only copy of the object inspectors see. The slice cuts the object, Mask and Do not capture apply before the buffer, and the original is out of inspectors' reach. The record and the archive with lists “as captured” show names the same way; their sizes are their own.",
       sourceOriginal:
         "The original is taken before the capture masks, and only the route's own lists for the record or the archive apply. With no own lists the object goes without any masks, and a header the capture masked ends up in the clear.",
       sourceSent:
@@ -4684,9 +4684,9 @@ export const en: DeepString<typeof ru> = {
       ownListsOpenJournal:
         "The phase's standard lists hide {names}, and own lists neither mask nor drop them — they land here in the clear.",
       auditOverride:
-        "An inspector can ask for this object to be recorded through the action channel — with its own budget and source, even when recording is off here and the request missed the sample. What stands here is the route's default, not a ban.",
+        "An inspector can signal for this object to be recorded through the action channel — with its own budget and source, even when recording is off here and the request missed the sample. What stands here is the route's default, not a ban.",
       archiveOverride:
-        "An inspector can ask for this object to be archived through the action channel — with its own size, lifetime and source, and on any outcome. What stands here is the route's default, not a ban.",
+        "An inspector can signal for this object to be archived through the action channel — with its own size, lifetime and source, and on any outcome. What stands here is the route's default, not a ban.",
       sendOriginal:
         "The recipient gets the object as it arrived: inspector edits are not applied — the same on the request, the response and frames. An edit, if there was one, lands in the record with applied:false.",
       sendStoreBody:
@@ -4730,7 +4730,7 @@ export const en: DeepString<typeof ru> = {
     },
     frameAudit: "Frame records",
     frameAuditHint:
-      "`waf_audit_frames` — **which frames reach the journal**, and with them the frame slice (To record) and archive.\n\n**Record denials** — only a frame that was denied, rewritten or scored; without inspectors there are none. **Record all** — every frame of both sides (or every n-th); the frame goes to the recipient without waiting for the record. **No records** — neither frames nor the session summary.\n\nThe session summary is written when the connection closes, with any value but “no records”. One policy per path, for both sides.",
+      "`waf_audit_frames` — **which frames reach the journal**, and with them the frame slice (To event) and archive.\n\n**Record denials** — only a frame that was denied, rewritten or scored; without inspectors there are none. **Record all** — every frame of both sides (or every n-th); the frame goes to the recipient without waiting for the record. **No records** — neither frames nor the session summary.\n\nThe session summary is written when the connection closes, with any value but “no records”. One policy per path, for both sides.",
     frameAuditOptions: {
       inherit: "inherits: {value}",
       off: "no records",

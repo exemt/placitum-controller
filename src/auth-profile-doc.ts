@@ -310,7 +310,7 @@ export function validateDoc(doc: AuthProfileDoc): void {
 export function renderProfileYaml(name: string, doc: AuthProfileDoc): string {
   const out: string[] = [];
 
-  out.push(`# Профиль калитки ${name}. Собран контроллером, править здесь нечего:`);
+  out.push(`# Профиль проверки входа ${name}. Собран контроллером, править здесь нечего:`);
   out.push("# источник -- таблица auth_profiles, раздел /auth в UX.");
   out.push("");
   out.push(doc.source === "" ? 'mode: "off"' : "mode: enforce");
