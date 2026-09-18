@@ -1058,6 +1058,7 @@ export function parseNginx(value: unknown): ParseResult<NginxHttpSettings> {
     ) ??
     put(row, "addHeaders", parseAddHeaders(value.addHeaders)) ??
     put(row, "accessLog", parseAccessLog(value.accessLog)) ??
+    put(row, "accessLogShip", asBool(value.accessLogShip, "access_log_ship")) ??
     put(row, "errorLog", parseErrorLog(value.errorLog)) ??
     put(row, "includes", asStrList(value.includes, "includes"));
   return err ?? ok(row);

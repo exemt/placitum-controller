@@ -7,6 +7,7 @@ import type {
 } from "../model/http-space.ts";
 import { DENY_PARAMS, isNamedLocation } from "../catalogs.ts";
 import { NGINX_MAX_DATASETS, nginxDatasetType } from "../model/http-space.ts";
+import { accessLogShipTail } from "../model/log.ts";
 import {
   BUILTIN_VARS,
   isBuiltinVar,
@@ -498,6 +499,17 @@ function emitNginxHttp(lines: string[], nginx: NginxHttpSettings): void {
     ind(lines, `proxy_set_header ${h.name} ${h.value};`);
   }
   emitLogs(lines, nginx, "    ");
+
+  /*
+   * Журнал доступа узла уезжает в контур сам: без этой строки он идёт в
+   * /dev/stdout образа, а у мастера nginx это /dev/null -- строка на каждый
+   * запрос форматируется и выбрасывается.
+   */
+  const accessShip = accessLogShipTail(nginx.accessLog, nginx.accessLogShip);
+
+  if (accessShip !== undefined) {
+    ind(lines, `access_log ${accessShip};`);
+  }
 
   if (nginx.addHeaders) {
     for (const h of nginx.addHeaders) {

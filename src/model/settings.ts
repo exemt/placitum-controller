@@ -111,6 +111,7 @@ export interface NginxHttpSettings {
   proxyHeaders?: ProxyHeaderPreset;
   addHeaders?: { name: string; value: string; always?: boolean }[];
   accessLog?: AccessLog;
+  accessLogShip?: boolean;
   errorLog?: ErrorLog;
   includes?: string[];
 }

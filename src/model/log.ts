@@ -121,6 +121,34 @@ export function accessLogTails(value: unknown): string[] {
   return tails;
 }
 
+/**
+ * The access log line that ships requests to the node agent, and from it to the
+ * journal. nginx writes to every access_log of a level, so this one stands next
+ * to whatever the operator asked for instead of replacing it.
+ *
+ * Nothing is shipped when the operator turned the access log off or already
+ * points one at the socket: a second identical line would double every request.
+ */
+export function accessLogShipTail(value: unknown, ship?: boolean): string | undefined {
+  if (ship === false) {
+    return undefined;
+  }
+
+  const tails = accessLogTails(value);
+
+  if (tails.includes("off")) {
+    return undefined;
+  }
+
+  const sock = agentSyslog();
+
+  if (tails.some((tail) => tail.startsWith(sock))) {
+    return undefined;
+  }
+
+  return `${sock} combined`;
+}
+
 export function errorLogTail(value: unknown): string | undefined {
   if (value === undefined || value === null) {
     return undefined;
