@@ -14,7 +14,7 @@ the controller needs, how it is configured and how to check that it is running.
 | PostgreSQL | yes | configuration: spaces, servers, routes, profiles, drafts |
 | NATS with JetStream | yes | KV through which configuration generations reach nodes and inspectors |
 | Internal Redis | yes | generation blobs: KV carries a pointer, the body lives here |
-| `crypto` | for certificates uploaded in the panel | decrypts private keys with the contour key; the controller never sees them in plain text |
+| `crypto` | for certificates uploaded in the panel | decrypts private keys with the installation key; the controller never sees them in plain text |
 | `search` (logger) | for the log and incidents | the panel reaches it through the controller; it is not exposed |
 | `geo` | for address cards | country and ASN by address |
 
@@ -35,7 +35,7 @@ configuration.
 | `CONTROLLER_REDIS_INTERNAL_URL` | same as `CONTROLLER_REDIS_URL` | internal Redis: generation blobs |
 | `CONTROLLER_NODE_NATS_URL`, `_REDIS_URL`, `_REDIS_INTERNAL_URL` | the controller's own | NATS and Redis addresses written into the node configuration when the nodes reach them by other addresses than the controller does, such as nginx on the machine outside the container network |
 | `CONTROLLER_CRYPTO_SERVICE_URL` | — | `http://crypto:8093` |
-| `CONTROLLER_CRYPTO_PUBLIC_KEY` | — | public half of the contour key: PEM or a file path |
+| `CONTROLLER_CRYPTO_PUBLIC_KEY` | — | public half of the installation key: PEM or a file path |
 | `CONTROLLER_SEARCH_URL` | — | `http://search:8091` |
 | `CONTROLLER_GEO_URL` | — | `http://geo:8092` |
 | `CONTROLLER_UX_DIR` | `/app/ux/dist` | built panel inside the image |
@@ -112,7 +112,7 @@ database.
 
 ## Pitfalls
 
-- **The key fingerprint is baked in at build time.** After changing the contour key, rebuild the
+- **The key fingerprint is baked in at build time.** After changing the installation key, rebuild the
   image, otherwise the panel reports a mismatch.
 - **Configuration lives in process memory.** A manual change in the database is not visible until
   a restart: the controller keeps state in memory and writes to the database rather than reading

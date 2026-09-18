@@ -46,7 +46,7 @@ The controller is configured with environment variables. The main ones:
 | `CONTROLLER_REDIS_INTERNAL_URL` | same as `CONTROLLER_REDIS_URL` | internal Redis for configuration delivery |
 | `CONTROLLER_REDIS_URL` | — | body store Redis: the controller does not use it, it only passes the address to the nodes |
 | `CONTROLLER_NODE_NATS_URL`, `_REDIS_URL`, `_REDIS_INTERNAL_URL` | the controller's own | the same addresses as the nodes reach them, when that differs |
-| `CONTROLLER_CRYPTO_PUBLIC_KEY` | — | public contour key: PEM or a file path |
+| `CONTROLLER_CRYPTO_PUBLIC_KEY` | — | public installation key: PEM or a file path |
 | `CONTROLLER_CRYPTO_SERVICE_URL` | — | `crypto` address, e.g. `http://crypto:8093` |
 | `CONTROLLER_SEARCH_URL` | — | `search` address, e.g. `http://search:8091`; without it the panel has no log |
 | `CONTROLLER_GEO_URL` | — | `geo` address, e.g. `http://geo:8092`; without it addresses have no country or ASN |
@@ -69,7 +69,7 @@ Or straight from GitHub, without a clone:
 docker buildx build -t placitum/controller "https://github.com/exemt/placitum-controller.git#develop"
 ```
 
-The browser checks that the API returned the real contour key against a fingerprint in
+The browser checks that the API returned the real installation key against a fingerprint in
 `/app/ux/dist/contour-pin.json`. The image ships the file with an empty fingerprint, and the panel
 shows a warning. The installation mounts its own file over it, read-only:
 
@@ -106,7 +106,7 @@ Load it through the panel or with `npm run load-geo`.
 - The controller itself does not ask for a password. In a full installation the panel is opened
   through the edge node, which handles login, and the controller port listens on 127.0.0.1 only.
   Do not publish this port or put a proxy in front of it.
-- The controller only accepts the public half of the contour key; it rejects the private one.
+- The controller only accepts the public half of the installation key; it rejects the private one.
 - The `search` (8091) and `crypto` (8093) ports stay internal: the controller talks to them, not
   the browser.
 
