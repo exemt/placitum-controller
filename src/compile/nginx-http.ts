@@ -5,7 +5,7 @@ import type {
   Inspector,
   LogFormat,
 } from "../model/http-space.ts";
-import { DENY_PARAMS } from "../catalogs.ts";
+import { DENY_PARAMS, isNamedLocation } from "../catalogs.ts";
 import { NGINX_MAX_DATASETS, nginxDatasetType } from "../model/http-space.ts";
 import {
   BUILTIN_VARS,
@@ -13,6 +13,7 @@ import {
   type NginxHttpSettings,
   type WafHttpSettings,
 } from "../model/settings.ts";
+import { shmShortfall, shmShortfallText } from "../model/shm-fit.ts";
 import { mergeInspectorGraphs } from "../inspector-graph.ts";
 import type { InspectorDecl, WafRouteSettings } from "../model/waf-route.ts";
 import { alignColumns } from "./nginx-align.ts";
@@ -270,6 +271,14 @@ export function compileHttp(source: HttpCompileSource): NginxCompileResult {
       "resolver_required",
       `server … resolve needs resolver in http: ${resolving.sort().join(", ")}`,
     );
+  }
+  const short = shmShortfall(source.wafHttp?.shmZone, source.datasets ?? []);
+  if (short !== null) {
+    throw new WafCompileError("shm_zone_too_small", shmShortfallText(short), {
+      zone: short.zone,
+      size: short.size,
+      need: short.need,
+    });
   }
   const storeRefs: string[] = [];
   const store = nestStore(storeRefs, source.store);
@@ -691,7 +700,15 @@ function emitDenyResponses(lines: string[], responses: DenyResponse[]): void {
     const parts: string[] = [];
     if (dr.type !== "http") parts.push(`type=${dr.type}`);
     if (dr.spec.status !== undefined) parts.push(`status=${dr.spec.status}`);
-    if (dr.spec.page) parts.push(denyOption("page", dr.spec.page));
+    if (dr.spec.page) {
+      if (!isNamedLocation(dr.spec.page)) {
+        throw new WafCompileError(
+          "deny_page_not_named",
+          `deny response "${dr.name}" has page=${dr.spec.page}: page= expects a named location (@name)`,
+        );
+      }
+      parts.push(denyOption("page", dr.spec.page));
+    }
     if (dr.type !== "http" && dr.spec.message) {
       parts.push(denyOption("message", dr.spec.message));
     }

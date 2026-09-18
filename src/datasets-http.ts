@@ -21,12 +21,20 @@ import {
   isDatasetType,
 } from "./model/http-space.ts";
 import { asUuid } from "./model/id.ts";
+import {
+  countsInNginx,
+  datasetShmEntries,
+  shmShortfall,
+  shmShortfallText,
+  type ShmDataset,
+} from "./model/shm-fit.ts";
 import { parseNginxTimeS } from "./nginx-time.ts";
 import { scopeOf } from "./scope.ts";
 import {
   datasetSelectors,
   selectDatasetsInSpace,
 } from "./state/slices/datasets.ts";
+import { spaceSelectors } from "./state/slices/spaces.ts";
 import type { AppDispatch, RootState } from "./state/types.ts";
 import {
   addAddresses,
@@ -257,6 +265,49 @@ function datasetInScope(
   return row;
 }
 
+/*
+ * The zone of the space must fit every dataset kept in nginx: the module reserves limit=
+ * entries for an active set up front, and a zone that does not fit fails nginx -t on the
+ * edge, which drops the whole generation. Only a change that asks for more room is vetoed:
+ * a rename on an already crowded zone is not this request's fault.
+ */
+function shmVeto(
+  getState: () => RootState,
+  scope: string,
+  next: ShmDataset & { id: string },
+  current?: Dataset,
+): Record<string, unknown> | undefined {
+  if (!countsInNginx(next)) {
+    return undefined;
+  }
+
+  if (
+    current !== undefined &&
+    countsInNginx(current) &&
+    datasetShmEntries(current) === datasetShmEntries(next)
+  ) {
+    return undefined;
+  }
+
+  /* Tests stub only the slices they need. */
+  const state = getState() as Partial<RootState>;
+  const space = state.spaces === undefined ? undefined : spaceSelectors.selectById(getState(), scope);
+  const others = selectDatasetsInSpace(getState(), scope).filter((row) => row.id !== next.id);
+  const short = shmShortfall(space?.wafHttp?.shmZone, [...others, next]);
+
+  if (short === null) {
+    return undefined;
+  }
+
+  return {
+    error: "shm_zone_too_small",
+    detail: shmShortfallText(short),
+    zone: short.zone,
+    size: short.size,
+    need: short.need,
+  };
+}
+
 export function contentTypesRouter(repo: DatasetRepo): Router {
   const router = Router({ mergeParams: true });
 
@@ -445,6 +496,20 @@ export function datasetsRouter(
 
       if (body.hash === true && (kind !== "list" || type !== "string")) {
         res.status(400).json({ error: "hash_string_only" });
+        return;
+      }
+
+      const veto = shmVeto(getState, spaceId, {
+        id: "",
+        kind,
+        inNginx: body.in_nginx === true,
+        active: kind === "list" && mode === "active",
+        maxEntries: maxEntries ?? 1_000_000,
+        size: 0,
+      });
+
+      if (veto !== undefined) {
+        res.status(400).json(veto);
         return;
       }
 
@@ -871,6 +936,27 @@ export function datasetsRouter(
       if (hashChanged && current.size > 0) {
         res.status(400).json({ error: "hash_locked" });
         return;
+      }
+
+      if (current !== undefined) {
+        const veto = shmVeto(
+          getState,
+          scope,
+          {
+            id: current.id,
+            kind: current.kind,
+            inNginx: (body.in_nginx as boolean | undefined) ?? current.inNginx,
+            active: nextActive ?? current.active,
+            maxEntries: maxEntries ?? current.maxEntries,
+            size: current.size,
+          },
+          current,
+        );
+
+        if (veto !== undefined) {
+          res.status(400).json(veto);
+          return;
+        }
       }
 
       const row = await dispatch(

@@ -9,6 +9,14 @@ export const LOG_FORMAT_KINDS = ["nginx"] as const;
 
 export const CATALOG_NAME_RE = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
 
+// page= of a deny response names a named location: nginx -t on the edge rejects anything else
+// and the node drops the whole generation.
+export const NAMED_LOCATION_RE = /^@\S+$/;
+
+export function isNamedLocation(value: string): boolean {
+  return NAMED_LOCATION_RE.test(value);
+}
+
 export interface DenyResponseInput {
   name: string;
   type: (typeof DENY_TYPES)[number];

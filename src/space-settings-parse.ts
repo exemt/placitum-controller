@@ -15,6 +15,7 @@ import {
   type ProxyHeaderPreset,
   type WafHttpSettings,
 } from "./model/settings.ts";
+import { NGINX_SHM_MIN_SIZE, parseNginxSize } from "./model/shm-fit.ts";
 import type {
   BodyLimitPolicy,
   Cond,
@@ -271,6 +272,10 @@ function parseShm(
   }
   if (name === undefined || size === undefined) {
     return fail("invalid_shm_zone");
+  }
+  const bytes = parseNginxSize(size);
+  if (bytes === null || bytes < NGINX_SHM_MIN_SIZE) {
+    return fail("invalid_shm_zone_size");
   }
   return { name, size };
 }

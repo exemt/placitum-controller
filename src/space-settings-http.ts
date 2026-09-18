@@ -6,8 +6,10 @@ import { jsonHttpInheritance } from "./inheritance.ts";
 import { log } from "./log.ts";
 import type { HttpSpace } from "./model/http-space.ts";
 import type { WafHttpSettings } from "./model/settings.ts";
+import { shmShortfall, shmShortfallText } from "./model/shm-fit.ts";
 import { scopeOf } from "./scope.ts";
 import { parseSpaceHttpBody } from "./space-settings-parse.ts";
+import { selectDatasetsInSpace } from "./state/slices/datasets.ts";
 import { spaceSelectors } from "./state/slices/spaces.ts";
 import { updateSpace } from "./state/thunks/spaces.ts";
 import type { AppDispatch, RootState } from "./state/types.ts";
@@ -117,6 +119,24 @@ export function spaceSettingsRouter(
 
       if (!parsed.ok) {
         res.status(400).json({ error: parsed.error });
+        return;
+      }
+
+      // The module reserves room in the zone for every dataset kept in nginx; a zone that
+      // does not fit them fails nginx -t on the edge and the whole generation with it.
+      const short = shmShortfall(
+        parsed.value.wafHttp?.shmZone,
+        selectDatasetsInSpace(getState(), scope),
+      );
+
+      if (short !== null) {
+        res.status(400).json({
+          error: "shm_zone_too_small",
+          detail: shmShortfallText(short),
+          zone: short.zone,
+          size: short.size,
+          need: short.need,
+        });
         return;
       }
 

@@ -7,6 +7,7 @@ import {
   DENY_PARAMS,
   DENY_TYPES,
   DenyResponseRepo,
+  isNamedLocation,
   LOG_FORMAT_KINDS,
   LogFormatRepo,
   STORE_DRIVERS,
@@ -50,7 +51,7 @@ function jsonFormat(row: LogFormat) {
   };
 }
 
-function parseDeny(body: unknown): DenyResponseInput | string {
+export function parseDeny(body: unknown): DenyResponseInput | string {
   if (!isRecord(body)) return "invalid_body";
   if (badName(body.name)) return "invalid_name";
   const type = body.type ?? "http";
@@ -79,6 +80,7 @@ function parseDeny(body: unknown): DenyResponseInput | string {
       spec[key] = value.trim();
     }
   }
+  if (spec.page !== undefined && !isNamedLocation(spec.page)) return "invalid_page";
 
   if (type !== "http") {
     const value = raw.message;

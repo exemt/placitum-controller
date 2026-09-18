@@ -889,6 +889,9 @@ export const en: DeepString<typeof ru> = {
     baseline_files_gone: "None of the shipped rule files are left in the catalog:",
     builtin_locked: "A built-in object is locked: it is a shipped template. Get your own variant by copying.",
     builtin_name_locked: "A built-in object cannot be renamed: it is referenced by name.",
+    shm_zone_too_small: "The zone of the local layer does not fit the lists kept in nginx:",
+    invalid_shm_zone_size: "Zone size: a number with k or m, at least 256k.",
+    invalid_page: "page= names a named location: @name.",
   },
   exception: {
     title: "What to do when there is no verdict",
@@ -1008,6 +1011,8 @@ export const en: DeepString<typeof ru> = {
   compileErrors: {
     datasetsTooMany:
       "{count} lists are declared in nginx, but the module accepts at most {limit} — nginx -t would fail on every edge, so the configuration does not compile. Take some off nginx or delete them (datasets_too_many).",
+    shmZoneTooSmall:
+      "The zone {zone} holds {size} bytes, but the lists kept in nginx need about {need}: an active list reserves its limit up front — nginx -t would fail on every edge, so the configuration does not compile. Raise waf_shm_zone in the local layer or lower the limits (shm_zone_too_small).",
   },
   copyModal: {
     button: "Copy",
