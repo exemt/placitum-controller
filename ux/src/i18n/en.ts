@@ -96,14 +96,14 @@ export const en: DeepString<typeof ru> = {
     live: "live /agent_health_socket",
     disconnected: "socket disconnected",
     empty:
-      "Nobody is pulsing yet. Store, agents, inspectors and services write WAF_STATUS every 4 s.",
+      "Nobody is sending heartbeats yet. Store, agents, inspectors and services write WAF_STATUS every 4 s.",
     workers: "{count} worker",
     workersHint: "click to expand",
     orphans: "Workers without an agent",
   },
   inspectorsPage: {
     title: "Inspectors",
-    empty: "Nobody is pulsing yet. An inspector writes WAF_STATUS.inspector.<name>.<id> every 4 s.",
+    empty: "Nobody is sending heartbeats yet. An inspector writes WAF_STATUS.inspector.<name>.<id> every 4 s.",
     replicas: "{up} / {count}",
     host: "Host",
     work: "Work",
@@ -1298,26 +1298,26 @@ export const en: DeepString<typeof ru> = {
     kindCountry: "country database",
     kindAsn: "ASN database",
     hintCountry:
-      "A MaxMind DB file (.mmdb) with countries — GeoLite2-Country or compatible. The space catalog is reconciled with the file: new networks are added, missing ones are removed. The geo coder downloads a copy and switches to it, answering from the previous one until the new one is ready.",
+      "A MaxMind DB file (.mmdb) with countries — GeoLite2-Country or compatible. The space catalog is reconciled with the file: new networks are added, missing ones are removed. The network directory downloads a copy and switches to it, answering from the previous one until the new one is ready.",
     hintAsn:
-      "A MaxMind DB file (.mmdb) with autonomous systems — GeoLite2-ASN or compatible. The space catalog is reconciled with the file: new networks are added, missing ones are removed. The geo coder downloads a copy and switches to it, answering from the previous one until the new one is ready.",
+      "A MaxMind DB file (.mmdb) with autonomous systems — GeoLite2-ASN or compatible. The space catalog is reconciled with the file: new networks are added, missing ones are removed. The network directory downloads a copy and switches to it, answering from the previous one until the new one is ready.",
     pick: "Choose file",
     noFile: "No file chosen",
     submit: "Upload",
     statusImport: "Upload",
     statusFile: "Dataset",
-    statusCoder: "Coder",
+    statusCoder: "Network directory",
     phaseCatalog: "{type}: networks are moving from the file into the catalog",
-    phasePublish: "Catalog written, the coder is being told",
+    phasePublish: "Catalog written, the network directory is being told",
     failed: "failed",
     fileTitle: "{type} · {size} · uploaded {uploaded} · sha256 {sha}",
     coderNone: "none",
-    coderNoneTitle: "The geo coder is not on the air: no presence frames",
+    coderNoneTitle: "The network directory is not on the air: no presence frames",
     coderUnpublished:
-      "The coder does not know about the file yet: policy/geo did not reach KV, the controller retries",
+      "The network directory does not know about the file yet: policy/geo did not reach KV, the controller retries",
     coderBehind:
-      "Not every coder replica is on this file: downloading it or still on the previous dataset",
-    coderOnFile: "Every coder replica answers from this dataset",
+      "Not every network directory replica is on this file: downloading it or still on the previous dataset",
+    coderOnFile: "Every network directory replica answers from this dataset",
     done: "{type} built {build} uploaded: {networks} networks, {added} added, {removed} removed.",
     errors: {
       file_empty: "The file is empty.",
@@ -1332,8 +1332,8 @@ export const en: DeepString<typeof ru> = {
     },
   },
   geo: {
-    unknown: "Geo coder has no data for this address",
-    unreachable: "Geo coder did not answer",
+    unknown: "Network directory has no data for this address",
+    unreachable: "Network directory did not answer",
   },
   actionProfiles: {
     lockedDelete: "The default profile is not deleted: the manifest does not build without it.",
@@ -1937,7 +1937,7 @@ export const en: DeepString<typeof ru> = {
     code: "Code",
     codeHint: "Machine reason for the audit and neighbours; empty — COUNTER_LEVEL",
     denyResponse: "Deny response",
-    denyResponseHint: "Deny catalog entry name: nginx serves the code and the page. 429 is more honest than 403 — the client can wait it out",
+    denyResponseHint: "Deny catalog entry name: nginx serves the code and the page. 429 is more accurate than 403 — the client can wait it out",
     outcomesHint: "On the evaluation: a signal to a neighbour or a subject written into an active set",
     measure: "Metrics",
     measureHint:
@@ -3013,7 +3013,7 @@ export const en: DeepString<typeof ru> = {
         "How many workers carry objects, how long the queue is and how PUTs accumulate. A full queue sends the record with an overload locator: the payload is lost, not the event.",
       nodes: "Nodes",
       nodesHint:
-        "Which revision each node applied. Stale means the pulse has not brought the new one yet, or applying it failed.",
+        "Which revision each node applied. Stale means the heartbeat has not brought the new one yet, or applying it failed.",
     },
     group: {
       s3: "Storage",
