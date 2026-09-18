@@ -45,6 +45,7 @@
 | `CONTROLLER_NATS_URL` | `nats://127.0.0.1:4222` | NATS |
 | `CONTROLLER_REDIS_INTERNAL_URL` | как `CONTROLLER_REDIS_URL` | внутренний Redis для рассылки конфигурации |
 | `CONTROLLER_REDIS_URL` | — | Redis-обменник: контроллер в него не ходит, только сообщает адрес узлам |
+| `CONTROLLER_NODE_NATS_URL`, `_REDIS_URL`, `_REDIS_INTERNAL_URL` | адреса самого контроллера | те же адреса, какими их видят узлы, если это не одно и то же |
 | `CONTROLLER_CRYPTO_PUBLIC_KEY` | — | публичный ключ контура: PEM или путь к файлу |
 | `CONTROLLER_CRYPTO_SERVICE_URL` | — | адрес `crypto`, например `http://crypto:8093` |
 | `CONTROLLER_SEARCH_URL` | — | адрес `search`, например `http://search:8091`; без него в панели нет журнала |

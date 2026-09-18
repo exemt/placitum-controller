@@ -45,6 +45,7 @@ The controller is configured with environment variables. The main ones:
 | `CONTROLLER_NATS_URL` | `nats://127.0.0.1:4222` | NATS |
 | `CONTROLLER_REDIS_INTERNAL_URL` | same as `CONTROLLER_REDIS_URL` | internal Redis for configuration delivery |
 | `CONTROLLER_REDIS_URL` | — | body store Redis: the controller does not use it, it only passes the address to the nodes |
+| `CONTROLLER_NODE_NATS_URL`, `_REDIS_URL`, `_REDIS_INTERNAL_URL` | the controller's own | the same addresses as the nodes reach them, when that differs |
 | `CONTROLLER_CRYPTO_PUBLIC_KEY` | — | public contour key: PEM or a file path |
 | `CONTROLLER_CRYPTO_SERVICE_URL` | — | `crypto` address, e.g. `http://crypto:8093` |
 | `CONTROLLER_SEARCH_URL` | — | `search` address, e.g. `http://search:8091`; without it the panel has no log |

@@ -33,6 +33,7 @@ configuration.
 | `CONTROLLER_NATS_USER`, `_PASS`, `_TOKEN` | — | NATS credentials written into the node configuration |
 | `CONTROLLER_REDIS_URL` | — | body store Redis: the controller does not write to it, it only writes its address into the node configuration |
 | `CONTROLLER_REDIS_INTERNAL_URL` | same as `CONTROLLER_REDIS_URL` | internal Redis: generation blobs |
+| `CONTROLLER_NODE_NATS_URL`, `_REDIS_URL`, `_REDIS_INTERNAL_URL` | the controller's own | NATS and Redis addresses written into the node configuration when the nodes reach them by other addresses than the controller does, such as nginx on the machine outside the container network |
 | `CONTROLLER_CRYPTO_SERVICE_URL` | — | `http://crypto:8093` |
 | `CONTROLLER_CRYPTO_PUBLIC_KEY` | — | public half of the contour key: PEM or a file path |
 | `CONTROLLER_SEARCH_URL` | — | `http://search:8091` |

@@ -33,6 +33,7 @@
 | `CONTROLLER_NATS_USER`, `_PASS`, `_TOKEN` | — | реквизиты NATS, которые контроллер печатает в конфигурацию узлов |
 | `CONTROLLER_REDIS_URL` | — | обменник: контроллер туда не пишет, но печатает его адрес в конфигурацию узлов |
 | `CONTROLLER_REDIS_INTERNAL_URL` | как `CONTROLLER_REDIS_URL` | внутренний Redis: блобы поколений |
+| `CONTROLLER_NODE_NATS_URL`, `_REDIS_URL`, `_REDIS_INTERNAL_URL` | адреса самого контроллера | адреса NATS и Redis, которые печатаются в конфигурацию узлов, когда узлы ходят к ним не так, как контроллер: например, nginx на машине вне сети контейнеров |
 | `CONTROLLER_CRYPTO_SERVICE_URL` | — | `http://crypto:8093` |
 | `CONTROLLER_CRYPTO_PUBLIC_KEY` | — | публичная половина ключа контура: PEM или путь к файлу |
 | `CONTROLLER_SEARCH_URL` | — | `http://search:8091` |

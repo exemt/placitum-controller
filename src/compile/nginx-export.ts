@@ -2,14 +2,17 @@ import type { Pool } from "../db.ts";
 import type { Certificate } from "../model/listen.ts";
 import type { InfraUrls, NginxExport } from "./nginx-source.ts";
 
-function infraUrls(): InfraUrls {
+// Addresses of Redis and NATS as the nodes reach them. By default the same as the controller's
+// own; CONTROLLER_NODE_* names them differently when a node runs outside the container network,
+// such as nginx on the machine that reaches the containers by their fixed addresses.
+export function infraUrls(env: NodeJS.ProcessEnv = process.env): InfraUrls {
   return {
-    redisUrl: process.env.CONTROLLER_REDIS_URL ?? "",
-    redisInternalUrl: process.env.CONTROLLER_REDIS_INTERNAL_URL ?? "",
-    natsUrl: process.env.CONTROLLER_NATS_URL ?? process.env.NATS_URL ?? "",
-    natsUser: process.env.CONTROLLER_NATS_USER ?? "",
-    natsPass: process.env.CONTROLLER_NATS_PASS ?? "",
-    natsToken: process.env.CONTROLLER_NATS_TOKEN ?? "",
+    redisUrl: env.CONTROLLER_NODE_REDIS_URL ?? env.CONTROLLER_REDIS_URL ?? "",
+    redisInternalUrl: env.CONTROLLER_NODE_REDIS_INTERNAL_URL ?? env.CONTROLLER_REDIS_INTERNAL_URL ?? "",
+    natsUrl: env.CONTROLLER_NODE_NATS_URL ?? env.CONTROLLER_NATS_URL ?? env.NATS_URL ?? "",
+    natsUser: env.CONTROLLER_NATS_USER ?? "",
+    natsPass: env.CONTROLLER_NATS_PASS ?? "",
+    natsToken: env.CONTROLLER_NATS_TOKEN ?? "",
   };
 }
 
