@@ -3,7 +3,7 @@
   "version": "1.0.0-rc.1",
   "private": true,
   "description": "Placitum controller: configuration API and admin panel",
-  "license": "SEE LICENSE IN LICENSE.md",
+  "license": "Apache-2.0",
   "homepage": "https://github.com/exemt/placitum-controller#readme",
   "repository": {
     "type": "git",

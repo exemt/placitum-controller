@@ -1,0 +1,10 @@
+Placitum controller: API and control panel
+Copyright 2026 The Placitum Authors
+
+"Placitum", the Placitum logo and the visual identity are trademarks of their owner. The
+Apache License 2.0 does not grant permission to use them (section 6 of the License).
+
+The Placitum logo and wordmark, including the files ux/public/favicon.svg and
+ux/src/layout/Wordmark.tsx, are not licensed under the Apache License 2.0. They may be used
+unmodified as part of Placitum; a modified version of Placitum that is distributed to others must
+replace them.

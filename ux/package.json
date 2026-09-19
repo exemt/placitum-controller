@@ -3,7 +3,7 @@
   "version": "1.0.0-rc.1",
   "private": true,
   "description": "Placitum admin panel",
-  "license": "SEE LICENSE IN help/license.md",
+  "license": "Apache-2.0",
   "homepage": "https://github.com/exemt/placitum-controller#readme",
   "repository": {
     "type": "git",
@@ -12,9 +12,7 @@
   },
   "type": "module",
   "scripts": {
-    "predev": "node scripts/license-sync.mjs",
     "dev": "vite",
-    "prebuild": "node scripts/license-sync.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
