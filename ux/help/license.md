@@ -367,4 +367,4 @@ provided for convenience; in case of discrepancy the English text prevails.
 ## Contacts
 
 Questions about a Commercial License, Paid Features, permission to provide Commercial Services,
-Feeds, support and confirmation of an organization's status: public.gerden@gmail.com.
+Feeds, support and confirmation of an organization's status: support@plcwaf.com.
