@@ -36,6 +36,7 @@ import { CaptchaProfileRepo } from "./captcha-profiles.ts";
 import { JsonProfileRepo } from "./json-profiles.ts";
 import { ActionProfileRepo } from "./action-profiles.ts";
 import { CookieProfileRepo } from "./cookie-profiles.ts";
+import { buildCookieManifest, cookieBlobKeys, cookieListsOf } from "./cookie-manifest.ts";
 import { CounterProfileRepo } from "./counter-profiles.ts";
 import { VlaiProfileRepo } from "./vlai-profiles.ts";
 import { RewriteProfileRepo } from "./rewrite-profiles.ts";
@@ -249,6 +250,24 @@ const blobKeepalive =
             },
             blobs: (spaceId) => ipCompiler.blobItems(spaceId),
           },
+          {
+            // Static lists the cookie rules compare with.
+            id: "cookie",
+            async published() {
+              const m = await desired.getCookie();
+              return m === null ? null : { rev: m.rev, sha256: m.config_hash, keys: cookieBlobKeys(m) };
+            },
+            async blobs(spaceId) {
+              const built = await buildCookieManifest(
+                cookieProfiles,
+                spaceId,
+                1,
+                inspectorSettings,
+                cookieListsOf(datasets),
+              );
+              return "error" in built ? null : { sha256: built.manifest.config_hash, items: built.blobs };
+            },
+          },
         ],
         log,
       });
@@ -307,6 +326,7 @@ const app = createApp(cfg, {
   compiler,
   ipCompiler,
   nginxCompiler,
+  blobs: compileRedis,
   dispatch: model.dispatch,
   getState: model.getState,
   crypto,

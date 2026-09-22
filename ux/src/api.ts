@@ -3620,7 +3620,8 @@ export const COOKIE_PHASES = ["request", "response"] as const;
 
 export type CookiePhase = (typeof COOKIE_PHASES)[number];
 
-export const COOKIE_WRITES = ["addr", "net", "net_all", "asn", "cookie"] as const;
+/* value: the value of the cookie; cookie: the whole string the client carries. */
+export const COOKIE_WRITES = ["value", "cookie", "addr", "net", "net_all", "asn"] as const;
 
 export type CookieWrite = (typeof COOKIE_WRITES)[number];
 

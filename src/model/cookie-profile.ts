@@ -2,7 +2,8 @@ import type { ActionAsk, ActionMatch, ActionWrite } from "./action-profile.ts";
 
 export type { ActionAsk, ActionMatch };
 
-export type CookieWrite = ActionWrite | "cookie";
+/* value: the value of the cookie; cookie: the whole string the client carries. */
+export type CookieWrite = ActionWrite | "value" | "cookie";
 
 export type CookieListOp = "add" | "remove";
 
@@ -42,7 +43,7 @@ export interface CookieAsk extends Omit<ActionAsk, "write"> {
 
 export type CookieListOpCheck = "in" | "not_in";
 
-/* The value of the rule's cookie in a dynamic list, or not in it. */
+/* The value of the rule's cookie in a list (dynamic or static), or not in it. */
 export interface CookieListed {
   list: string;
   op: CookieListOpCheck;

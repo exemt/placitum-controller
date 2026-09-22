@@ -2,7 +2,7 @@ import { hashAgentConf } from "../compile/agent-conf.ts";
 import { hashHaproxyConf } from "../compile/haproxy.ts";
 import { exportNginx } from "../compile/nginx.ts";
 import { actionDatasetsOf, buildActionManifest } from "../action-manifest.ts";
-import { cookieDatasetsOf, buildCookieManifest } from "../cookie-manifest.ts";
+import { cookieListsOf, buildCookieManifest } from "../cookie-manifest.ts";
 import { buildAuthManifest } from "../auth-manifest.ts";
 import { buildCaptchaManifest } from "../captcha-manifest.ts";
 import { buildJsonManifest } from "../json-manifest.ts";
@@ -230,7 +230,7 @@ export function createPlanners(deps: PlannerDeps): Record<ChannelId, Planner> {
         scope,
         1,
         deps.settings,
-        cookieDatasetsOf(deps.datasets),
+        cookieListsOf(deps.datasets),
       );
 
       return manifestPlan(rows, built);

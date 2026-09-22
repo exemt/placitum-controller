@@ -4,7 +4,7 @@ import type { NginxPackPointer } from "./nginx-pack.ts";
 import { blobKey } from "./pack.ts";
 import type { RulesPackPointer } from "./pointer.ts";
 
-export type KeepaliveChannelId = "nginx" | "rules" | "ip";
+export type KeepaliveChannelId = "nginx" | "rules" | "ip" | "cookie";
 
 export interface PublishedBlobs {
   rev: number;

@@ -559,7 +559,7 @@ function checkRuleAsk(
   }
 
   if (ask.cookie !== "") {
-    fail(`${at}: cookie is only for write: cookie`);
+    fail(`${at}: cookie is only for write: value or cookie`);
   }
 
   if (ask.op !== "add") {
@@ -570,8 +570,9 @@ function checkRuleAsk(
 }
 
 /*
- * A list check reads the value of the rule's cookie: a string, so the list holds strings. Only a
- * dynamic list is mirrored by the inspector.
+ * A list check reads the value of the rule's cookie: a string, so the list holds strings. A dynamic
+ * list is mirrored by the inspector; a static one travels with the generation (its body through
+ * the internal Redis) and is only compared with -- nothing writes into it.
  */
 function checkListed(
   listed: CookieListed,
@@ -601,16 +602,36 @@ function checkListed(
     fail(`${at}: dataset ${JSON.stringify(listed.list)} is not a list of this space`);
   }
 
-  if (!ds.active) {
-    fail(`${at}: dataset ${JSON.stringify(listed.list)} is not dynamic -- the inspector mirrors only dynamic lists`);
-  }
-
   if (isAddressDatasetType(ds.type)) {
     fail(`${at}: dataset ${JSON.stringify(listed.list)} holds addresses, and a cookie value is a string`);
   }
 }
 
-const LIST_WRITES = new Set<CookieAsk["write"]>(["addr", "net", "net_all", "asn", "cookie"]);
+/* The static lists the rules of a profile compare with: their bodies travel with the generation. */
+export function staticLists(doc: CookieProfileDoc, datasets: ActionDatasetInfo[]): string[] {
+  const out = new Set<string>();
+
+  for (const rule of doc.rules) {
+    if (rule.listed === null) {
+      continue;
+    }
+
+    const ds = datasets.find((row) => row.name === rule.listed?.list);
+
+    if (ds !== undefined && !ds.active) {
+      out.add(ds.name);
+    }
+  }
+
+  return [...out];
+}
+
+/*
+ * value puts the value of the cookie (what a list check compares), cookie the whole string the
+ * client carries (value, number, time and signature).
+ */
+const COOKIE_WRITES = new Set<CookieAsk["write"]>(["value", "cookie"]);
+const LIST_WRITES = new Set<CookieAsk["write"]>(["addr", "net", "net_all", "asn", "value", "cookie"]);
 const LIST_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 const CODE_RE = /^[A-Z][A-Z0-9_]{0,63}$/;
 
@@ -635,25 +656,25 @@ function checkListWrite(
   }
 
   if (!LIST_WRITES.has(ask.write)) {
-    fail(`${at}.write must be addr, net, net_all, asn or cookie`);
+    fail(`${at}.write must be addr, net, net_all, asn, value or cookie`);
   }
 
   if (ask.op !== "add" && ask.op !== "remove") {
     fail(`${at}.op must be add or remove`);
   }
 
-  if (ask.write === "cookie") {
+  if (COOKIE_WRITES.has(ask.write)) {
     const named = ask.cookie || ruleCookie(rule, cookies);
 
     if (named === "") {
-      fail(`${at}: write cookie needs cookie: whose value to write`);
+      fail(`${at}: write ${ask.write} needs cookie: which one`);
     }
 
     if (!cookies.has(named)) {
       fail(`${at}: cookie ${JSON.stringify(named)} is not declared in cookies`);
     }
   } else if (ask.cookie !== "") {
-    fail(`${at}: cookie is only for write: cookie`);
+    fail(`${at}: cookie is only for write: value or cookie`);
   }
 
   if (ask.op === "remove") {
@@ -679,12 +700,12 @@ function checkListWrite(
   }
 
   if (!ds.active) {
-    fail(`${at}: dataset ${JSON.stringify(ask.list)} is not active -- keeper writes only active lists`);
+    fail(`${at}: dataset ${JSON.stringify(ask.list)} is static -- only a dynamic list is written`);
   }
 
-  if (ask.write === "cookie") {
+  if (COOKIE_WRITES.has(ask.write)) {
     if (isAddressDatasetType(ds.type)) {
-      fail(`${at}: write cookie puts a string, and dataset ${JSON.stringify(ask.list)} holds addresses`);
+      fail(`${at}: write ${ask.write} puts a string, and dataset ${JSON.stringify(ask.list)} holds addresses`);
     }
 
     return;
@@ -818,8 +839,9 @@ export function renderProfileYaml(
     if (rule.listed !== null) {
       const ds = datasets?.find((row) => row.name === rule.listed?.list);
       const hash = ds !== undefined && ds.hash ? ", hash: md5" : "";
+      const kind = ds !== undefined && !ds.active ? ", static: true" : "";
 
-      lines.push(`listed: { list: ${q(rule.listed.list)}, op: ${rule.listed.op}${hash} }`);
+      lines.push(`listed: { list: ${q(rule.listed.list)}, op: ${rule.listed.op}${hash}${kind} }`);
     }
 
     if (rule.issue !== "") {
@@ -848,8 +870,13 @@ export function renderProfileYaml(
           lines.push(`    write: ${ask.write}`);
         }
 
-        if (ask.write === "cookie" && ask.cookie !== "") {
-          lines.push(`    cookie: ${q(ask.cookie)}`);
+        if (COOKIE_WRITES.has(ask.write)) {
+          // Named always: an overload rule has no cookie of its own for the inspector to take.
+          const named = ask.cookie || ruleCookie(rule, new Map(doc.cookies.map((c) => [c.name, c])));
+
+          if (named !== "") {
+            lines.push(`    cookie: ${q(named)}`);
+          }
         }
 
         if (ask.op === "remove") {

@@ -208,6 +208,11 @@ type ListWrite = NonNullable<CookieProfileAsk["write"]>;
 
 const LIST_WRITES: readonly ListWrite[] = [...COOKIE_WRITES];
 
+/* The value of the cookie or the whole cookie: both need to know which cookie. */
+function writesCookie(write: ListWrite): boolean {
+  return write === "value" || write === "cookie";
+}
+
 function listAsk(
   list: string,
   write: ListWrite,
@@ -235,7 +240,7 @@ function listAsk(
     list,
     write,
     op,
-    cookie: write === "cookie" ? cookie : "",
+    cookie: writesCookie(write) ? cookie : "",
     code,
   };
 }
@@ -274,16 +279,36 @@ function triggerOf(row: AskRow): Trigger {
 }
 
 /*
- * A label and a value exist only on a cookie that is there and ours: present or due for renewal.
- * Label and list checks are offered for those states and for "always".
+ * A value exists only on a cookie that is there and ours: present or due for renewal. The value
+ * check is offered for those states and for "always".
  */
 function labelled(trigger: Trigger): boolean {
   return trigger === "always" || trigger === "present" || trigger === "expired";
 }
 
-type LabelMode = "any" | "in" | "not_in";
+/*
+ * One check of the value: one of or none of the values typed in the rule (tags / not_tags), in a
+ * list or not in it (listed). The list is any string list, dynamic or static.
+ */
+type ValueMode = "any" | "one_of" | "none_of" | "in" | "not_in";
 
-type ListMode = "none" | "in" | "not_in";
+const VALUE_MODES: readonly ValueMode[] = ["any", "one_of", "none_of", "in", "not_in"];
+
+function valueModeOf(row: AskRow | null): ValueMode {
+  if (row === null) {
+    return "any";
+  }
+
+  if (row.listed !== null) {
+    return row.listed.op === "not_in" ? "not_in" : "in";
+  }
+
+  if (row.tags.length > 0) {
+    return row.tagsNot ? "none_of" : "one_of";
+  }
+
+  return "any";
+}
 
 const RULE_TAG_RE = /^[A-Za-z0-9_-]{1,128}$/;
 const METHOD_RE = /^[A-Z]+$/;
@@ -510,7 +535,7 @@ function CookieProfileForm({
     fetchDatasets(scope)
       .then((rows) => {
         if (alive) {
-          setDatasets(rows.filter((row) => row.kind === "list" && row.active));
+          setDatasets(rows.filter((row) => row.kind === "list"));
         }
       })
       .catch(() => {
@@ -850,8 +875,9 @@ function ageLabel(t: Translate, seconds: number): string {
 
 function valueLabel(t: Translate, decl: CookieDecl): string {
   const parts: string[] = [];
+  const source = valueSourceOf(decl.value);
 
-  switch (valueSourceOf(decl.value)) {
+  switch (source) {
     case "request":
       parts.push(decl.value.from);
 
@@ -863,12 +889,13 @@ function valueLabel(t: Translate, decl: CookieDecl): string {
     case "const":
       parts.push(decl.value.default);
       break;
-    case "none":
-      parts.push(t("cookieProfiles.valueSources.none"));
+    case "uid":
+      parts.push(t("cookieProfiles.valueUidShort", { n: String(decl.value.random) }));
       break;
   }
 
-  if (decl.value.random > 0 && valueSourceOf(decl.value) !== "none") {
+  /* A cookie written by hand or through the API may carry a number next to its value. */
+  if (decl.value.random > 0 && source !== "uid") {
     parts.push(t("cookieProfiles.valueRandomShort", { n: String(decl.value.random) }));
   }
 
@@ -935,18 +962,20 @@ const COOKIE_NAME_RE = /^[A-Za-z0-9_.-]{1,64}$/;
 const TAG_RE = /^[A-Za-z0-9_-]*$/;
 
 /*
- * Where the value of a cookie comes from: a request variable (with a fallback when the request has
- * none), a constant, or nothing at all -- then the cookie is only a unique number. In the file this
- * is value.from and value.default; the random tail is separate.
+ * What the value of a cookie is: a unique number (uid) of its own for every client, a concrete
+ * value, the same for everyone, or a request variable (with a fallback when the request has none).
+ * In the file: value.random, value.default, value.from.
  */
-type ValueSource = "request" | "const" | "none";
+type ValueSource = "uid" | "const" | "request";
+
+const VALUE_SOURCES: readonly ValueSource[] = ["uid", "const", "request"];
 
 function valueSourceOf(value: CookieDecl["value"]): ValueSource {
   if (value.from !== "") {
     return "request";
   }
 
-  return value.default !== "" ? "const" : "none";
+  return value.default !== "" ? "const" : "uid";
 }
 
 function CookieDialog({
@@ -970,7 +999,7 @@ function CookieDialog({
   );
 
   const [source, setSource] = useState<ValueSource>(() =>
-    decl === null ? "request" : valueSourceOf(decl.value),
+    decl === null ? "uid" : valueSourceOf(decl.value),
   );
 
   const set = (patch: Partial<CookieDecl>) => setDraft((prev) => ({ ...prev, ...patch }));
@@ -983,7 +1012,7 @@ function CookieDialog({
   const renewS = renew.trim() === "" ? 0 : ttlSeconds(renew);
   const constant = draft.value.default.trim();
   const defaultOk = TAG_RE.test(constant) && constant.length <= 128;
-  const randomOk = draft.value.random >= 0 && draft.value.random <= 32;
+  const randomOk = source !== "uid" || (draft.value.random >= 1 && draft.value.random <= 32);
   const maxLenOk = draft.value.maxLen >= 1 && draft.value.maxLen <= 128;
   const hasSource =
     source === "request"
@@ -1027,7 +1056,8 @@ function CookieDialog({
                 value: {
                   ...draft.value,
                   from: source === "request" ? draft.value.from.trim() : "",
-                  default: source === "none" ? "" : constant,
+                  default: source === "uid" ? "" : constant,
+                  random: source === "uid" ? draft.value.random : 0,
                   maxLen:
                     source === "const" ? Math.max(draft.value.maxLen, constant.length) : draft.value.maxLen,
                 },
@@ -1105,25 +1135,37 @@ function CookieDialog({
             size="small"
             label={t("cookieProfiles.valueSource")}
             value={source}
-            onChange={(e) => setSource(e.target.value as ValueSource)}
+            onChange={(e) => {
+              const next = e.target.value as ValueSource;
+
+              setSource(next);
+
+              if (next === "uid" && draft.value.random === 0) {
+                setValue({ random: emptyCookie().value.random });
+              }
+            }}
             helperText={t(`cookieProfiles.valueSourceHints.${source}`)}
             sx={{ flex: 1.4 }}
           >
-            {(["request", "const", "none"] as const).map((item) => (
+            {VALUE_SOURCES.map((item) => (
               <MenuItem key={item} value={item}>
                 {t(`cookieProfiles.valueSources.${item}`)}
               </MenuItem>
             ))}
           </TextField>
-          <TextField
-            size="small"
-            label={t("cookieProfiles.valueRandom")}
-            value={String(draft.value.random)}
-            onChange={(e) => setValue({ random: Number(e.target.value.trim()) || 0 })}
-            error={!randomOk || (source === "none" && draft.value.random === 0)}
-            helperText={t("cookieProfiles.valueRandomHint")}
-            sx={{ flex: 1 }}
-          />
+          {source === "uid" ? (
+            <TextField
+              size="small"
+              label={t("cookieProfiles.valueRandom")}
+              value={String(draft.value.random)}
+              onChange={(e) => setValue({ random: Number(e.target.value.trim()) || 0 })}
+              error={!randomOk}
+              helperText={t("cookieProfiles.valueRandomHint")}
+              sx={{ flex: 1 }}
+            />
+          ) : (
+            <Box sx={{ flex: 1 }} />
+          )}
         </Stack>
         {source === "request" && (
           <>
@@ -1167,9 +1209,9 @@ function CookieDialog({
             helperText={t("cookieProfiles.valueConstHint")}
           />
         )}
-        {!hasSource && (
+        {(!hasSource || !randomOk) && (
           <Alert severity="warning" icon={false}>
-            {t(source === "none" ? "cookieProfiles.valueNeedRandom" : "cookieProfiles.valueEmpty")}
+            {t(source === "uid" ? "cookieProfiles.valueNeedRandom" : "cookieProfiles.valueEmpty")}
           </Alert>
         )}
         <Alert severity="info" icon={false}>{t("cookieProfiles.cookieAlert")}</Alert>
@@ -1382,16 +1424,7 @@ function AskDialog({
     row === null ? (cookies.length > 0 ? "absent" : "always") : triggerOf(row),
   );
   const [tags, setTags] = useState<string[]>(() => row?.tags ?? []);
-  const [labelMode, setLabelMode] = useState<LabelMode>(() =>
-    (row?.tags.length ?? 0) === 0 ? "any" : row?.tagsNot === true ? "not_in" : "in",
-  );
-  const [listMode, setListMode] = useState<ListMode>(() =>
-    row?.listed === null || row?.listed === undefined
-      ? "none"
-      : row.listed.op === "not_in"
-        ? "not_in"
-        : "in",
-  );
+  const [valueMode, setValueMode] = useState<ValueMode>(() => valueModeOf(row));
   const [listName, setListName] = useState<string>(() => row?.listed?.list ?? "");
   const [pathPrefix, setPathPrefix] = useState<string>(() => row?.match.pathPrefix ?? "");
   const [methods, setMethods] = useState<string[]>(() => row?.match.methods ?? []);
@@ -1413,22 +1446,24 @@ function AskDialog({
   const named = cookie || (cookies.length === 1 ? cookies[0].name : "");
   const decl = cookies.find((item) => item.name === named);
 
-  /* A cookie that is only a unique number has no value to compare. */
-  const valued = decl === undefined || valueSourceOf(decl.value) !== "none";
-  const byLabel = !overload && labelled(trigger) && valued && labelMode !== "any";
-  const byList = !overload && labelled(trigger) && listMode !== "none";
+  const valueChecked = !overload && labelled(trigger);
+  const byLabel = valueChecked && (valueMode === "one_of" || valueMode === "none_of");
+  const byList = valueChecked && (valueMode === "in" || valueMode === "not_in");
   const needsCookie = !overload && (trigger !== "always" || self || byLabel || byList);
 
-  /* A cookie value is a string: an address list cannot hold it. */
+  /* A cookie value is a string: an address list cannot hold it. A check compares with any string list. */
   const stringLists = datasets.filter((row) => !isAddressDataset(row.type));
 
-  /* Lists a write can go to: a cookie value into a string list, a network or a system only into an address list. */
-  const writable =
-    fields.write === "cookie"
-      ? stringLists
-      : fields.write === "addr"
-        ? datasets
-        : datasets.filter((row) => isAddressDataset(row.type));
+  /*
+   * Lists a write can go to: only dynamic ones, as keeper writes them. The value of a cookie goes
+   * into a string list, a network or a system only into an address list.
+   */
+  const dynamic = datasets.filter((row) => row.active);
+  const writable = writesCookie(fields.write)
+    ? dynamic.filter((row) => !isAddressDataset(row.type))
+    : fields.write === "addr"
+      ? dynamic
+      : dynamic.filter((row) => isAddressDataset(row.type));
 
   const triggers = TRIGGERS.filter((item) => {
     if (item === "always" || item === "overload") {
@@ -1534,7 +1569,7 @@ function AskDialog({
         return t("cookieProfiles.needList");
       }
 
-      if (fields.write === "cookie" && named === "" && fields.listCookie === "") {
+      if (writesCookie(fields.write) && named === "" && fields.listCookie === "") {
         return t("cookieProfiles.needCookie");
       }
 
@@ -1604,8 +1639,8 @@ function AskDialog({
         match: { ...(row?.match ?? ANY_REQUEST), pathPrefix: path, methods },
         on: trigger === "always" ? "" : trigger,
         tags: byLabel ? tags : [],
-        tagsNot: byLabel && labelMode === "not_in",
-        listed: byList ? { list: listName, op: listMode === "not_in" ? "not_in" : "in" } : null,
+        tagsNot: byLabel && valueMode === "none_of",
+        listed: byList ? { list: listName, op: valueMode === "not_in" ? "not_in" : "in" } : null,
         cookie: needsCookie ? cookie : "",
         issue: self && op === "issue" ? named : "",
         drop: self && op === "drop" ? named : "",
@@ -1792,59 +1827,36 @@ function AskDialog({
               )}
             </Stack>
 
-            {!overload && labelled(trigger) && valued && (
+            {valueChecked && (
               <Stack direction="row" spacing={1}>
                 <TextField
                   select
                   size="small"
                   label={t("cookieProfiles.label")}
-                  value={labelMode}
-                  onChange={(e) => setLabelMode(e.target.value as LabelMode)}
-                  helperText={t("cookieProfiles.labelHint")}
+                  value={valueMode}
+                  onChange={(e) => setValueMode(e.target.value as ValueMode)}
+                  helperText={t(`cookieProfiles.valueModeHints.${valueMode}`)}
                   sx={{ flex: 1 }}
                 >
-                  <MenuItem value="any">{t("cookieProfiles.labelModes.any")}</MenuItem>
-                  <MenuItem value="in">{t("cookieProfiles.labelModes.in")}</MenuItem>
-                  <MenuItem value="not_in">{t("cookieProfiles.labelModes.not_in")}</MenuItem>
+                  {VALUE_MODES.map((mode) => (
+                    <MenuItem key={mode} value={mode}>
+                      {t(`cookieProfiles.valueModes.${mode}`)}
+                    </MenuItem>
+                  ))}
                 </TextField>
-                {labelMode === "any" ? (
-                  <Box sx={{ flex: 1 }} />
-                ) : (
+                {byLabel && (
                   <ChipsField
                     label={t("cookieProfiles.tags")}
                     helper={t("cookieProfiles.tagsHint")}
                     badHelper={(tag) => t("cookieProfiles.tagsBad", { tag })}
                     value={tags}
-                    options={cookies
-                      .filter((item) => valueSourceOf(item.value) !== "none")
-                      .map((item) => item.value.default)
-                      .filter((tag) => tag !== "")}
+                    options={cookies.map((item) => item.value.default).filter((tag) => tag !== "")}
                     valid={(tag) => RULE_TAG_RE.test(tag)}
                     required
                     onChange={setTags}
                   />
                 )}
-              </Stack>
-            )}
-
-            {!overload && labelled(trigger) && (
-              <Stack direction="row" spacing={1}>
-                <TextField
-                  select
-                  size="small"
-                  label={t("cookieProfiles.listed")}
-                  value={listMode}
-                  onChange={(e) => setListMode(e.target.value as ListMode)}
-                  helperText={t("cookieProfiles.listedHint")}
-                  sx={{ flex: 1 }}
-                >
-                  <MenuItem value="none">{t("cookieProfiles.listedModes.none")}</MenuItem>
-                  <MenuItem value="in">{t("cookieProfiles.listedModes.in")}</MenuItem>
-                  <MenuItem value="not_in">{t("cookieProfiles.listedModes.not_in")}</MenuItem>
-                </TextField>
-                {listMode === "none" ? (
-                  <Box sx={{ flex: 1 }} />
-                ) : (
+                {byList && (
                   <TextField
                     select
                     size="small"
@@ -1864,6 +1876,9 @@ function AskDialog({
                     {stringLists.map((item) => (
                       <MenuItem key={item.uuid} value={item.name}>
                         {item.name}
+                        <Box component="span" sx={{ color: "text.secondary", ml: 1 }}>
+                          {t(item.active ? "datasets.dynamic" : "datasets.static")}
+                        </Box>
                       </MenuItem>
                     ))}
                     {listName !== "" && !stringLists.some((item) => item.name === listName) && (
@@ -1871,6 +1886,7 @@ function AskDialog({
                     )}
                   </TextField>
                 )}
+                {!byLabel && !byList && <Box sx={{ flex: 1 }} />}
               </Stack>
             )}
 
@@ -1968,7 +1984,7 @@ function AskDialog({
                   verb: still ? fields.verb : "",
                   axis: still ? fields.axis : "",
                   ...(target === TO_DATASET && fields.target !== TO_DATASET && cookies.length > 0
-                    ? { write: "cookie" as const }
+                    ? { write: "value" as const }
                     : {}),
                 });
               }}
@@ -2097,7 +2113,7 @@ function AskDialog({
                     <MenuItem value="add">{t("cookieProfiles.opAdd")}</MenuItem>
                     <MenuItem value="remove">{t("cookieProfiles.opRemove")}</MenuItem>
                   </TextField>
-                  {fields.write === "cookie" && (
+                  {writesCookie(fields.write) && (
                     <TextField
                       select
                       size="small"
