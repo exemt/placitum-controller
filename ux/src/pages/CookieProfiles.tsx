@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
 import MenuItem from "@mui/material/MenuItem";
 import Drawer from "@mui/material/Drawer";
 import Stack from "@mui/material/Stack";
@@ -1315,6 +1316,152 @@ function fieldsOf(ask: CookieProfileAsk | null): AskFields {
   };
 }
 
+/*
+ * A marker is a string with slots in braces, filled from the cookies of the request: {value} the
+ * value of the rule's cookie, {cookie} its whole string, {name} its name, {<name>} the value of any
+ * cookie of the profile. A slot of a cookie with no value leaves the request without the marker.
+ */
+const OWN_SLOTS = ["value", "tag", "cookie", "name"];
+
+function markerSlots(marker: string): { slots: string[]; unpaired: boolean } {
+  const slots: string[] = [];
+  let rest = marker;
+
+  for (;;) {
+    const open = rest.indexOf("{");
+    const close = rest.indexOf("}");
+
+    if (open < 0) {
+      return { slots, unpaired: close >= 0 };
+    }
+
+    if (close >= 0 && close < open) {
+      return { slots, unpaired: true };
+    }
+
+    const end = rest.indexOf("}", open);
+
+    if (end < 0) {
+      return { slots, unpaired: true };
+    }
+
+    slots.push(rest.slice(open + 1, end));
+    rest = rest.slice(end + 1);
+  }
+}
+
+function markerSlotError(
+  marker: string,
+  own: string,
+  cookies: CookieDecl[],
+): { key: string; slot: string } | null {
+  const { slots, unpaired } = markerSlots(marker);
+
+  if (unpaired) {
+    return { key: "cookieProfiles.needMarkerBrace", slot: "" };
+  }
+
+  for (const slot of slots) {
+    if (OWN_SLOTS.includes(slot)) {
+      if (own === "") {
+        return { key: "cookieProfiles.needMarkerOwn", slot };
+      }
+
+      continue;
+    }
+
+    if (!cookies.some((item) => item.name === slot)) {
+      return { key: "cookieProfiles.needMarkerSlot", slot };
+    }
+  }
+
+  return null;
+}
+
+/* The marker field with buttons that insert a slot where the cursor is. */
+function MarkerField({
+  t,
+  value,
+  own,
+  cookies,
+  onChange,
+}: {
+  t: Translate;
+  value: string;
+  own: string;
+  cookies: CookieDecl[];
+  onChange: (next: string) => void;
+}) {
+  const input = useRef<HTMLInputElement | null>(null);
+  const bad = markerSlotError(value, own, cookies);
+
+  const slots: { token: string; label: string }[] = [
+    ...(own === "" ? [] : [{ token: "{value}", label: t("cookieProfiles.markerSlotValue", { name: own }) }]),
+    ...cookies
+      .filter((item) => item.name !== own)
+      .map((item) => ({ token: `{${item.name}}`, label: t("cookieProfiles.markerSlotCookie", { name: item.name }) })),
+    ...(own === "" ? [] : [{ token: "{cookie}", label: t("cookieProfiles.markerSlotWhole", { name: own }) }]),
+  ];
+
+  const insert = (token: string) => {
+    const el = input.current;
+    const from = el?.selectionStart ?? value.length;
+    const to = el?.selectionEnd ?? from;
+    const next = value.slice(0, from) + token + value.slice(to);
+
+    onChange(next);
+
+    requestAnimationFrame(() => {
+      el?.focus();
+      el?.setSelectionRange(from + token.length, from + token.length);
+    });
+  };
+
+  return (
+    <Stack spacing={0.75}>
+      <TextField
+        size="small"
+        label={t("actions.mark.marker")}
+        value={value}
+        inputRef={input}
+        placeholder="client_{value}"
+        onChange={(e) => onChange(e.target.value)}
+        required
+        error={value !== "" && (markerError(value) !== null || bad !== null)}
+        helperText={
+          bad !== null
+            ? t(bad.key, { slot: bad.slot })
+            : t("cookieProfiles.markerHint", { max: MARKER_MAX_BYTES })
+        }
+        slotProps={{ inputLabel: { shrink: true } }}
+      />
+      {slots.length > 0 && (
+        <Stack direction="row" sx={{ flexWrap: "wrap", gap: 0.5, alignItems: "center" }}>
+          <Typography sx={{ fontSize: "0.72rem", color: "text.secondary", mr: 0.5 }}>
+            {t("cookieProfiles.markerInsert")}
+          </Typography>
+          {slots.map((slot) => (
+            <Chip
+              key={slot.token}
+              size="small"
+              variant="outlined"
+              label={
+                <>
+                  <Box component="span" sx={{ fontFamily: "monospace", mr: 0.75 }}>
+                    {slot.token}
+                  </Box>
+                  {slot.label}
+                </>
+              }
+              onClick={() => insert(slot.token)}
+            />
+          ))}
+        </Stack>
+      )}
+    </Stack>
+  );
+}
+
 function numberOk(raw: string, min: number, max: number): boolean {
   if (raw.trim() === "") {
     return false;
@@ -1602,6 +1749,14 @@ function AskDialog({
 
     if (fields.verb === "mark" && markerError(fields.marker) !== null) {
       return t("cookieProfiles.needMarker");
+    }
+
+    if (fields.verb === "mark") {
+      const bad = markerSlotError(fields.marker, overload ? "" : named, cookies);
+
+      if (bad !== null) {
+        return t(bad.key, { slot: bad.slot });
+      }
     }
 
     if (isAuditVerb(fields.verb) && fields.set === "on") {
@@ -2228,14 +2383,12 @@ function AskDialog({
             )}
 
             {fields.verb === "mark" && (
-              <TextField
-                size="small"
-                label={t("actions.mark.marker")}
+              <MarkerField
+                t={t}
                 value={fields.marker}
-                onChange={(e) => set({ marker: e.target.value })}
-                required
-                error={fields.marker !== "" && markerError(fields.marker) !== null}
-                helperText={t("actions.mark.markerHint", { max: MARKER_MAX_BYTES })}
+                own={overload ? "" : named}
+                cookies={cookies}
+                onChange={(marker) => set({ marker })}
               />
             )}
 

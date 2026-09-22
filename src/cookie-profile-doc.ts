@@ -567,6 +567,72 @@ function checkRuleAsk(
   }
 
   checkAsk(at, ask, { fail, requireTo: true });
+
+  if (ask.do === "mark") {
+    checkMarkerSlots(ask.marker, at, rule.on === "overload" ? "" : ruleCookie(rule, cookies), cookies);
+  }
+}
+
+/*
+ * A marker is a string with slots filled from the cookies of the request: {value} the value of the
+ * rule's cookie ({tag} is its old name), {cookie} its whole string, {name} its name, {<name>} the
+ * value of any cookie of the profile. The inspector refuses a slot it cannot fill, and so does the
+ * controller.
+ */
+const OWN_SLOTS = new Set(["value", "tag", "cookie", "name"]);
+
+export function markerSlots(marker: string): { slots: string[]; unpaired: boolean } {
+  const slots: string[] = [];
+  let rest = marker;
+
+  for (;;) {
+    const open = rest.indexOf("{");
+    const close = rest.indexOf("}");
+
+    if (open < 0) {
+      return { slots, unpaired: close >= 0 };
+    }
+
+    if (close >= 0 && close < open) {
+      return { slots, unpaired: true };
+    }
+
+    const end = rest.indexOf("}", open);
+
+    if (end < 0) {
+      return { slots, unpaired: true };
+    }
+
+    slots.push(rest.slice(open + 1, end));
+    rest = rest.slice(end + 1);
+  }
+}
+
+function checkMarkerSlots(
+  marker: string,
+  at: string,
+  own: string,
+  cookies: Map<string, CookieDecl>,
+): void {
+  const { slots, unpaired } = markerSlots(marker);
+
+  if (unpaired) {
+    fail(`${at}: marker ${JSON.stringify(marker)} has an unpaired brace`);
+  }
+
+  for (const slot of slots) {
+    if (OWN_SLOTS.has(slot)) {
+      if (own === "") {
+        fail(`${at}: marker {${slot}} speaks of the rule's cookie, and the rule has none -- name the cookie: {<name>}`);
+      }
+
+      continue;
+    }
+
+    if (!cookies.has(slot)) {
+      fail(`${at}: marker {${slot}} is not a cookie of the profile -- {value}, {cookie}, {name} or a cookie name`);
+    }
+  }
 }
 
 /*
