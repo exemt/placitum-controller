@@ -335,6 +335,9 @@ function whenText(t: Translate, row: AskRow, cookies: CookieDecl[]): string {
     const named = rowCookie(row, cookies);
 
     parts.push(cookies.length > 1 && named !== "" ? `${named}: ${said}` : said);
+  } else if (cookies.length > 1 && row.cookie !== "") {
+    // The cookie of the rule is what {value} of a marker and a list write speak of.
+    parts.push(`${row.cookie}: ${t("cookieProfiles.triggers.always")}`);
   }
 
   if (row.tags.length > 0) {
