@@ -1,4 +1,4 @@
-export const ACTION_COND_OPS = ["in", "not_in", "eq", "ne", "is", "is_not"] as const;
+export const ACTION_COND_OPS = ["in", "not_in", "eq", "ne"] as const;
 
 export type ActionCondOp = (typeof ACTION_COND_OPS)[number];
 
@@ -8,10 +8,6 @@ export function isActionCondOp(value: string): value is ActionCondOp {
 
 export function opTakesDataset(op: ActionCondOp): boolean {
   return op === "in" || op === "not_in";
-}
-
-export function opIsRef(op: ActionCondOp): boolean {
-  return op === "is" || op === "is_not";
 }
 
 export const ACTION_VALUE_FIELDS = [
@@ -134,6 +130,9 @@ export function actionValueAddressable(value: ActionValue): boolean {
 }
 
 export const ACTION_COND_NAME_RE = /^[A-Za-z0-9_][A-Za-z0-9._-]{0,63}$/;
+
+/* Names the controller prints for a rule's When: rule-N and rule-N.M. */
+export const ACTION_WHEN_NAME_RE = /^rule-[0-9]+(\.[0-9]+)?$/;
 
 export interface ActionDatasetInfo {
   name: string;

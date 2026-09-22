@@ -409,6 +409,12 @@ export class DatasetRepo {
           and (exists (
                 select 1
                   from jsonb_array_elements(
+                         coalesce(a.doc -> 'conditions', '[]'::jsonb)) c
+                 where c ->> 'dataset' = $3)
+            -- Rows of the old condition form: profiles saved before the groups keep them.
+            or exists (
+                select 1
+                  from jsonb_array_elements(
                          coalesce(a.doc -> 'conditions', '[]'::jsonb)) c,
                        jsonb_array_elements(
                          coalesce(c -> 'rows', c -> 'all', '[]'::jsonb)) cl

@@ -3,10 +3,10 @@ import { checkAsk } from "./model/action-ask.ts";
 import { checkOverloadAt } from "./model/overload.ts";
 import {
   ACTION_COND_NAME_RE,
+  ACTION_WHEN_NAME_RE,
   actionValueAddressable,
   isActionCondOp,
   isAddressDatasetType,
-  opIsRef,
   opTakesDataset,
   parseActionValue,
   type ActionCondOp,
@@ -14,14 +14,22 @@ import {
 } from "./model/action-cond.ts";
 import type {
   ActionAsk,
-  ActionClause,
   ActionCondition,
   ActionMatch,
   ActionProfileDoc,
   ActionRule,
+  ActionWhenGroup,
+  ActionWhenItem,
 } from "./model/action-profile.ts";
 
 const METHOD_RE = /^[A-Z]+$/;
+
+/*
+ * Limits of a rule's When: groups joined by OR, conditions inside a group joined by AND. A
+ * hand-written document of the old form is converted into the same groups and obeys them too.
+ */
+export const WHEN_GROUPS_MAX = 32;
+export const WHEN_ITEMS_MAX = 32;
 
 export class DocError extends Error {}
 
@@ -134,20 +142,73 @@ function archiveWhen(value: unknown, path: string): ArchiveWhen[] {
   return ARCHIVE_WHEN.filter((name) => words.includes(name));
 }
 
+/*
+ * The document has two forms. The panel's form: a condition is one check (value, comparison,
+ * dataset or text), and a rule's `when` lists groups -- OR between groups, AND inside one, each
+ * condition with its own `not`. The old form, still accepted from the API and from rows saved
+ * before: a condition joins rows with `all` or `any`, a row may point to another condition
+ * (`cond` + `is` / `is_not`), and a rule names one condition with `if` or `unless`. The old form
+ * is converted on read: every value row becomes a condition of its own, and a rule's `if` or
+ * `unless` becomes the equivalent groups.
+ */
 export function normalizeDoc(input: unknown): ActionProfileDoc {
   const root = obj(input, "doc");
+  const description = str(root.description, "description");
+  const conditions: ActionCondition[] = [];
+  const legacy: LegacyCondition[] = [];
+
+  arr(root.conditions, "conditions").forEach((raw, i) => {
+    const path = `conditions[${i}]`;
+    const row = obj(raw, path);
+
+    if (row.rows !== undefined || row.all !== undefined || row.any !== undefined) {
+      legacy.push(normalizeLegacyCondition(row, path));
+    } else {
+      conditions.push(normalizeCondition(row, path));
+    }
+  });
+
+  const rules = arr(root.rules, "rules").map((raw, i) => normalizeRule(raw, `rules[${i}]`));
+
+  if (legacy.length === 0 && rules.every((row) => row.legacy === null)) {
+    return { description, conditions, rules: rules.map((row) => row.rule) };
+  }
+
+  return upgradeDoc(description, conditions, legacy, rules);
+}
+
+const OP_WORDS: Record<string, string> = { "not in": "not_in", "is not": "is_not" };
+
+function normalizeCondition(row: Record<string, unknown>, path: string): ActionCondition {
+  const op = str(row.op, `${path}.op`).trim();
 
   return {
-    description: str(root.description, "description"),
-    conditions: arr(root.conditions, "conditions").map((raw, i) =>
-      normalizeCondition(raw, `conditions[${i}]`),
-    ),
-    rules: arr(root.rules, "rules").map((raw, i) => normalizeRule(raw, `rules[${i}]`)),
+    name: str(row.name, `${path}.name`).trim(),
+    value: str(row.value, `${path}.value`).trim(),
+    op: (OP_WORDS[op] ?? op) as ActionCondOp,
+    dataset: str(row.dataset, `${path}.dataset`).trim(),
+    text: str(row.text, `${path}.text`),
   };
 }
 
-function normalizeCondition(raw: unknown, path: string): ActionCondition {
-  const row = obj(raw, path);
+interface LegacyValueRow {
+  check: ActionCondition;
+}
+
+interface LegacyRefRow {
+  ref: string;
+  not: boolean;
+}
+
+type LegacyRow = LegacyValueRow | LegacyRefRow;
+
+interface LegacyCondition {
+  name: string;
+  any: boolean;
+  rows: LegacyRow[];
+}
+
+function normalizeLegacyCondition(row: Record<string, unknown>, path: string): LegacyCondition {
   const anyRows = Array.isArray(row.any) ? row.any : undefined;
 
   if (anyRows !== undefined && row.all !== undefined) {
@@ -161,27 +222,46 @@ function normalizeCondition(raw: unknown, path: string): ActionCondition {
     name: str(row.name, `${path}.name`).trim(),
     any,
     rows: arr(source, `${path}.rows`).map((clause, j) =>
-      normalizeClause(clause, `${path}.rows[${j}]`),
+      normalizeLegacyRow(clause, `${path}.rows[${j}]`),
     ),
   };
 }
 
-const OP_WORDS: Record<string, ActionCondOp> = { "not in": "not_in", "is not": "is_not" };
-
-function normalizeClause(raw: unknown, path: string): ActionClause {
+function normalizeLegacyRow(raw: unknown, path: string): LegacyRow {
   const row = obj(raw, path);
-  const op = str(row.op, `${path}.op`).trim();
+  const said = str(row.op, `${path}.op`).trim();
+  const op = OP_WORDS[said] ?? said;
+  const cond = str(row.cond, `${path}.cond`).trim();
 
-  return {
-    value: str(row.value, `${path}.value`).trim(),
-    op: OP_WORDS[op] ?? (op as ActionCondOp),
-    dataset: str(row.dataset, `${path}.dataset`).trim(),
-    text: str(row.text, `${path}.text`),
-    cond: str(row.cond, `${path}.cond`).trim(),
-  };
+  if (cond === "" && op !== "is" && op !== "is_not") {
+    return { check: normalizeCondition(row, path) };
+  }
+
+  if (cond === "") {
+    fail(`${path}: ${op} needs a cond`);
+  }
+
+  if (op !== "is" && op !== "is_not") {
+    fail(`${path}: cond takes op is or is_not, got ${JSON.stringify(said)}`);
+  }
+
+  if (
+    str(row.value, `${path}.value`).trim() !== "" ||
+    str(row.dataset, `${path}.dataset`).trim() !== "" ||
+    str(row.text, `${path}.text`) !== ""
+  ) {
+    fail(`${path}: a cond row takes no value, dataset or text`);
+  }
+
+  return { ref: cond, not: op === "is_not" };
 }
 
-function normalizeRule(raw: unknown, path: string): ActionRule {
+interface NormalizedRule {
+  rule: ActionRule;
+  legacy: { cond: string; negate: boolean } | null;
+}
+
+function normalizeRule(raw: unknown, path: string): NormalizedRule {
   const row = obj(raw, path);
   const match = obj(row.match, `${path}.match`);
 
@@ -194,26 +274,244 @@ function normalizeRule(raw: unknown, path: string): ActionRule {
 
   const cond = str(row.cond, `${path}.cond`).trim() || ifName || unlessName;
   const negate = bool(row.negate, `${path}.negate`, false) || (unlessName !== "" && ifName === "");
+  const when = normalizeWhen(row.when, `${path}.when`);
+
+  if (cond !== "" && when.length > 0) {
+    fail(`${path}: when and if/unless together -- pick one`);
+  }
 
   return {
-    name: str(row.name, `${path}.name`).trim(),
-    on: str(row.on, `${path}.on`).trim() as "" | "overload",
-    at: intOrNull(row.at, `${path}.at`),
-    match: {
-      pathPrefix: str(match.pathPrefix ?? match.path_prefix, `${path}.match.path_prefix`).trim(),
-      suffixes: strings(match.suffixes, `${path}.match.suffixes`).map((s) =>
-        s.trim().toLowerCase(),
+    rule: {
+      name: str(row.name, `${path}.name`).trim(),
+      on: str(row.on, `${path}.on`).trim() as "" | "overload",
+      at: intOrNull(row.at, `${path}.at`),
+      match: {
+        pathPrefix: str(match.pathPrefix ?? match.path_prefix, `${path}.match.path_prefix`).trim(),
+        suffixes: strings(match.suffixes, `${path}.match.suffixes`).map((s) =>
+          s.trim().toLowerCase(),
+        ),
+        static: bool(match.static, `${path}.match.static`, false),
+        methods: strings(match.methods, `${path}.match.methods`).map((m) =>
+          m.trim().toUpperCase(),
+        ),
+      } satisfies ActionMatch,
+      when,
+      actions: arr(row.actions, `${path}.actions`).map((ask, j) =>
+        normalizeAsk(ask, `${path}.actions[${j}]`),
       ),
-      static: bool(match.static, `${path}.match.static`, false),
-      methods: strings(match.methods, `${path}.match.methods`).map((m) =>
-        m.trim().toUpperCase(),
-      ),
-    } satisfies ActionMatch,
-    cond,
-    negate: cond === "" ? false : negate,
-    actions: arr(row.actions, `${path}.actions`).map((ask, j) =>
-      normalizeAsk(ask, `${path}.actions[${j}]`),
-    ),
+    },
+    legacy: cond === "" ? null : { cond, negate },
+  };
+}
+
+function normalizeWhen(value: unknown, path: string): ActionWhenGroup[] {
+  return arr(value, path).map((group, i) =>
+    arr(group, `${path}[${i}]`).map((item, j) => {
+      const at = `${path}[${i}][${j}]`;
+      const row = obj(item, at);
+
+      return {
+        cond: str(row.cond, `${at}.cond`).trim(),
+        not: bool(row.not, `${at}.not`, false),
+      };
+    }),
+  );
+}
+
+type Expr = { lit: string; not: boolean } | { and: Expr[] } | { or: Expr[] };
+
+function negated(expr: Expr): Expr {
+  if ("lit" in expr) {
+    return { lit: expr.lit, not: !expr.not };
+  }
+
+  if ("and" in expr) {
+    return { or: expr.and.map(negated) };
+  }
+
+  return { and: expr.or.map(negated) };
+}
+
+function groupsOf(expr: Expr, path: string): ActionWhenItem[][] {
+  if ("lit" in expr) {
+    return [[{ cond: expr.lit, not: expr.not }]];
+  }
+
+  if ("or" in expr) {
+    return expr.or.flatMap((part) => groupsOf(part, path));
+  }
+
+  let acc: ActionWhenItem[][] = [[]];
+
+  for (const part of expr.and) {
+    const next = groupsOf(part, path);
+
+    acc = acc.flatMap((head) => next.map((tail) => [...head, ...tail]));
+
+    if (acc.length > WHEN_GROUPS_MAX * 8) {
+      fail(`${path}: the condition expands into more than ${WHEN_GROUPS_MAX} groups -- rewrite it as groups`);
+    }
+  }
+
+  return acc;
+}
+
+/*
+ * Groups of a converted expression: repeats inside a group and repeated groups go, a group that
+ * asks for a condition and its negation at once never holds and goes too.
+ */
+function tidyGroups(groups: ActionWhenItem[][], path: string): ActionWhenGroup[] {
+  const seen = new Set<string>();
+  const out: ActionWhenGroup[] = [];
+
+  for (const group of groups) {
+    const items: ActionWhenItem[] = [];
+    const sign = new Map<string, boolean>();
+    let never = false;
+
+    for (const item of group) {
+      const prev = sign.get(item.cond);
+
+      if (prev === undefined) {
+        sign.set(item.cond, item.not);
+        items.push(item);
+      } else if (prev !== item.not) {
+        never = true;
+        break;
+      }
+    }
+
+    if (never) {
+      continue;
+    }
+
+    const key = items
+      .map((item) => `${item.not ? "!" : ""}${item.cond}`)
+      .sort()
+      .join("&");
+
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push(items);
+    }
+  }
+
+  if (out.length === 0) {
+    fail(`${path}: the condition can never hold`);
+  }
+
+  return out;
+}
+
+function uniqueName(base: string, taken: Set<string>): string {
+  const head = base.slice(0, 60);
+  let name = head;
+
+  for (let n = 2; taken.has(name); n += 1) {
+    name = `${head}_${n}`;
+  }
+
+  taken.add(name);
+
+  return name;
+}
+
+function upgradeDoc(
+  description: string,
+  checks: ActionCondition[],
+  legacy: LegacyCondition[],
+  rules: NormalizedRule[],
+): ActionProfileDoc {
+  const taken = new Set([...checks.map((row) => row.name), ...legacy.map((row) => row.name)]);
+  const conditions = [...checks];
+  const rowNames = new Map<LegacyCondition, (string | null)[]>();
+
+  for (const cond of legacy) {
+    const single = cond.rows.length === 1 && "check" in cond.rows[0];
+
+    rowNames.set(
+      cond,
+      cond.rows.map((row, k) => {
+        if (!("check" in row)) {
+          return null;
+        }
+
+        const name = single ? cond.name : uniqueName(`${cond.name}_${k + 1}`, taken);
+
+        conditions.push({ ...row.check, name });
+
+        return name;
+      }),
+    );
+  }
+
+  const byName = new Map(legacy.map((cond) => [cond.name, cond]));
+  const resolved = new Map<string, Expr>();
+  const resolving: string[] = [];
+
+  const resolve = (name: string, path: string): Expr => {
+    const known = resolved.get(name);
+
+    if (known !== undefined) {
+      return known;
+    }
+
+    const cond = byName.get(name);
+
+    if (cond === undefined) {
+      if (!checks.some((row) => row.name === name)) {
+        fail(`${path}: condition ${JSON.stringify(name)} is not declared in conditions`);
+      }
+
+      return { lit: name, not: false };
+    }
+
+    if (resolving.includes(name)) {
+      fail(`conditions refer to each other in a cycle: ${[...resolving, name].join(" -> ")}`);
+    }
+
+    if (cond.rows.length === 0) {
+      fail(`${path}: condition ${JSON.stringify(name)} has no clauses`);
+    }
+
+    resolving.push(name);
+
+    const names = rowNames.get(cond) ?? [];
+    const parts = cond.rows.map((row, k): Expr => {
+      if ("check" in row) {
+        return { lit: names[k] ?? "", not: false };
+      }
+
+      const part = resolve(row.ref, path);
+
+      return row.not ? negated(part) : part;
+    });
+
+    resolving.pop();
+
+    const expr: Expr = cond.any ? { or: parts } : { and: parts };
+
+    resolved.set(name, expr);
+
+    return expr;
+  };
+
+  return {
+    description,
+    conditions,
+    rules: rules.map(({ rule, legacy: ref }, i) => {
+      if (ref === null) {
+        return rule;
+      }
+
+      const path = `rules[${i}]`;
+      const expr = resolve(ref.cond, path);
+
+      return {
+        ...rule,
+        when: tidyGroups(groupsOf(ref.negate ? negated(expr) : expr, path), path),
+      };
+    }),
   };
 }
 
@@ -253,126 +551,48 @@ export function validateDoc(input: unknown, datasets?: ActionDatasetInfo[]): Act
       fail(`${at}: name ${JSON.stringify(cond.name)} is not [A-Za-z0-9_][A-Za-z0-9._-]{0,63}`);
     }
 
+    if (ACTION_WHEN_NAME_RE.test(cond.name)) {
+      fail(`${at}: name ${JSON.stringify(cond.name)} is reserved -- rule-N names the When of a rule in the printed profile`);
+    }
+
     if (names.has(cond.name)) {
       fail(`${at}: condition ${JSON.stringify(cond.name)} is declared twice`);
     }
 
     names.add(cond.name);
+    checkCondition(cond, at, datasets);
   });
-
-  doc.conditions.forEach((cond, i) => {
-    const at = `conditions[${i}]`;
-    const key = cond.any ? "any" : "all";
-
-    if (cond.rows.length === 0) {
-      fail(`${at}: condition ${JSON.stringify(cond.name)} has no clauses`);
-    }
-
-    cond.rows.forEach((clause, j) =>
-      checkClause(clause, `${at}.${key}[${j}]`, datasets, names, cond.name),
-    );
-  });
-
-  for (const cond of doc.conditions) {
-    const cycle = findCycle(doc.conditions, cond.name, new Map());
-
-    if (cycle !== "") {
-      fail(`conditions refer to each other in a cycle: ${cycle}`);
-    }
-  }
 
   doc.rules.forEach((rule, i) => checkRule(rule, `rules[${i}]`, names, datasets));
 
   return doc;
 }
 
-function findCycle(
-  conds: ActionCondition[],
-  name: string,
-  state: Map<string, number>,
-): string {
-  const seen = state.get(name);
-
-  if (seen === 1) {
-    return name;
-  }
-
-  if (seen === 2) {
-    return "";
-  }
-
-  state.set(name, 1);
-
-  const cond = conds.find((row) => row.name === name);
-
-  for (const clause of cond?.rows ?? []) {
-    if (clause.cond === "") {
-      continue;
-    }
-
-    const tail = findCycle(conds, clause.cond, state);
-
-    if (tail !== "") {
-      return `${name} -> ${tail}`;
-    }
-  }
-
-  state.set(name, 2);
-
-  return "";
-}
-
-function checkClause(
-  clause: ActionClause,
+function checkCondition(
+  cond: ActionCondition,
   at: string,
   datasets: ActionDatasetInfo[] | undefined,
-  names: Set<string>,
-  self: string,
 ): void {
-  if (clause.cond !== "" || opIsRef(clause.op)) {
-    if (clause.cond === "") {
-      fail(`${at}: ${clause.op} needs a cond`);
-    }
-
-    if (!opIsRef(clause.op)) {
-      fail(`${at}: cond takes op is or is_not, got ${JSON.stringify(clause.op)}`);
-    }
-
-    if (clause.value !== "" || clause.dataset !== "" || clause.text !== "") {
-      fail(`${at}: a cond row takes no value, dataset or text`);
-    }
-
-    if (clause.cond === self) {
-      fail(`${at}: condition ${JSON.stringify(self)} refers to itself`);
-    }
-
-    if (!names.has(clause.cond)) {
-      fail(`${at}: cond ${JSON.stringify(clause.cond)} is not declared in conditions`);
-    }
-
-    return;
-  }
-
-  const value = parseActionValue(clause.value);
+  const value = parseActionValue(cond.value);
 
   if ("error" in value) {
     fail(`${at}: ${value.error}`);
   }
 
-  if (clause.op === ("" as string)) {
-    fail(`${at}: op is empty (in, not_in, eq, ne; is, is_not with cond)`);
+  if (cond.op === ("" as string)) {
+    fail(`${at}: op is empty (in, not_in, eq, ne)`);
   }
 
-  if (!isActionCondOp(clause.op)) {
-    fail(`${at}: op must be in, not_in, eq or ne (is, is_not with cond), got ${JSON.stringify(clause.op)}`);
+  if (!isActionCondOp(cond.op)) {
+    fail(`${at}: op must be in, not_in, eq or ne, got ${JSON.stringify(cond.op)}`);
   }
 
-  if (opTakesDataset(clause.op)) {
-    if (clause.dataset === "") {
-      fail(`${at}: ${clause.op} needs a dataset`);
+  if (opTakesDataset(cond.op)) {
+    if (cond.dataset === "") {
+      fail(`${at}: ${cond.op} needs a dataset`);
     }
 
-    if (clause.text.trim() !== "") {
+    if (cond.text.trim() !== "") {
       fail(`${at}: text is only for eq and ne`);
     }
 
@@ -380,30 +600,56 @@ function checkClause(
       return;
     }
 
-    const ds = datasets.find((row) => row.name === clause.dataset);
+    const ds = datasets.find((row) => row.name === cond.dataset);
 
     if (ds === undefined || ds.kind !== "list") {
-      fail(`${at}: dataset ${JSON.stringify(clause.dataset)} is not a list of this space`);
+      fail(`${at}: dataset ${JSON.stringify(cond.dataset)} is not a list of this space`);
     }
 
     if (!ds.active) {
-      fail(`${at}: dataset ${JSON.stringify(clause.dataset)} is not active -- the inspector mirrors only active lists`);
+      fail(`${at}: dataset ${JSON.stringify(cond.dataset)} is not active -- the inspector mirrors only active lists`);
     }
 
     if (isAddressDatasetType(ds.type) && !actionValueAddressable(value)) {
-      fail(`${at}: dataset ${JSON.stringify(clause.dataset)} holds addresses and compares only with $remote_addr, a header or a var`);
+      fail(`${at}: dataset ${JSON.stringify(cond.dataset)} holds addresses and compares only with $remote_addr, a header or a var`);
     }
 
     return;
   }
 
-  if (clause.text === "") {
-    fail(`${at}: ${clause.op} needs a text`);
+  if (cond.text === "") {
+    fail(`${at}: ${cond.op} needs a text`);
   }
 
-  if (clause.dataset !== "") {
+  if (cond.dataset !== "") {
     fail(`${at}: dataset is only for in and not_in`);
   }
+}
+
+function checkWhen(when: ActionWhenGroup[], at: string, conds: Set<string>): void {
+  if (when.length > WHEN_GROUPS_MAX) {
+    fail(`${at}: ${when.length} groups -- at most ${WHEN_GROUPS_MAX}`);
+  }
+
+  when.forEach((group, i) => {
+    if (group.length === 0) {
+      fail(`${at}[${i}]: the group is empty -- add a condition or drop the group`);
+    }
+
+    if (group.length > WHEN_ITEMS_MAX) {
+      fail(`${at}[${i}]: ${group.length} conditions in a group -- at most ${WHEN_ITEMS_MAX}`);
+    }
+
+    group.forEach((item, j) => {
+      if (item.cond === "") {
+        fail(`${at}[${i}][${j}]: no condition chosen`);
+      }
+
+      if (!conds.has(item.cond)) {
+        fail(`${at}[${i}][${j}]: condition ${JSON.stringify(item.cond)} is not declared in conditions`);
+      }
+    });
+  });
 }
 
 function checkRule(
@@ -417,7 +663,7 @@ function checkRule(
 
     if (
       rule.match.pathPrefix !== "" || rule.match.suffixes.length > 0 || rule.match.static ||
-      rule.match.methods.length > 0 || rule.cond !== ""
+      rule.match.methods.length > 0 || rule.when.length > 0
     ) {
       fail(`${at}: on: overload takes no match and no condition`);
     }
@@ -439,9 +685,7 @@ function checkRule(
     }
   }
 
-  if (rule.cond !== "" && !conds.has(rule.cond)) {
-    fail(`${at}: condition ${JSON.stringify(rule.cond)} is not declared in conditions`);
-  }
+  checkWhen(rule.when, `${at}.when`, conds);
 
   if (rule.actions.length === 0) {
     fail(`${at}: no actions -- a rule that sends nothing is dead weight`);
@@ -513,14 +757,72 @@ export function docDatasets(doc: ActionProfileDoc): string[] {
   const out: string[] = [];
 
   for (const cond of doc.conditions) {
-    for (const clause of cond.rows) {
-      if (opTakesDataset(clause.op) && clause.dataset !== "" && !out.includes(clause.dataset)) {
-        out.push(clause.dataset);
-      }
+    if (opTakesDataset(cond.op) && cond.dataset !== "" && !out.includes(cond.dataset)) {
+      out.push(cond.dataset);
     }
   }
 
   return out;
+}
+
+interface PrintedRef {
+  name: string;
+  negate: boolean;
+}
+
+interface PrintedGroup {
+  name: string;
+  any: boolean;
+  refs: PrintedRef[];
+}
+
+/*
+ * The inspector reads a rule's When as one condition: `if` or `unless` by name, where a condition
+ * joins its rows with all or any and a row may point to another condition. A single condition
+ * goes to `if` / `unless` as is; one group becomes rule-N with all; several groups become rule-N
+ * with any over the groups, and a group of more than one condition is rule-N.M with all. N is the
+ * rule's place, the same number the inspector gives a rule without a name.
+ */
+function printedWhen(rules: ActionRule[]): { groups: PrintedGroup[]; refs: (PrintedRef | null)[] } {
+  const groups: PrintedGroup[] = [];
+  const refOf = (item: ActionWhenItem): PrintedRef => ({ name: item.cond, negate: item.not });
+
+  const refs = rules.map((rule, i): PrintedRef | null => {
+    const when = rule.when;
+    const head = `rule-${i + 1}`;
+
+    if (when.length === 0) {
+      return null;
+    }
+
+    if (when.length === 1 && when[0].length === 1) {
+      return refOf(when[0][0]);
+    }
+
+    if (when.length === 1) {
+      groups.push({ name: head, any: false, refs: when[0].map(refOf) });
+
+      return { name: head, negate: false };
+    }
+
+    const members = when.map((group, j): PrintedRef => {
+      if (group.length === 1) {
+        return refOf(group[0]);
+      }
+
+      const name = `${head}.${j + 1}`;
+
+      groups.push({ name, any: false, refs: group.map(refOf) });
+
+      return { name, negate: false };
+    });
+
+    groups.push({ name: head, any: true, refs: members });
+
+    return { name: head, negate: false };
+  });
+
+  return { groups, refs };
 }
 
 
@@ -537,39 +839,41 @@ export function renderProfileYaml(
   out.push("mode: enforce");
   out.push("");
 
-  if (doc.conditions.length > 0) {
+  const printed = printedWhen(doc.rules);
+
+  if (doc.conditions.length > 0 || printed.groups.length > 0) {
     out.push("conditions:");
 
     for (const cond of doc.conditions) {
       out.push(`  - name: ${q(cond.name)}`);
-      out.push(`    ${cond.any ? "any" : "all"}:`);
+      out.push("    all:");
+      out.push(`      - value: ${q(cond.value)}`);
+      out.push(`        op: ${cond.op}`);
 
-      for (const clause of cond.rows) {
-        if (opIsRef(clause.op)) {
-          out.push(`      - cond: ${q(clause.cond)}`);
-          out.push(`        op: ${clause.op}`);
+      if (opTakesDataset(cond.op)) {
+        out.push(`        dataset: ${q(cond.dataset)}`);
 
-          continue;
+        const ds = datasets?.find((row) => row.name === cond.dataset);
+
+        if (ds !== undefined && isAddressDatasetType(ds.type)) {
+          out.push("        type: cidr");
         }
 
-        out.push(`      - value: ${q(clause.value)}`);
-        out.push(`        op: ${clause.op}`);
-
-        if (opTakesDataset(clause.op)) {
-          out.push(`        dataset: ${q(clause.dataset)}`);
-
-          const ds = datasets?.find((row) => row.name === clause.dataset);
-
-          if (ds !== undefined && isAddressDatasetType(ds.type)) {
-            out.push("        type: cidr");
-          }
-
-          if (ds !== undefined && ds.hash) {
-            out.push("        hash: md5");
-          }
-        } else {
-          out.push(`        text: ${q(clause.text)}`);
+        if (ds !== undefined && ds.hash) {
+          out.push("        hash: md5");
         }
+      } else {
+        out.push(`        text: ${q(cond.text)}`);
+      }
+    }
+
+    for (const group of printed.groups) {
+      out.push(`  - name: ${q(group.name)}`);
+      out.push(`    ${group.any ? "any" : "all"}:`);
+
+      for (const ref of group.refs) {
+        out.push(`      - cond: ${q(ref.name)}`);
+        out.push(`        op: ${ref.negate ? "is_not" : "is"}`);
       }
     }
 
@@ -585,7 +889,7 @@ export function renderProfileYaml(
 
   out.push("rules:");
 
-  for (const rule of doc.rules) {
+  doc.rules.forEach((rule, index) => {
     const lines: string[] = [];
 
     if (rule.name !== "") {
@@ -623,8 +927,10 @@ export function renderProfileYaml(
       lines.push(...match);
     }
 
-    if (rule.cond !== "") {
-      lines.push(`${rule.negate ? "unless" : "if"}: ${q(rule.cond)}`);
+    const ref = printed.refs[index];
+
+    if (ref !== null) {
+      lines.push(`${ref.negate ? "unless" : "if"}: ${q(ref.name)}`);
     }
 
     lines.push("actions:");
@@ -705,7 +1011,7 @@ export function renderProfileYaml(
     lines.forEach((line, i) => {
       out.push(`${i === 0 ? "  - " : "    "}${line}`);
     });
-  }
+  });
 
   out.push("");
 

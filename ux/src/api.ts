@@ -3520,31 +3520,31 @@ export interface ActionProfileMatch {
   methods: string[];
 }
 
-export const ACTION_COND_OPS = ["in", "not_in", "eq", "ne", "is", "is_not"] as const;
+export const ACTION_COND_OPS = ["in", "not_in", "eq", "ne"] as const;
 
 export type ActionCondOp = (typeof ACTION_COND_OPS)[number];
 
-export interface ActionClause {
+export interface ActionCondition {
+  name: string;
   value: string;
   op: ActionCondOp;
   dataset: string;
   text: string;
-  cond: string;
 }
 
-export interface ActionCondition {
-  name: string;
-  any: boolean;
-  rows: ActionClause[];
+export interface ActionWhenItem {
+  cond: string;
+  not: boolean;
 }
+
+export type ActionWhenGroup = ActionWhenItem[];
 
 export interface ActionProfileRule {
   name: string;
   on?: "" | "overload";
   at?: number | null;
   match: ActionProfileMatch;
-  cond?: string;
-  negate?: boolean;
+  when?: ActionWhenGroup[];
   actions: ActionProfileAsk[];
 }
 
@@ -3655,15 +3655,12 @@ export interface CookieProfileRule {
   tags?: string[];
   issue?: string;
   drop?: string;
-  cond?: string;
-  negate?: boolean;
   actions: CookieProfileAsk[];
 }
 
 export interface CookieProfileDoc {
   description: string;
   cookies?: CookieDecl[];
-  conditions?: ActionCondition[];
   rules: CookieProfileRule[];
 }
 

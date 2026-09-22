@@ -1,12 +1,6 @@
-import type {
-  ActionAsk,
-  ActionClause,
-  ActionCondition,
-  ActionMatch,
-  ActionWrite,
-} from "./action-profile.ts";
+import type { ActionAsk, ActionMatch, ActionWrite } from "./action-profile.ts";
 
-export type { ActionAsk, ActionClause, ActionCondition, ActionMatch };
+export type { ActionAsk, ActionMatch };
 
 export type CookieWrite = ActionWrite | "cookie";
 
@@ -57,15 +51,12 @@ export interface CookieRule {
   tags: string[];
   issue: string;
   drop: string;
-  cond: string;
-  negate: boolean;
   actions: CookieAsk[];
 }
 
 export interface CookieProfileDoc {
   description: string;
   cookies: CookieDecl[];
-  conditions: ActionCondition[];
   rules: CookieRule[];
 }
 

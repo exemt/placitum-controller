@@ -13,7 +13,7 @@ interface ProfileRow {
 }
 
 function ofProfile(row: ProfileRow): CookieProfile {
-  const doc = normalizeDoc(row.doc ?? {});
+  const doc = normalizeDoc(row.doc ?? {}, { legacy: "drop" });
 
   return {
     id: row.id,

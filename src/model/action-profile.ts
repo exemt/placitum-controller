@@ -31,27 +31,27 @@ export interface ActionMatch {
   methods: string[];
 }
 
-export interface ActionClause {
+export interface ActionCondition {
+  name: string;
   value: string;
   op: ActionCondOp;
   dataset: string;
   text: string;
-  cond: string;
 }
 
-export interface ActionCondition {
-  name: string;
-  any: boolean;
-  rows: ActionClause[];
+export interface ActionWhenItem {
+  cond: string;
+  not: boolean;
 }
+
+export type ActionWhenGroup = ActionWhenItem[];
 
 export interface ActionRule {
   name: string;
   on?: "" | "overload";
   at?: number | null;
   match: ActionMatch;
-  cond: string;
-  negate: boolean;
+  when: ActionWhenGroup[];
   actions: ActionAsk[];
 }
 

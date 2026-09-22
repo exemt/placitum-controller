@@ -2,22 +2,14 @@ import { ARCHIVE_WHEN, RECORD_OBJECTS, type ArchiveWhen, type RecordObject } fro
 import { checkAsk } from "./model/action-ask.ts";
 import { checkOverloadAt } from "./model/overload.ts";
 import {
-  ACTION_COND_NAME_RE,
-  actionValueAddressable,
-  isActionCondOp,
   isAddressDatasetType,
-  opIsRef,
-  opTakesDataset,
   parseActionValue,
-  type ActionCondOp,
   type ActionDatasetInfo,
 } from "./model/action-cond.ts";
 import {
   COOKIE_PHASES,
   COOKIE_SIGNS,
   COOKIE_STATES,
-  type ActionClause,
-  type ActionCondition,
   type ActionMatch,
   type CookieAsk,
   type CookieDecl,
@@ -146,18 +138,34 @@ function archiveWhen(value: unknown, path: string): ArchiveWhen[] {
   return ARCHIVE_WHEN.filter((name) => words.includes(name));
 }
 
-export function normalizeDoc(input: unknown): CookieProfileDoc {
+/*
+ * A cookie profile has no conditions: a rule is narrowed by the cookie's state and label, the
+ * phase, response codes, path and methods. A document that still carries conditions or a rule's
+ * if / unless is refused from the API: dropping them quietly would widen the rules. A row saved
+ * before is read with them dropped (`legacy: "drop"`), so the page opens and saving it again
+ * writes the profile without them.
+ */
+export interface NormalizeOptions {
+  legacy?: "reject" | "drop";
+}
+
+const LEGACY_HINT =
+  "cookie profiles have no conditions -- narrow a rule by the cookie's state and label, phase, response codes, path and methods";
+
+export function normalizeDoc(input: unknown, opts: NormalizeOptions = {}): CookieProfileDoc {
   const root = obj(input, "doc");
+  const reject = (opts.legacy ?? "reject") === "reject";
+
+  if (reject && arr(root.conditions, "conditions").length > 0) {
+    fail(`conditions: ${LEGACY_HINT}`);
+  }
 
   return {
     description: str(root.description, "description"),
     cookies: arr(root.cookies, "cookies").map((raw, i) =>
       normalizeCookie(raw, `cookies[${i}]`),
     ),
-    conditions: arr(root.conditions, "conditions").map((raw, i) =>
-      normalizeCondition(raw, `conditions[${i}]`),
-    ),
-    rules: arr(root.rules, "rules").map((raw, i) => normalizeRule(raw, `rules[${i}]`)),
+    rules: arr(root.rules, "rules").map((raw, i) => normalizeRule(raw, `rules[${i}]`, reject)),
   };
 }
 
@@ -208,54 +216,18 @@ function seconds(value: unknown, path: string): number {
   return Number(m[1]) * mult;
 }
 
-function normalizeCondition(raw: unknown, path: string): ActionCondition {
-  const row = obj(raw, path);
-  const anyRows = Array.isArray(row.any) ? row.any : undefined;
-
-  if (anyRows !== undefined && row.all !== undefined) {
-    fail(`${path}: all and any together -- pick one`);
-  }
-
-  const source = row.rows ?? row.all ?? anyRows;
-  const any = anyRows !== undefined ? true : bool(row.any, `${path}.any`, false);
-
-  return {
-    name: str(row.name, `${path}.name`).trim(),
-    any,
-    rows: arr(source, `${path}.rows`).map((clause, j) =>
-      normalizeClause(clause, `${path}.rows[${j}]`),
-    ),
-  };
-}
-
-const OP_WORDS: Record<string, ActionCondOp> = { "not in": "not_in", "is not": "is_not" };
-
-function normalizeClause(raw: unknown, path: string): ActionClause {
-  const row = obj(raw, path);
-  const op = str(row.op, `${path}.op`).trim();
-
-  return {
-    value: str(row.value, `${path}.value`).trim(),
-    op: OP_WORDS[op] ?? (op as ActionCondOp),
-    dataset: str(row.dataset, `${path}.dataset`).trim(),
-    text: str(row.text, `${path}.text`),
-    cond: str(row.cond, `${path}.cond`).trim(),
-  };
-}
-
-function normalizeRule(raw: unknown, path: string): CookieRule {
+function normalizeRule(raw: unknown, path: string, reject: boolean): CookieRule {
   const row = obj(raw, path);
   const match = obj(row.match, `${path}.match`);
 
-  const ifName = str(row.if, `${path}.if`).trim();
-  const unlessName = str(row.unless, `${path}.unless`).trim();
-
-  if (ifName !== "" && unlessName !== "") {
-    fail(`${path}: if and unless together -- pick one`);
+  if (
+    reject &&
+    (str(row.if, `${path}.if`).trim() !== "" ||
+      str(row.unless, `${path}.unless`).trim() !== "" ||
+      str(row.cond, `${path}.cond`).trim() !== "")
+  ) {
+    fail(`${path}: ${LEGACY_HINT}`);
   }
-
-  const cond = str(row.cond, `${path}.cond`).trim() || ifName || unlessName;
-  const negate = bool(row.negate, `${path}.negate`, false) || (unlessName !== "" && ifName === "");
 
   return {
     name: str(row.name, `${path}.name`).trim(),
@@ -283,8 +255,6 @@ function normalizeRule(raw: unknown, path: string): CookieRule {
     tags: strings(row.tags, `${path}.tags`).map((tag) => tag.trim()),
     issue: str(row.issue, `${path}.issue`).trim(),
     drop: str(row.drop, `${path}.drop`).trim(),
-    cond,
-    negate: cond === "" ? false : negate,
     actions: arr(row.actions, `${path}.actions`).map((ask, j) =>
       normalizeAsk(ask, `${path}.actions[${j}]`),
     ),
@@ -320,7 +290,6 @@ function normalizeAsk(raw: unknown, path: string): CookieAsk {
 
 export function validateDoc(input: unknown, datasets?: ActionDatasetInfo[]): CookieProfileDoc {
   const doc = normalizeDoc(input);
-  const names = new Set<string>();
   const cookies = new Map<string, CookieDecl>();
 
   doc.cookies.forEach((cookie, i) => {
@@ -335,42 +304,7 @@ export function validateDoc(input: unknown, datasets?: ActionDatasetInfo[]): Coo
     cookies.set(cookie.name, cookie);
   });
 
-  doc.conditions.forEach((cond, i) => {
-    const at = `conditions[${i}]`;
-
-    if (!ACTION_COND_NAME_RE.test(cond.name)) {
-      fail(`${at}: name ${JSON.stringify(cond.name)} is not [A-Za-z0-9_][A-Za-z0-9._-]{0,63}`);
-    }
-
-    if (names.has(cond.name)) {
-      fail(`${at}: condition ${JSON.stringify(cond.name)} is declared twice`);
-    }
-
-    names.add(cond.name);
-  });
-
-  doc.conditions.forEach((cond, i) => {
-    const at = `conditions[${i}]`;
-    const key = cond.any ? "any" : "all";
-
-    if (cond.rows.length === 0) {
-      fail(`${at}: condition ${JSON.stringify(cond.name)} has no clauses`);
-    }
-
-    cond.rows.forEach((clause, j) =>
-      checkClause(clause, `${at}.${key}[${j}]`, datasets, names, cond.name),
-    );
-  });
-
-  for (const cond of doc.conditions) {
-    const cycle = findCycle(doc.conditions, cond.name, new Map());
-
-    if (cycle !== "") {
-      fail(`conditions refer to each other in a cycle: ${cycle}`);
-    }
-  }
-
-  doc.rules.forEach((rule, i) => checkRule(rule, `rules[${i}]`, names, cookies, datasets));
+  doc.rules.forEach((rule, i) => checkRule(rule, `rules[${i}]`, cookies, datasets));
 
   return doc;
 }
@@ -425,130 +359,9 @@ function checkCookie(cookie: CookieDecl, at: string): void {
   }
 }
 
-function findCycle(
-  conds: ActionCondition[],
-  name: string,
-  state: Map<string, number>,
-): string {
-  const seen = state.get(name);
-
-  if (seen === 1) {
-    return name;
-  }
-
-  if (seen === 2) {
-    return "";
-  }
-
-  state.set(name, 1);
-
-  const cond = conds.find((row) => row.name === name);
-
-  for (const clause of cond?.rows ?? []) {
-    if (clause.cond === "") {
-      continue;
-    }
-
-    const tail = findCycle(conds, clause.cond, state);
-
-    if (tail !== "") {
-      return `${name} -> ${tail}`;
-    }
-  }
-
-  state.set(name, 2);
-
-  return "";
-}
-
-function checkClause(
-  clause: ActionClause,
-  at: string,
-  datasets: ActionDatasetInfo[] | undefined,
-  names: Set<string>,
-  self: string,
-): void {
-  if (clause.cond !== "" || opIsRef(clause.op)) {
-    if (clause.cond === "") {
-      fail(`${at}: ${clause.op} needs a cond`);
-    }
-
-    if (!opIsRef(clause.op)) {
-      fail(`${at}: cond takes op is or is_not, got ${JSON.stringify(clause.op)}`);
-    }
-
-    if (clause.value !== "" || clause.dataset !== "" || clause.text !== "") {
-      fail(`${at}: a cond row takes no value, dataset or text`);
-    }
-
-    if (clause.cond === self) {
-      fail(`${at}: condition ${JSON.stringify(self)} refers to itself`);
-    }
-
-    if (!names.has(clause.cond)) {
-      fail(`${at}: cond ${JSON.stringify(clause.cond)} is not declared in conditions`);
-    }
-
-    return;
-  }
-
-  const value = parseActionValue(clause.value);
-
-  if ("error" in value) {
-    fail(`${at}: ${value.error}`);
-  }
-
-  if (clause.op === ("" as string)) {
-    fail(`${at}: op is empty (in, not_in, eq, ne; is, is_not with cond)`);
-  }
-
-  if (!isActionCondOp(clause.op)) {
-    fail(`${at}: op must be in, not_in, eq or ne (is, is_not with cond), got ${JSON.stringify(clause.op)}`);
-  }
-
-  if (opTakesDataset(clause.op)) {
-    if (clause.dataset === "") {
-      fail(`${at}: ${clause.op} needs a dataset`);
-    }
-
-    if (clause.text.trim() !== "") {
-      fail(`${at}: text is only for eq and ne`);
-    }
-
-    if (datasets === undefined) {
-      return;
-    }
-
-    const ds = datasets.find((row) => row.name === clause.dataset);
-
-    if (ds === undefined || ds.kind !== "list") {
-      fail(`${at}: dataset ${JSON.stringify(clause.dataset)} is not a list of this space`);
-    }
-
-    if (!ds.active) {
-      fail(`${at}: dataset ${JSON.stringify(clause.dataset)} is not active -- the inspector mirrors only active lists`);
-    }
-
-    if (isAddressDatasetType(ds.type) && !actionValueAddressable(value)) {
-      fail(`${at}: dataset ${JSON.stringify(clause.dataset)} holds addresses and compares only with $remote_addr, a header or a var`);
-    }
-
-    return;
-  }
-
-  if (clause.text === "") {
-    fail(`${at}: ${clause.op} needs a text`);
-  }
-
-  if (clause.dataset !== "") {
-    fail(`${at}: dataset is only for in and not_in`);
-  }
-}
-
 function checkRule(
   rule: CookieRule,
   at: string,
-  conds: Set<string>,
   cookies: Map<string, CookieDecl>,
   datasets: ActionDatasetInfo[] | undefined,
 ): void {
@@ -558,8 +371,7 @@ function checkRule(
     if (
       rule.match.pathPrefix !== "" || rule.match.suffixes.length > 0 || rule.match.static ||
       rule.match.methods.length > 0 || rule.phase !== "" || rule.status.length > 0 ||
-      rule.cookie !== "" || rule.tags.length > 0 || rule.issue !== "" || rule.drop !== "" ||
-      rule.cond !== ""
+      rule.cookie !== "" || rule.tags.length > 0 || rule.issue !== "" || rule.drop !== ""
     ) {
       fail(`${at}: on: overload takes only at and actions`);
     }
@@ -589,10 +401,6 @@ function checkRule(
     if (!METHOD_RE.test(m)) {
       fail(`${at}: ${m} is not a method`);
     }
-  }
-
-  if (rule.cond !== "" && !conds.has(rule.cond)) {
-    fail(`${at}: condition ${JSON.stringify(rule.cond)} is not declared in conditions`);
   }
 
   checkRuleCookie(rule, at, cookies);
@@ -795,21 +603,6 @@ function checkListWrite(
   }
 }
 
-export function docDatasets(doc: CookieProfileDoc): string[] {
-  const out: string[] = [];
-
-  for (const cond of doc.conditions) {
-    for (const clause of cond.rows) {
-      if (opTakesDataset(clause.op) && clause.dataset !== "" && !out.includes(clause.dataset)) {
-        out.push(clause.dataset);
-      }
-    }
-  }
-
-  return out;
-}
-
-
 export function renderProfileYaml(
   name: string,
   doc: CookieProfileDoc,
@@ -851,45 +644,6 @@ export function renderProfileYaml(
 
       out.push(`      random: ${cookie.value.random}`);
       out.push(`      max_len: ${cookie.value.maxLen}`);
-    }
-
-    out.push("");
-  }
-
-  if (doc.conditions.length > 0) {
-    out.push("conditions:");
-
-    for (const cond of doc.conditions) {
-      out.push(`  - name: ${q(cond.name)}`);
-      out.push(`    ${cond.any ? "any" : "all"}:`);
-
-      for (const clause of cond.rows) {
-        if (opIsRef(clause.op)) {
-          out.push(`      - cond: ${q(clause.cond)}`);
-          out.push(`        op: ${clause.op}`);
-
-          continue;
-        }
-
-        out.push(`      - value: ${q(clause.value)}`);
-        out.push(`        op: ${clause.op}`);
-
-        if (opTakesDataset(clause.op)) {
-          out.push(`        dataset: ${q(clause.dataset)}`);
-
-          const ds = datasets?.find((row) => row.name === clause.dataset);
-
-          if (ds !== undefined && isAddressDatasetType(ds.type)) {
-            out.push("        type: cidr");
-          }
-
-          if (ds !== undefined && ds.hash) {
-            out.push("        hash: md5");
-          }
-        } else {
-          out.push(`        text: ${q(clause.text)}`);
-        }
-      }
     }
 
     out.push("");
@@ -940,10 +694,6 @@ export function renderProfileYaml(
     if (match.length > 0) {
       lines.push("match:");
       lines.push(...match);
-    }
-
-    if (rule.cond !== "") {
-      lines.push(`${rule.negate ? "unless" : "if"}: ${q(rule.cond)}`);
     }
 
     if (rule.on === "overload") {

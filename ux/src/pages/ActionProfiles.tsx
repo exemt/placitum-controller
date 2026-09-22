@@ -14,6 +14,7 @@ import Typography from "@mui/material/Typography";
 
 import { Form } from "../components/Form.tsx";
 import { Modal } from "../components/Modal.tsx";
+import { DialogAlert } from "../components/dialog-kit.tsx";
 import {
   DataTable,
   RowActionsHead,
@@ -36,10 +37,19 @@ import {
   type ActionProfileAsk,
   type ActionProfileDoc,
   type ActionRegistry,
+  type ActionWhenGroup,
   type Dataset,
   type InspectorMeta,
 } from "../api.ts";
-import { ConditionDialog, ConditionsTable, refsTo, whenLabel } from "./action-conds.tsx";
+import {
+  ConditionDialog,
+  ConditionsTable,
+  WhenGroups,
+  whenReady,
+  whenRename,
+  whenSummary,
+  whenUses,
+} from "./action-conds.tsx";
 import { ACTION_CODE_RE, axisLabel, verbLabel } from "../components/action-select.tsx";
 import {
   ASK_PHASES,
@@ -73,7 +83,6 @@ import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import {
   OVERLOAD_AT_MAX,
   OVERLOAD_AT_MIN,
-  OVERLOAD_WHEN,
   overloadAtLabel,
   overloadAtOf,
   overloadAtOk,
@@ -96,8 +105,7 @@ const NAME_RE = /^[a-z_][a-z0-9_-]{0,63}$/;
 
 interface AskRow {
   ask: ActionProfileAsk;
-  cond: string;
-  negate: boolean;
+  when: ActionWhenGroup[];
   overload?: boolean;
   at?: number | null;
 }
@@ -106,8 +114,7 @@ function asksOf(doc: ActionProfileDoc | undefined): AskRow[] {
   return (doc?.rules ?? []).flatMap((rule) =>
     rule.actions.map((ask) => ({
       ask,
-      cond: rule.cond ?? "",
-      negate: rule.cond !== undefined && rule.cond !== "" && rule.negate === true,
+      when: rule.when ?? [],
       overload: rule.on === "overload",
       at: rule.at ?? null,
     })),
@@ -119,33 +126,12 @@ function rulesOf(rows: AskRow[]): ActionProfileDoc["rules"] {
     name: "",
     ...(row.overload === true ? { on: "overload" as const, at: row.at ?? null } : {}),
     match: { pathPrefix: "", suffixes: [], static: false, methods: [] },
-    cond: row.overload === true ? "" : row.cond,
-    negate: row.overload === true || row.cond === "" ? false : row.negate,
+    when: row.overload === true ? [] : row.when,
     actions: [row.ask],
   }));
 }
 
-function whenKey(row: { cond: string; negate: boolean; overload?: boolean }): string {
-  if (row.overload === true) {
-    return OVERLOAD_WHEN;
-  }
-
-  if (row.cond === "") {
-    return "";
-  }
-
-  return `${row.negate ? "unless" : "if"}:${row.cond}`;
-}
-
-function whenOf(key: string): { cond: string; negate: boolean } {
-  if (key === "") {
-    return { cond: "", negate: false };
-  }
-
-  const [kind, ...rest] = key.split(":");
-
-  return { cond: rest.join(":"), negate: kind === "unless" };
-}
+type WhenMode = "always" | "conds" | "overload";
 
 function scoreAsk(value: number): ActionProfileAsk {
   return {
@@ -406,7 +392,7 @@ function ActionProfileForm({
   };
 
   const usedBy = (condName: string): number =>
-    asks.filter((row) => row.cond === condName).length + refsTo(conditions, condName);
+    asks.filter((row) => whenUses(row.when, condName)).length;
 
   const removeCondition = (index: number) => {
     const cond = conditions[index];
@@ -542,6 +528,7 @@ function ActionProfileForm({
           inspectors={inspectors}
           registry={registry}
           datasets={datasets}
+          onAddCondition={(cond) => setConditions((prev) => [...prev, cond])}
           onSave={(next) => {
             setAsks((prev) =>
               editing === null
@@ -572,15 +559,7 @@ function ActionProfileForm({
 
             if (before !== null && before !== undefined && before.name !== next.name) {
               setAsks((prev) =>
-                prev.map((row) => (row.cond === before.name ? { ...row, cond: next.name } : row)),
-              );
-              setConditions((prev) =>
-                prev.map((cond) => ({
-                  ...cond,
-                  rows: cond.rows.map((clause) =>
-                    clause.cond === before.name ? { ...clause, cond: next.name } : clause,
-                  ),
-                })),
+                prev.map((row) => ({ ...row, when: whenRename(row.when, before.name, next.name) })),
               );
             }
 
@@ -664,9 +643,9 @@ function AsksTable({
       <Table size="small" sx={flushTableSx}>
         <TableHead>
           <TableRow>
-            <HeadCell label={t("actionProfiles.when")} width={150} />
-            <HeadCell label={t("actionProfiles.to")} width={130} />
-            <HeadCell label={t("actionProfiles.verb")} width={170} />
+            <HeadCell label={t("actionProfiles.when")} width={210} />
+            <HeadCell label={t("actionProfiles.to")} width={120} />
+            <HeadCell label={t("actionProfiles.verb")} width={150} />
             <HeadCell label={t("actionProfiles.params")} />
             <AddCell label={t("actionProfiles.addRule")} onAdd={onAdd} />
           </TableRow>
@@ -688,9 +667,9 @@ function AsksTable({
                   text={
                     row.overload === true
                       ? `${t("outcomes.ons.overload")} ${overloadAtLabel(row.at)}`
-                      : whenLabel(t, row.cond, row.negate)
+                      : whenSummary(t, row.when)
                   }
-                  muted={row.cond === "" && row.overload !== true}
+                  muted={row.when.length === 0 && row.overload !== true}
                 />
                 <TextCell
                   text={
@@ -819,6 +798,7 @@ function AskDialog({
   inspectors,
   registry,
   datasets,
+  onAddCondition,
   onSave,
   onClose,
 }: {
@@ -827,30 +807,22 @@ function AskDialog({
   inspectors: InspectorMeta[];
   registry: ActionRegistry | null;
   datasets: Dataset[];
+  onAddCondition: (cond: ActionCondition) => void;
   onSave: (row: AskRow) => void;
   onClose: () => void;
 }) {
   const t = useT();
   const ask = row === null ? null : row.ask;
   const [fields, setFields] = useState<AskFields>(() => fieldsOf(ask));
-  const [when, setWhen] = useState<string>(() => (row === null ? "" : whenKey(row)));
+  const [mode, setMode] = useState<WhenMode>(() =>
+    row?.overload === true ? "overload" : (row?.when.length ?? 0) > 0 ? "conds" : "always",
+  );
+  const [groups, setGroups] = useState<ActionWhenGroup[]>(() =>
+    row === null || row.overload === true ? [] : row.when,
+  );
   const [atDraft, setAtDraft] = useState<string>(() =>
     row?.at === null || row?.at === undefined ? "" : String(row.at),
   );
-  const whenOptions: { key: string; label: string }[] = [
-    { key: "", label: whenLabel(t, "", false) },
-    ...conditions.flatMap((cond) => [
-      { key: `if:${cond.name}`, label: whenLabel(t, cond.name, false) },
-      { key: `unless:${cond.name}`, label: whenLabel(t, cond.name, true) },
-    ]),
-    { key: OVERLOAD_WHEN, label: t("outcomes.ons.overload") },
-  ];
-
-  if (when !== "" && !whenOptions.some((option) => option.key === when)) {
-    const current = whenOf(when);
-
-    whenOptions.push({ key: when, label: whenLabel(t, current.cond, current.negate) });
-  }
 
   const set = (patch: Partial<AskFields>) =>
     setFields((prev) => ({ ...prev, ...patch }));
@@ -863,7 +835,11 @@ function AskDialog({
   const axes = axesFor(registry, fields.verb === "" ? [] : [fields.verb]);
 
   const ready = (): boolean => {
-    if (when === OVERLOAD_WHEN && !overloadAtOk(atDraft)) {
+    if (mode === "overload" && !overloadAtOk(atDraft)) {
+      return false;
+    }
+
+    if (mode === "conds" && !whenReady(groups)) {
       return false;
     }
 
@@ -915,8 +891,8 @@ function AskDialog({
   };
 
   const save = () => {
-    const overload = when === OVERLOAD_WHEN;
-    const { cond, negate } = overload ? { cond: "", negate: false } : whenOf(when);
+    const overload = mode === "overload";
+    const when = mode === "conds" ? groups : [];
     const at = overload ? overloadAtOf(atDraft) : null;
 
     if (fields.target === TO_SCORE) {
@@ -924,7 +900,7 @@ function AskDialog({
       const ask = scoreAsk(fields.scoreDir === "cut" ? -magnitude : magnitude);
 
       ask.code = fields.code;
-      onSave({ ask, cond, negate, overload, at });
+      onSave({ ask, when, overload, at });
 
       return;
     }
@@ -932,8 +908,7 @@ function AskDialog({
     if (fields.target === TO_DATASET) {
       onSave({
         ask: listAsk(fields.list, fields.write, ttlSeconds(fields.ttl), fields.code),
-        cond,
-        negate,
+        when,
         overload,
         at,
       });
@@ -980,13 +955,13 @@ function AskDialog({
       out.value = fields.noteDir === "cut" ? -magnitude : magnitude;
     }
 
-    onSave({ ask: out, cond, negate, overload, at });
+    onSave({ ask: out, when, overload, at });
   };
 
   return (
     <Modal
       onClose={onClose}
-      size="xs"
+      size="sm"
       title={
         ask === null ? t("actionProfiles.addRule") : t("actionProfiles.editRule")
       }
@@ -1004,23 +979,40 @@ function AskDialog({
             select
             size="small"
             label={t("actionProfiles.when")}
-            value={when}
-            onChange={(e) => setWhen(e.target.value)}
-            helperText={
-              conditions.length === 0
-                ? t("actionProfiles.whenNoConditions")
-                : t("actionProfiles.whenHint")
-            }
-            slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
+            value={mode}
+            onChange={(e) => {
+              const next = e.target.value as WhenMode;
+
+              setMode(next);
+
+              if (next === "conds" && groups.length === 0) {
+                setGroups([[{ cond: conditions.length === 1 ? conditions[0].name : "", not: false }]]);
+              }
+            }}
+            helperText={mode === "conds" ? t("actionProfiles.whenGroupsHint") : t("actionProfiles.whenHint")}
           >
-            {whenOptions.map((option) => (
-              <MenuItem key={option.key} value={option.key}>
-                {option.label}
-              </MenuItem>
-            ))}
+            <MenuItem value="always">{t("actionProfiles.whenAlways")}</MenuItem>
+            <MenuItem value="conds">{t("actionProfiles.whenConds")}</MenuItem>
+            <MenuItem value="overload">{t("outcomes.ons.overload")}</MenuItem>
           </TextField>
 
-          {when === OVERLOAD_WHEN && (
+          {mode === "conds" && (
+            <>
+              {conditions.length === 0 && (
+                <DialogAlert text={t("actionProfiles.whenNoConditions")} />
+              )}
+              <WhenGroups
+                t={t}
+                groups={groups}
+                conditions={conditions}
+                datasets={datasets}
+                onChange={setGroups}
+                onAddCondition={onAddCondition}
+              />
+            </>
+          )}
+
+          {mode === "overload" && (
             <TextField
               size="small"
               label={t("outcomes.overloadAt")}
