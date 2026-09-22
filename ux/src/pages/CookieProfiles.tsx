@@ -25,7 +25,7 @@ import {
   usePager,
 } from "../components/data-table/index.ts";
 import { flushTableSx, HeadCell, TableBlock } from "../components/table-block.tsx";
-import { AddCell, RowActions, TextCell } from "../components/rules-table.tsx";
+import { ActionRulesTable, AddCell, RowActions, TextCell } from "../components/rules-table.tsx";
 import { SettingsTable } from "../components/settings-table.tsx";
 import { Section, Text } from "../components/fields.tsx";
 import {
@@ -272,7 +272,10 @@ function triggerOf(row: AskRow): Trigger {
   return row.on === "" ? "always" : row.on;
 }
 
-/* A label exists only on a cookie that is there and ours: present or due for renewal. */
+/*
+ * A label and a value exist only on a cookie that is there and ours: present or due for renewal.
+ * Label and list checks are offered for those states and for "always".
+ */
 function labelled(trigger: Trigger): boolean {
   return trigger === "always" || trigger === "present" || trigger === "expired";
 }
@@ -286,24 +289,6 @@ const METHOD_RE = /^[A-Z]+$/;
 const STATUS_RE = /^[1-5][0-9][0-9]$/;
 const METHOD_PRESETS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"];
 const STATUS_PRESETS = ["200", "201", "204", "301", "302", "304", "400", "401", "403", "404", "429", "500", "502", "503"];
-
-function filtered(row: {
-  match: ActionProfileMatch;
-  status: number[];
-  phase: string;
-  tags: string[];
-  listed: CookieListed | null;
-}): boolean {
-  return (
-    row.tags.length > 0 ||
-    row.listed !== null ||
-    row.match.pathPrefix !== "" ||
-    row.match.methods.length > 0 ||
-    row.match.suffixes.length > 0 ||
-    row.match.static ||
-    (row.phase === "response" && row.status.length > 0)
-  );
-}
 
 function whenText(t: Translate, row: AskRow, cookies: CookieDecl[]): string {
   if (row.on === "overload") {
@@ -819,70 +804,41 @@ function AsksTable({
 }) {
   return (
     <TableBlock last>
-      <Table size="small" sx={flushTableSx}>
-        <TableHead>
-          <TableRow>
-            <HeadCell label={t("cookieProfiles.when")} width={280} />
-            <HeadCell label={t("cookieProfiles.to")} width={150} />
-            <HeadCell label={t("cookieProfiles.verb")} width={150} />
-            <HeadCell label={t("cookieProfiles.params")} />
-            <AddCell label={t("cookieProfiles.addRule")} onAdd={onAdd} />
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {asks.length === 0 && (
-            <TableNoticeRow
-              colSpan={5}
-              kind="empty"
-              message={t("cookieProfiles.rulesEmpty")}
-              actionLabel={t("cookieProfiles.addRule")}
-              onAction={onAdd}
-            />
-          )}
-          {asks.map((row, index) => {
-            const ask = row.ask;
+      <ActionRulesTable
+        rows={asks.map((row, index) => {
+          const ask = row.ask;
 
-            return (
-              <TableRow key={index} hover>
-                <TextCell
-                  text={whenText(t, row, cookies)}
-                  muted={triggerOf(row) === "always" && row.phase === "" && !filtered(row)}
-                />
-                <TextCell
-                  text={
-                    ask === null
-                      ? t("cookieProfiles.toSelf")
-                      : writesList(ask)
-                        ? t("outcomes.toDataset")
-                        : ask.do === "score"
-                          ? t("outcomes.toRoute")
-                          : ask.to === ""
-                            ? t("cookieProfiles.toModule")
-                            : ask.to
-                  }
-                  muted={ask !== null && writesList(ask)}
-                />
-                <TextCell
-                  text={
-                    ask === null
-                      ? row.drop !== ""
-                        ? t("cookieProfiles.opDrop")
-                        : t("cookieProfiles.opIssue")
-                      : writesList(ask)
-                        ? t("outcomes.outcomeWrite")
-                        : verbLabel(t, ask.do)
-                  }
-                />
-                <TextCell
-                  text={ask === null ? rowCookie(row, cookies) : summaryOf(t, ask)}
-                  muted
-                />
-                <RowActions onEdit={() => onEdit(index)} onRemove={() => onRemove(index)} />
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+          return {
+            key: String(index),
+            when: whenText(t, row, cookies),
+            target:
+              ask === null
+                ? t("cookieProfiles.toSelf")
+                : writesList(ask)
+                  ? t("outcomes.toDataset")
+                  : ask.do === "score"
+                    ? t("outcomes.toRoute")
+                    : ask.to === ""
+                      ? t("cookieProfiles.toModule")
+                      : ask.to,
+            targetMuted: ask !== null && writesList(ask),
+            what:
+              ask === null
+                ? row.drop !== ""
+                  ? t("cookieProfiles.opDrop")
+                  : t("cookieProfiles.opIssue")
+                : writesList(ask)
+                  ? t("outcomes.outcomeWrite")
+                  : verbLabel(t, ask.do),
+            params: ask === null ? rowCookie(row, cookies) : summaryOf(t, ask),
+            onEdit: () => onEdit(index),
+            onRemove: () => onRemove(index),
+          };
+        })}
+        empty={t("cookieProfiles.rulesEmpty")}
+        addLabel={t("cookieProfiles.addRule")}
+        onAdd={onAdd}
+      />
     </TableBlock>
   );
 }
@@ -937,13 +893,7 @@ function CookiesTable({
         </TableHead>
         <TableBody>
           {cookies.length === 0 && (
-            <TableNoticeRow
-              colSpan={6}
-              kind="empty"
-              message={t("cookieProfiles.cookiesEmpty")}
-              actionLabel={t("cookieProfiles.addCookie")}
-              onAction={onAdd}
-            />
+            <TableNoticeRow colSpan={6} kind="empty" message={t("cookieProfiles.cookiesEmpty")} />
           )}
           {cookies.map((decl, index) => (
             <TableRow key={index} hover>
@@ -1390,7 +1340,7 @@ function AskDialog({
   const overload = trigger === "overload";
   const self = fields.target === TO_SELF;
   const byLabel = !overload && labelled(trigger) && labelMode !== "any";
-  const byList = !overload && listMode !== "none";
+  const byList = !overload && labelled(trigger) && listMode !== "none";
 
   const named = cookie || (cookies.length === 1 ? cookies[0].name : "");
   const decl = cookies.find((item) => item.name === named);
@@ -1708,38 +1658,6 @@ function AskDialog({
               <TextField
                 select
                 size="small"
-                label={t("cookieProfiles.cookie")}
-                value={overload ? "" : cookie}
-                disabled={overload}
-                onChange={(e) => setCookie(e.target.value)}
-                helperText={
-                  overload
-                    ? t("cookieProfiles.cookieOverloadHint")
-                    : cookies.length === 0
-                      ? t("cookieProfiles.noCookies")
-                      : t("cookieProfiles.cookieHint")
-                }
-                error={needsCookie && named === ""}
-                slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
-                sx={{ flex: 1 }}
-              >
-                <MenuItem value="">
-                  {cookies.length === 1 && !overload
-                    ? t("cookieProfiles.cookieOnly", { name: cookies[0].name })
-                    : t("cookieProfiles.cookieAny")}
-                </MenuItem>
-                {cookies.map((item) => (
-                  <MenuItem key={item.name} value={item.name}>
-                    {item.name}
-                  </MenuItem>
-                ))}
-                {cookie !== "" && !cookies.some((item) => item.name === cookie) && (
-                  <MenuItem value={cookie}>{cookie}</MenuItem>
-                )}
-              </TextField>
-              <TextField
-                select
-                size="small"
                 label={t("cookieProfiles.when")}
                 value={trigger}
                 onChange={(e) => {
@@ -1752,11 +1670,13 @@ function AskDialog({
                   }
                 }}
                 helperText={
-                  cookies.length === 0
-                    ? t("cookieProfiles.noCookies")
-                    : trigger === "absent"
-                      ? t("cookieProfiles.stateAbsentHint")
-                      : t("cookieProfiles.triggerHint")
+                  overload
+                    ? t("cookieProfiles.overloadHint")
+                    : cookies.length === 0
+                      ? t("cookieProfiles.noCookies")
+                      : trigger === "absent"
+                        ? t("cookieProfiles.stateAbsentHint")
+                        : t("cookieProfiles.triggerHint")
                 }
                 sx={{ flex: 1 }}
               >
@@ -1768,6 +1688,35 @@ function AskDialog({
                   </MenuItem>
                 ))}
               </TextField>
+              {!overload && (
+                <TextField
+                  select
+                  size="small"
+                  label={t("cookieProfiles.cookie")}
+                  value={cookie}
+                  onChange={(e) => setCookie(e.target.value)}
+                  helperText={
+                    cookies.length === 0 ? t("cookieProfiles.noCookies") : t("cookieProfiles.cookieHint")
+                  }
+                  error={needsCookie && named === ""}
+                  slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
+                  sx={{ flex: 1 }}
+                >
+                  <MenuItem value="">
+                    {cookies.length === 1
+                      ? t("cookieProfiles.cookieOnly", { name: cookies[0].name })
+                      : t("cookieProfiles.cookieAny")}
+                  </MenuItem>
+                  {cookies.map((item) => (
+                    <MenuItem key={item.name} value={item.name}>
+                      {item.name}
+                    </MenuItem>
+                  ))}
+                  {cookie !== "" && !cookies.some((item) => item.name === cookie) && (
+                    <MenuItem value={cookie}>{cookie}</MenuItem>
+                  )}
+                </TextField>
+              )}
             </Stack>
 
             {!overload && labelled(trigger) && (
@@ -1802,7 +1751,7 @@ function AskDialog({
               </Stack>
             )}
 
-            {!overload && (
+            {!overload && labelled(trigger) && (
               <Stack direction="row" spacing={1}>
                 <TextField
                   select

@@ -4,10 +4,7 @@ import Button from "@mui/material/Button";
 import MenuItem from "@mui/material/MenuItem";
 import Drawer from "@mui/material/Drawer";
 import Stack from "@mui/material/Stack";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
-import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
@@ -18,12 +15,11 @@ import { DialogAlert } from "../components/dialog-kit.tsx";
 import {
   DataTable,
   RowActionsHead,
-  TableNoticeRow,
   useRowOps,
   usePager,
 } from "../components/data-table/index.ts";
-import { flushTableSx, HeadCell, TableBlock } from "../components/table-block.tsx";
-import { AddCell, RowActions, TextCell } from "../components/rules-table.tsx";
+import { TableBlock } from "../components/table-block.tsx";
+import { ActionRulesTable } from "../components/rules-table.tsx";
 import { SettingsTable } from "../components/settings-table.tsx";
 import { Section, Text } from "../components/fields.tsx";
 import {
@@ -640,57 +636,34 @@ function AsksTable({
 }) {
   return (
     <TableBlock last>
-      <Table size="small" sx={flushTableSx}>
-        <TableHead>
-          <TableRow>
-            <HeadCell label={t("actionProfiles.when")} width={210} />
-            <HeadCell label={t("actionProfiles.to")} width={120} />
-            <HeadCell label={t("actionProfiles.verb")} width={150} />
-            <HeadCell label={t("actionProfiles.params")} />
-            <AddCell label={t("actionProfiles.addRule")} onAdd={onAdd} />
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {asks.length === 0 && (
-            <TableNoticeRow
-              colSpan={5}
-              kind="empty"
-              message={t("actionProfiles.rulesEmpty")}
-            />
-          )}
-          {asks.map((row, index) => {
-            const ask = row.ask;
+      <ActionRulesTable
+        rows={asks.map((row, index) => {
+          const ask = row.ask;
 
-            return (
-              <TableRow key={index} hover>
-                <TextCell
-                  text={
-                    row.overload === true
-                      ? `${t("outcomes.ons.overload")} ${overloadAtLabel(row.at)}`
-                      : whenSummary(t, row.when)
-                  }
-                  muted={row.when.length === 0 && row.overload !== true}
-                />
-                <TextCell
-                  text={
-                    writesList(ask)
-                      ? t("outcomes.toDataset")
-                      : ask.do === "score"
-                        ? t("outcomes.toRoute")
-                        : ask.to === ""
-                          ? t("actionProfiles.toModule")
-                          : ask.to
-                  }
-                  muted={writesList(ask)}
-                />
-                <TextCell text={writesList(ask) ? t("outcomes.outcomeWrite") : verbLabel(t, ask.do)} />
-                <TextCell text={summaryOf(t, ask)} muted />
-                <RowActions onEdit={() => onEdit(index)} onRemove={() => onRemove(index)} />
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+          return {
+            key: String(index),
+            when:
+              row.overload === true
+                ? `${t("outcomes.ons.overload")} ${overloadAtLabel(row.at)}`
+                : whenSummary(t, row.when),
+            target: writesList(ask)
+              ? t("outcomes.toDataset")
+              : ask.do === "score"
+                ? t("outcomes.toRoute")
+                : ask.to === ""
+                  ? t("actionProfiles.toModule")
+                  : ask.to,
+            targetMuted: writesList(ask),
+            what: writesList(ask) ? t("outcomes.outcomeWrite") : verbLabel(t, ask.do),
+            params: summaryOf(t, ask),
+            onEdit: () => onEdit(index),
+            onRemove: () => onRemove(index),
+          };
+        })}
+        empty={t("actionProfiles.rulesEmpty")}
+        addLabel={t("actionProfiles.addRule")}
+        onAdd={onAdd}
+      />
     </TableBlock>
   );
 }

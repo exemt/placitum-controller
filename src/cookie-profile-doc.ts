@@ -499,6 +499,10 @@ function checkRuleCookie(
   }
 
   if (rule.listed !== null) {
+    if (rule.on === "absent" || rule.on === "invalid") {
+      fail(`${at}: listed looks up nothing on ${rule.on} -- such a cookie has no value`);
+    }
+
     checkListed(rule.listed, `${at}.listed`, ruleCookie(rule, cookies), datasets);
   }
 
