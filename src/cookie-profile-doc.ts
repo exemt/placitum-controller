@@ -569,7 +569,11 @@ function checkRuleAsk(
   checkAsk(at, ask, { fail, requireTo: true });
 
   if (ask.do === "mark") {
-    checkMarkerSlots(ask.marker, at, rule.on === "overload" ? "" : ruleCookie(rule, cookies), cookies);
+    const own = rule.on === "overload" ? "" : ruleCookie(rule, cookies);
+    // On absent and invalid the rule's cookie has no value, unless the rule issues it itself.
+    const valued = (rule.on !== "absent" && rule.on !== "invalid") || rule.issue === own;
+
+    checkMarkerSlots(ask.marker, at, own, valued, cookies);
   }
 }
 
@@ -612,6 +616,7 @@ function checkMarkerSlots(
   marker: string,
   at: string,
   own: string,
+  valued: boolean,
   cookies: Map<string, CookieDecl>,
 ): void {
   const { slots, unpaired } = markerSlots(marker);
@@ -624,6 +629,10 @@ function checkMarkerSlots(
     if (OWN_SLOTS.has(slot)) {
       if (own === "") {
         fail(`${at}: marker {${slot}} speaks of the rule's cookie, and the rule has none -- name the cookie: {<name>}`);
+      }
+
+      if (!valued && slot !== "name") {
+        fail(`${at}: marker {${slot}} -- here the rule's cookie has no value; keep the marker a plain string or name another cookie`);
       }
 
       continue;

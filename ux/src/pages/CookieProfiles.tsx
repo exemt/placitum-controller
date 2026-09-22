@@ -1353,6 +1353,7 @@ function markerSlots(marker: string): { slots: string[]; unpaired: boolean } {
 function markerSlotError(
   marker: string,
   own: string,
+  valued: boolean,
   cookies: CookieDecl[],
 ): { key: string; slot: string } | null {
   const { slots, unpaired } = markerSlots(marker);
@@ -1367,6 +1368,10 @@ function markerSlotError(
         return { key: "cookieProfiles.needMarkerOwn", slot };
       }
 
+      if (!valued && slot !== "name") {
+        return { key: "cookieProfiles.needMarkerNoValue", slot };
+      }
+
       continue;
     }
 
@@ -1378,30 +1383,47 @@ function markerSlotError(
   return null;
 }
 
-/* The marker field with buttons that insert a slot where the cursor is. */
+/*
+ * The marker field with buttons that insert a slot where the cursor is. valued is false where the
+ * rule's cookie has no value (no cookie, a bad signature): its slots are not offered, the values of
+ * the other cookies are.
+ */
 function MarkerField({
   t,
   value,
   own,
+  valued,
   cookies,
   onChange,
 }: {
   t: Translate;
   value: string;
   own: string;
+  valued: boolean;
   cookies: CookieDecl[];
   onChange: (next: string) => void;
 }) {
   const input = useRef<HTMLInputElement | null>(null);
-  const bad = markerSlotError(value, own, cookies);
+  const bad = markerSlotError(value, own, valued, cookies);
+  const mine = own !== "" && valued;
+  const others = cookies.filter((item) => item.name !== own);
 
   const slots: { token: string; label: string }[] = [
-    ...(own === "" ? [] : [{ token: "{value}", label: t("cookieProfiles.markerSlotValue", { name: own }) }]),
-    ...cookies
-      .filter((item) => item.name !== own)
-      .map((item) => ({ token: `{${item.name}}`, label: t("cookieProfiles.markerSlotCookie", { name: item.name }) })),
-    ...(own === "" ? [] : [{ token: "{cookie}", label: t("cookieProfiles.markerSlotWhole", { name: own }) }]),
+    ...(mine ? [{ token: "{value}", label: t("cookieProfiles.markerSlotValue", { name: own }) }] : []),
+    ...others.map((item) => ({
+      token: `{${item.name}}`,
+      label: t("cookieProfiles.markerSlotCookie", { name: item.name }),
+    })),
+    ...(mine ? [{ token: "{cookie}", label: t("cookieProfiles.markerSlotWhole", { name: own }) }] : []),
   ];
+
+  const hint =
+    own !== "" && !valued
+      ? t(others.length > 0 ? "cookieProfiles.markerHintOthers" : "cookieProfiles.markerHintPlain", {
+          name: own,
+          max: MARKER_MAX_BYTES,
+        })
+      : t("cookieProfiles.markerHint", { max: MARKER_MAX_BYTES });
 
   const insert = (token: string) => {
     const el = input.current;
@@ -1424,15 +1446,11 @@ function MarkerField({
         label={t("actions.mark.marker")}
         value={value}
         inputRef={input}
-        placeholder="client_{value}"
+        placeholder={mine ? "client_{value}" : "first_visit"}
         onChange={(e) => onChange(e.target.value)}
         required
         error={value !== "" && (markerError(value) !== null || bad !== null)}
-        helperText={
-          bad !== null
-            ? t(bad.key, { slot: bad.slot })
-            : t("cookieProfiles.markerHint", { max: MARKER_MAX_BYTES })
-        }
+        helperText={bad !== null ? t(bad.key, { slot: bad.slot }) : hint}
         slotProps={{ inputLabel: { shrink: true } }}
       />
       {slots.length > 0 && (
@@ -1752,7 +1770,12 @@ function AskDialog({
     }
 
     if (fields.verb === "mark") {
-      const bad = markerSlotError(fields.marker, overload ? "" : named, cookies);
+      const bad = markerSlotError(
+        fields.marker,
+        overload ? "" : named,
+        trigger !== "absent" && trigger !== "invalid",
+        cookies,
+      );
 
       if (bad !== null) {
         return t(bad.key, { slot: bad.slot });
@@ -2387,6 +2410,7 @@ function AskDialog({
                 t={t}
                 value={fields.marker}
                 own={overload ? "" : named}
+                valued={trigger !== "absent" && trigger !== "invalid"}
                 cookies={cookies}
                 onChange={(marker) => set({ marker })}
               />

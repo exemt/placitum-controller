@@ -1595,6 +1595,10 @@ export const en: DeepString<typeof ru> = {
     needMarkerBrace: "the marker has an unpaired brace",
     needMarkerOwn: "an overload rule has no cookie of its own: name the cookie instead of {{slot}}",
     needMarkerSlot: "{{slot}} in the marker: the profile has no such cookie",
+    needMarkerNoValue: "{{slot}} in the marker: this cookie has no value here — keep the string without the slot",
+    markerHintPlain: "Just a string: the client has no {name} cookie, there is nothing to fill in. Up to {max} bytes",
+    markerHintOthers:
+      "A string as is. The {name} cookie has no value here, the values of other cookies go in braces; a client without such a cookie gets no marker. Up to {max} bytes",
     markerHint:
       "A string as is plus slots in braces — the values of the request's cookies: client_{uid}_{value}. A client without such a cookie gets no marker. Up to {max} bytes",
     markerInsert: "Insert:",
