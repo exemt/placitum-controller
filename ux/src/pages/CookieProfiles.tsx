@@ -39,6 +39,7 @@ import {
   markerError,
   type ActionProfileMatch,
   type CookieDecl,
+  type CookieListed,
   type CookiePhase,
   type CookieProfile,
   type CookieProfileAsk,
@@ -50,6 +51,7 @@ import {
   type InspectorMeta,
 } from "../api.ts";
 import { ACTION_CODE_RE, axisLabel, verbLabel } from "../components/action-select.tsx";
+import { isAddressDataset } from "../config/VariableEdit.tsx";
 import {
   ASK_PHASES,
   AuditFields,
@@ -111,6 +113,8 @@ interface AskRow {
   match: ActionProfileMatch;
   on: CookieState | "overload" | "";
   tags: string[];
+  tagsNot: boolean;
+  listed: CookieListed | null;
   cookie: string;
   issue: string;
   drop: string;
@@ -127,6 +131,8 @@ function asksOf(doc: CookieProfileDoc | undefined): AskRow[] {
       match: rule.match ?? ANY_REQUEST,
       on: rule.on ?? "",
       tags: rule.tags ?? [],
+      tagsNot: (rule.tags ?? []).length > 0 && rule.tagsNot === true,
+      listed: rule.listed ?? null,
       cookie: rule.cookie ?? "",
       issue: "",
       drop: "",
@@ -156,6 +162,9 @@ function rulesOf(rows: AskRow[]): CookieProfileDoc["rules"] {
     on: row.on,
     ...(row.on === "overload" ? { at: row.at ?? null } : {}),
     cookie: row.cookie,
+    tags: row.tags,
+    tagsNot: row.tags.length > 0 && row.tagsNot,
+    listed: row.listed,
     issue: row.issue,
     drop: row.drop,
     actions: row.ask === null ? [] : [row.ask],
@@ -244,7 +253,7 @@ function rowCookie(row: AskRow, cookies: CookieDecl[]): string {
   return cookies.length === 1 ? cookies[0].name : "";
 }
 
-type Trigger = "always" | "absent" | "present" | "expired" | "invalid" | "tag" | "overload";
+type Trigger = "always" | "absent" | "present" | "expired" | "invalid" | "overload";
 
 const TRIGGERS: readonly Trigger[] = [
   "always",
@@ -252,7 +261,6 @@ const TRIGGERS: readonly Trigger[] = [
   "present",
   "expired",
   "invalid",
-  "tag",
   "overload",
 ];
 
@@ -261,12 +269,17 @@ function triggerOf(row: AskRow): Trigger {
     return "overload";
   }
 
-  if (row.tags.length > 0) {
-    return "tag";
-  }
-
   return row.on === "" ? "always" : row.on;
 }
+
+/* A label exists only on a cookie that is there and ours: present or due for renewal. */
+function labelled(trigger: Trigger): boolean {
+  return trigger === "always" || trigger === "present" || trigger === "expired";
+}
+
+type LabelMode = "any" | "in" | "not_in";
+
+type ListMode = "none" | "in" | "not_in";
 
 const RULE_TAG_RE = /^[A-Za-z0-9_-]{1,128}$/;
 const METHOD_RE = /^[A-Z]+$/;
@@ -274,8 +287,16 @@ const STATUS_RE = /^[1-5][0-9][0-9]$/;
 const METHOD_PRESETS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"];
 const STATUS_PRESETS = ["200", "201", "204", "301", "302", "304", "400", "401", "403", "404", "429", "500", "502", "503"];
 
-function filtered(row: { match: ActionProfileMatch; status: number[]; phase: string }): boolean {
+function filtered(row: {
+  match: ActionProfileMatch;
+  status: number[];
+  phase: string;
+  tags: string[];
+  listed: CookieListed | null;
+}): boolean {
   return (
+    row.tags.length > 0 ||
+    row.listed !== null ||
     row.match.pathPrefix !== "" ||
     row.match.methods.length > 0 ||
     row.match.suffixes.length > 0 ||
@@ -293,13 +314,26 @@ function whenText(t: Translate, row: AskRow, cookies: CookieDecl[]): string {
   const trigger = triggerOf(row);
 
   if (trigger !== "always") {
-    const said =
-      trigger === "tag"
-        ? t("cookieProfiles.triggerTag", { tags: row.tags.join(", ") })
-        : t(`cookieProfiles.triggers.${trigger}`);
+    const said = t(`cookieProfiles.triggers.${trigger}`);
     const named = rowCookie(row, cookies);
 
     parts.push(cookies.length > 1 && named !== "" ? `${named}: ${said}` : said);
+  }
+
+  if (row.tags.length > 0) {
+    parts.push(
+      t(row.tagsNot ? "cookieProfiles.labelNotShort" : "cookieProfiles.labelShort", {
+        tags: row.tags.join(", "),
+      }),
+    );
+  }
+
+  if (row.listed !== null) {
+    parts.push(
+      t(row.listed.op === "not_in" ? "cookieProfiles.notListedShort" : "cookieProfiles.listedShort", {
+        list: row.listed.list,
+      }),
+    );
   }
 
   if (row.phase !== "") {
@@ -1328,6 +1362,17 @@ function AskDialog({
     row === null ? (cookies.length > 0 ? "absent" : "always") : triggerOf(row),
   );
   const [tags, setTags] = useState<string[]>(() => row?.tags ?? []);
+  const [labelMode, setLabelMode] = useState<LabelMode>(() =>
+    (row?.tags.length ?? 0) === 0 ? "any" : row?.tagsNot === true ? "not_in" : "in",
+  );
+  const [listMode, setListMode] = useState<ListMode>(() =>
+    row?.listed === null || row?.listed === undefined
+      ? "none"
+      : row.listed.op === "not_in"
+        ? "not_in"
+        : "in",
+  );
+  const [listName, setListName] = useState<string>(() => row?.listed?.list ?? "");
   const [pathPrefix, setPathPrefix] = useState<string>(() => row?.match.pathPrefix ?? "");
   const [methods, setMethods] = useState<string[]>(() => row?.match.methods ?? []);
   const [statuses, setStatuses] = useState<string[]>(() => (row?.status ?? []).map(String));
@@ -1342,16 +1387,25 @@ function AskDialog({
     row !== null && row.drop !== "" ? "drop" : "issue",
   );
 
-  const tagOn =
-    row !== null && row.tags.length > 0 && (row.on === "present" || row.on === "expired")
-      ? row.on
-      : "";
   const overload = trigger === "overload";
   const self = fields.target === TO_SELF;
+  const byLabel = !overload && labelled(trigger) && labelMode !== "any";
+  const byList = !overload && listMode !== "none";
 
   const named = cookie || (cookies.length === 1 ? cookies[0].name : "");
   const decl = cookies.find((item) => item.name === named);
-  const needsCookie = !overload && (trigger !== "always" || self);
+  const needsCookie = !overload && (trigger !== "always" || self || byLabel || byList);
+
+  /* A cookie value is a string: an address list cannot hold it. */
+  const stringLists = datasets.filter((row) => !isAddressDataset(row.type));
+
+  /* Lists a write can go to: a cookie value into a string list, a network or a system only into an address list. */
+  const writable =
+    fields.write === "cookie"
+      ? stringLists
+      : fields.write === "addr"
+        ? datasets
+        : datasets.filter((row) => isAddressDataset(row.type));
 
   const triggers = TRIGGERS.filter((item) => {
     if (item === "always" || item === "overload") {
@@ -1406,12 +1460,16 @@ function AskDialog({
       return t("cookieProfiles.needOverloadAsk");
     }
 
-    if (trigger === "tag" && tags.length === 0) {
+    if (byLabel && tags.length === 0) {
       return t("cookieProfiles.needTags");
     }
 
-    if (trigger === "tag" && badTag !== undefined) {
+    if (byLabel && badTag !== undefined) {
       return t("cookieProfiles.needTagsFix", { tag: badTag });
+    }
+
+    if (byList && listName === "") {
+      return t("cookieProfiles.needListed");
     }
 
     if (!overload && path !== "" && !path.startsWith("/")) {
@@ -1510,6 +1568,8 @@ function AskDialog({
         match: ANY_REQUEST,
         on: "overload",
         tags: [],
+        tagsNot: false,
+        listed: null,
         cookie: "",
         issue: "",
         drop: "",
@@ -1519,8 +1579,10 @@ function AskDialog({
         phase,
         status: phase === "response" ? statuses.map(Number) : [],
         match: { ...(row?.match ?? ANY_REQUEST), pathPrefix: path, methods },
-        on: trigger === "always" ? "" : trigger === "tag" ? tagOn : trigger,
-        tags: trigger === "tag" ? tags : [],
+        on: trigger === "always" ? "" : trigger,
+        tags: byLabel ? tags : [],
+        tagsNot: byLabel && labelMode === "not_in",
+        listed: byList ? { list: listName, op: listMode === "not_in" ? "not_in" : "in" } : null,
         cookie: needsCookie ? cookie : "",
         issue: self && op === "issue" ? named : "",
         drop: self && op === "drop" ? named : "",
@@ -1708,17 +1770,83 @@ function AskDialog({
               </TextField>
             </Stack>
 
-            {trigger === "tag" && (
-              <ChipsField
-                label={t("cookieProfiles.tags")}
-                helper={t("cookieProfiles.tagsHint")}
-                badHelper={(tag) => t("cookieProfiles.tagsBad", { tag })}
-                value={tags}
-                options={cookies.map((item) => item.value.default).filter((tag) => tag !== "")}
-                valid={(tag) => RULE_TAG_RE.test(tag)}
-                required
-                onChange={setTags}
-              />
+            {!overload && labelled(trigger) && (
+              <Stack direction="row" spacing={1}>
+                <TextField
+                  select
+                  size="small"
+                  label={t("cookieProfiles.label")}
+                  value={labelMode}
+                  onChange={(e) => setLabelMode(e.target.value as LabelMode)}
+                  helperText={t("cookieProfiles.labelHint")}
+                  sx={{ flex: 1 }}
+                >
+                  <MenuItem value="any">{t("cookieProfiles.labelModes.any")}</MenuItem>
+                  <MenuItem value="in">{t("cookieProfiles.labelModes.in")}</MenuItem>
+                  <MenuItem value="not_in">{t("cookieProfiles.labelModes.not_in")}</MenuItem>
+                </TextField>
+                {labelMode === "any" ? (
+                  <Box sx={{ flex: 1 }} />
+                ) : (
+                  <ChipsField
+                    label={t("cookieProfiles.tags")}
+                    helper={t("cookieProfiles.tagsHint")}
+                    badHelper={(tag) => t("cookieProfiles.tagsBad", { tag })}
+                    value={tags}
+                    options={cookies.map((item) => item.value.default).filter((tag) => tag !== "")}
+                    valid={(tag) => RULE_TAG_RE.test(tag)}
+                    required
+                    onChange={setTags}
+                  />
+                )}
+              </Stack>
+            )}
+
+            {!overload && (
+              <Stack direction="row" spacing={1}>
+                <TextField
+                  select
+                  size="small"
+                  label={t("cookieProfiles.listed")}
+                  value={listMode}
+                  onChange={(e) => setListMode(e.target.value as ListMode)}
+                  helperText={t("cookieProfiles.listedHint")}
+                  sx={{ flex: 1 }}
+                >
+                  <MenuItem value="none">{t("cookieProfiles.listedModes.none")}</MenuItem>
+                  <MenuItem value="in">{t("cookieProfiles.listedModes.in")}</MenuItem>
+                  <MenuItem value="not_in">{t("cookieProfiles.listedModes.not_in")}</MenuItem>
+                </TextField>
+                {listMode === "none" ? (
+                  <Box sx={{ flex: 1 }} />
+                ) : (
+                  <TextField
+                    select
+                    size="small"
+                    label={t("cookieProfiles.listedList")}
+                    value={listName}
+                    onChange={(e) => setListName(e.target.value)}
+                    error={listName === ""}
+                    helperText={t("cookieProfiles.listedListHint")}
+                    slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
+                    sx={{ flex: 1 }}
+                  >
+                    <MenuItem value="" disabled>
+                      {stringLists.length === 0
+                        ? t("cookieProfiles.listedNone")
+                        : t("cookieProfiles.listedPick")}
+                    </MenuItem>
+                    {stringLists.map((item) => (
+                      <MenuItem key={item.uuid} value={item.name}>
+                        {item.name}
+                      </MenuItem>
+                    ))}
+                    {listName !== "" && !stringLists.some((item) => item.name === listName) && (
+                      <MenuItem value={listName}>{listName}</MenuItem>
+                    )}
+                  </TextField>
+                )}
+              </Stack>
             )}
 
             {overload && (
@@ -1814,6 +1942,9 @@ function AskDialog({
                   target,
                   verb: still ? fields.verb : "",
                   axis: still ? fields.axis : "",
+                  ...(target === TO_DATASET && fields.target !== TO_DATASET && cookies.length > 0
+                    ? { write: "cookie" as const }
+                    : {}),
                 });
               }}
               helperText={t("cookieProfiles.toHint")}
@@ -1885,15 +2016,15 @@ function AskDialog({
                   onChange={(e) => set({ list: e.target.value })}
                   helperText={t("outcomes.outcomeListHint")}
                 >
-                  {datasets.map((row) => (
+                  {writable.map((row) => (
                     <MenuItem key={row.uuid} value={row.name}>
                       {row.name}
                     </MenuItem>
                   ))}
-                  {fields.list !== "" && !datasets.some((row) => row.name === fields.list) && (
+                  {fields.list !== "" && !writable.some((row) => row.name === fields.list) && (
                     <MenuItem value={fields.list}>{fields.list}</MenuItem>
                   )}
-                  {datasets.length === 0 && (
+                  {writable.length === 0 && (
                     <MenuItem disabled value="">
                       {t("outcomes.listEmpty")}
                     </MenuItem>

@@ -40,6 +40,14 @@ export interface CookieAsk extends Omit<ActionAsk, "write"> {
   cookie: string;
 }
 
+export type CookieListOpCheck = "in" | "not_in";
+
+/* The value of the rule's cookie in a dynamic list, or not in it. */
+export interface CookieListed {
+  list: string;
+  op: CookieListOpCheck;
+}
+
 export interface CookieRule {
   name: string;
   match: ActionMatch;
@@ -49,6 +57,8 @@ export interface CookieRule {
   at?: number | null;
   cookie: string;
   tags: string[];
+  tagsNot: boolean;
+  listed: CookieListed | null;
   issue: string;
   drop: string;
   actions: CookieAsk[];

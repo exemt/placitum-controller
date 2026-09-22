@@ -428,6 +428,21 @@ export class DatasetRepo {
                        jsonb_array_elements(
                          coalesce(r -> 'actions', '[]'::jsonb)) x
                  where x ->> 'list' = $3))
+       union
+       -- A cookie rule looks the value of its cookie up in the list or writes to it.
+       select 'cookie', k.name
+         from cookie_profiles k
+        where k.http_space_id = $2
+          and exists (
+                select 1
+                  from jsonb_array_elements(
+                         coalesce(k.doc -> 'rules', '[]'::jsonb)) r
+                 where r #>> '{listed,list}' = $3
+                    or exists (
+                         select 1
+                           from jsonb_array_elements(
+                                  coalesce(r -> 'actions', '[]'::jsonb)) x
+                          where x ->> 'list' = $3))
        order by kind, at`,
       [id, httpSpaceId, name],
     );

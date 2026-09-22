@@ -13,6 +13,7 @@ import {
   type ActionMatch,
   type CookieAsk,
   type CookieDecl,
+  type CookieListed,
   type CookiePhase,
   type CookieProfileDoc,
   type CookieRule,
@@ -252,12 +253,46 @@ function normalizeRule(raw: unknown, path: string, reject: boolean): CookieRule 
     on: str(row.on, `${path}.on`).trim() as CookieRule["on"],
     at: intOrNull(row.at, `${path}.at`),
     cookie: str(row.cookie, `${path}.cookie`).trim(),
-    tags: strings(row.tags, `${path}.tags`).map((tag) => tag.trim()),
+    ...normalizeTags(row, path),
+    listed: normalizeListed(row.listed, `${path}.listed`),
     issue: str(row.issue, `${path}.issue`).trim(),
     drop: str(row.drop, `${path}.drop`).trim(),
     actions: arr(row.actions, `${path}.actions`).map((ask, j) =>
       normalizeAsk(ask, `${path}.actions[${j}]`),
     ),
+  };
+}
+
+/*
+ * Tags narrow a rule by the label of the presented cookie: one of them (tags) or none of them
+ * (tagsNot, not_tags in a hand-written file).
+ */
+function normalizeTags(row: Record<string, unknown>, path: string): { tags: string[]; tagsNot: boolean } {
+  const tags = strings(row.tags, `${path}.tags`).map((tag) => tag.trim());
+  const notTags = strings(row.not_tags, `${path}.not_tags`).map((tag) => tag.trim());
+
+  if (tags.length > 0 && notTags.length > 0) {
+    fail(`${path}: tags and not_tags together -- pick one`);
+  }
+
+  if (notTags.length > 0) {
+    return { tags: notTags, tagsNot: true };
+  }
+
+  return { tags, tagsNot: tags.length > 0 && bool(row.tagsNot, `${path}.tagsNot`, false) };
+}
+
+function normalizeListed(value: unknown, path: string): CookieListed | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  const row = obj(value, path);
+  const op = str(row.op, `${path}.op`, "in").trim();
+
+  return {
+    list: str(row.list, `${path}.list`).trim(),
+    op: (op === "not in" ? "not_in" : op || "in") as CookieListed["op"],
   };
 }
 
@@ -371,7 +406,8 @@ function checkRule(
     if (
       rule.match.pathPrefix !== "" || rule.match.suffixes.length > 0 || rule.match.static ||
       rule.match.methods.length > 0 || rule.phase !== "" || rule.status.length > 0 ||
-      rule.cookie !== "" || rule.tags.length > 0 || rule.issue !== "" || rule.drop !== ""
+      rule.cookie !== "" || rule.tags.length > 0 || rule.listed !== null || rule.issue !== "" ||
+      rule.drop !== ""
     ) {
       fail(`${at}: on: overload takes only at and actions`);
     }
@@ -403,7 +439,7 @@ function checkRule(
     }
   }
 
-  checkRuleCookie(rule, at, cookies);
+  checkRuleCookie(rule, at, cookies, datasets);
 
   if (rule.actions.length === 0 && rule.issue === "" && rule.drop === "") {
     fail(`${at}: the rule neither issues, drops nor sends anything`);
@@ -414,7 +450,12 @@ function checkRule(
   );
 }
 
-function checkRuleCookie(rule: CookieRule, at: string, cookies: Map<string, CookieDecl>): void {
+function checkRuleCookie(
+  rule: CookieRule,
+  at: string,
+  cookies: Map<string, CookieDecl>,
+  datasets: ActionDatasetInfo[] | undefined,
+): void {
   if (rule.phase !== "" && !(COOKIE_PHASES as readonly string[]).includes(rule.phase)) {
     fail(`${at}: phase must be ${COOKIE_PHASES.join(" or ")}`);
   }
@@ -445,14 +486,20 @@ function checkRuleCookie(rule: CookieRule, at: string, cookies: Map<string, Cook
     }
   }
 
+  const tagsKey = rule.tagsNot ? "not_tags" : "tags";
+
   if (rule.tags.length > 0) {
     if (ruleCookie(rule, cookies) === "") {
-      fail(`${at}: tags need cookie: which one`);
+      fail(`${at}: ${tagsKey} need cookie: which one`);
     }
 
     if (rule.on === "absent" || rule.on === "invalid") {
-      fail(`${at}: tags never match on ${rule.on} -- such a cookie carries no tag`);
+      fail(`${at}: ${tagsKey} never match on ${rule.on} -- such a cookie carries no tag`);
     }
+  }
+
+  if (rule.listed !== null) {
+    checkListed(rule.listed, `${at}.listed`, ruleCookie(rule, cookies), datasets);
   }
 
   if (rule.on === "") {
@@ -516,6 +563,47 @@ function checkRuleAsk(
   }
 
   checkAsk(at, ask, { fail, requireTo: true });
+}
+
+/*
+ * A list check reads the value of the rule's cookie: a string, so the list holds strings. Only a
+ * dynamic list is mirrored by the inspector.
+ */
+function checkListed(
+  listed: CookieListed,
+  at: string,
+  cookie: string,
+  datasets: ActionDatasetInfo[] | undefined,
+): void {
+  if (!LIST_NAME_RE.test(listed.list)) {
+    fail(`${at}: list ${JSON.stringify(listed.list)} is not a dataset name`);
+  }
+
+  if (listed.op !== "in" && listed.op !== "not_in") {
+    fail(`${at}.op must be in or not_in`);
+  }
+
+  if (cookie === "") {
+    fail(`${at}: listed needs cookie: whose value to look up`);
+  }
+
+  if (datasets === undefined) {
+    return;
+  }
+
+  const ds = datasets.find((row) => row.name === listed.list);
+
+  if (ds === undefined || ds.kind !== "list") {
+    fail(`${at}: dataset ${JSON.stringify(listed.list)} is not a list of this space`);
+  }
+
+  if (!ds.active) {
+    fail(`${at}: dataset ${JSON.stringify(listed.list)} is not dynamic -- the inspector mirrors only dynamic lists`);
+  }
+
+  if (isAddressDatasetType(ds.type)) {
+    fail(`${at}: dataset ${JSON.stringify(listed.list)} holds addresses, and a cookie value is a string`);
+  }
 }
 
 const LIST_WRITES = new Set<CookieAsk["write"]>(["addr", "net", "net_all", "asn", "cookie"]);
@@ -705,6 +793,7 @@ export function renderProfileYaml(
     } else if (
       rule.on !== "" ||
       rule.tags.length > 0 ||
+      rule.listed !== null ||
       (rule.cookie !== "" && rule.issue === "" && rule.drop === "")
     ) {
       if (rule.on !== "") {
@@ -719,7 +808,14 @@ export function renderProfileYaml(
     }
 
     if (rule.tags.length > 0) {
-      lines.push(`tags: ${seq(rule.tags)}`);
+      lines.push(`${rule.tagsNot ? "not_tags" : "tags"}: ${seq(rule.tags)}`);
+    }
+
+    if (rule.listed !== null) {
+      const ds = datasets?.find((row) => row.name === rule.listed?.list);
+      const hash = ds !== undefined && ds.hash ? ", hash: md5" : "";
+
+      lines.push(`listed: { list: ${q(rule.listed.list)}, op: ${rule.listed.op}${hash} }`);
     }
 
     if (rule.issue !== "") {

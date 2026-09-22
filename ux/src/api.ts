@@ -3644,6 +3644,11 @@ export interface CookieProfileAsk extends Omit<ActionProfileAsk, "write"> {
   cookie?: string;
 }
 
+export interface CookieListed {
+  list: string;
+  op: "in" | "not_in";
+}
+
 export interface CookieProfileRule {
   name: string;
   match: ActionProfileMatch;
@@ -3653,6 +3658,8 @@ export interface CookieProfileRule {
   at?: number | null;
   cookie?: string;
   tags?: string[];
+  tagsNot?: boolean;
+  listed?: CookieListed | null;
   issue?: string;
   drop?: string;
   actions: CookieProfileAsk[];
