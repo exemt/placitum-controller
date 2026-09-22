@@ -16,7 +16,7 @@ import Typography from "@mui/material/Typography";
 
 import { Form } from "../components/Form.tsx";
 import { Modal } from "../components/Modal.tsx";
-import { DialogSection } from "../components/dialog-kit.tsx";
+import { DialogFrame, DialogSection } from "../components/dialog-kit.tsx";
 import {
   DataTable,
   RowActionsHead,
@@ -51,7 +51,8 @@ import {
   type InspectorMeta,
 } from "../api.ts";
 import { ACTION_CODE_RE, axisLabel, verbLabel } from "../components/action-select.tsx";
-import { isAddressDataset } from "../config/VariableEdit.tsx";
+import { isAddressDataset, VariableEdit } from "../config/VariableEdit.tsx";
+import { ACTION_CATALOG } from "./action-conds.tsx";
 import {
   ASK_PHASES,
   AuditFields,
@@ -850,15 +851,24 @@ function ageLabel(t: Translate, seconds: number): string {
 function valueLabel(t: Translate, decl: CookieDecl): string {
   const parts: string[] = [];
 
-  if (decl.value.from !== "") {
-    parts.push(decl.value.from);
+  switch (valueSourceOf(decl.value)) {
+    case "request":
+      parts.push(decl.value.from);
+
+      if (decl.value.default !== "") {
+        parts.push(t("cookieProfiles.valueFallbackShort", { text: decl.value.default }));
+      }
+
+      break;
+    case "const":
+      parts.push(decl.value.default);
+      break;
+    case "none":
+      parts.push(t("cookieProfiles.valueSources.none"));
+      break;
   }
 
-  if (decl.value.default !== "") {
-    parts.push(t("cookieProfiles.valueDefaultShort", { text: decl.value.default }));
-  }
-
-  if (decl.value.random > 0) {
+  if (decl.value.random > 0 && valueSourceOf(decl.value) !== "none") {
     parts.push(t("cookieProfiles.valueRandomShort", { n: String(decl.value.random) }));
   }
 
@@ -924,6 +934,21 @@ function CookiesTable({
 const COOKIE_NAME_RE = /^[A-Za-z0-9_.-]{1,64}$/;
 const TAG_RE = /^[A-Za-z0-9_-]*$/;
 
+/*
+ * Where the value of a cookie comes from: a request variable (with a fallback when the request has
+ * none), a constant, or nothing at all -- then the cookie is only a unique number. In the file this
+ * is value.from and value.default; the random tail is separate.
+ */
+type ValueSource = "request" | "const" | "none";
+
+function valueSourceOf(value: CookieDecl["value"]): ValueSource {
+  if (value.from !== "") {
+    return "request";
+  }
+
+  return value.default !== "" ? "const" : "none";
+}
+
 function CookieDialog({
   decl,
   taken,
@@ -944,6 +969,10 @@ function CookieDialog({
     (decl?.renewAfterS ?? 0) === 0 ? "" : humanTtl(decl?.renewAfterS ?? 0),
   );
 
+  const [source, setSource] = useState<ValueSource>(() =>
+    decl === null ? "request" : valueSourceOf(decl.value),
+  );
+
   const set = (patch: Partial<CookieDecl>) => setDraft((prev) => ({ ...prev, ...patch }));
   const setValue = (patch: Partial<CookieDecl["value"]>) =>
     setDraft((prev) => ({ ...prev, value: { ...prev.value, ...patch } }));
@@ -952,11 +981,16 @@ function CookieDialog({
   const nameOk = COOKIE_NAME_RE.test(name) && !taken.includes(name);
   const maxAgeS = maxAge.trim() === "" ? 0 : ttlSeconds(maxAge);
   const renewS = renew.trim() === "" ? 0 : ttlSeconds(renew);
-  const defaultOk = TAG_RE.test(draft.value.default.trim());
+  const constant = draft.value.default.trim();
+  const defaultOk = TAG_RE.test(constant) && constant.length <= 128;
   const randomOk = draft.value.random >= 0 && draft.value.random <= 32;
   const maxLenOk = draft.value.maxLen >= 1 && draft.value.maxLen <= 128;
   const hasSource =
-    draft.value.from.trim() !== "" || draft.value.default.trim() !== "" || draft.value.random > 0;
+    source === "request"
+      ? draft.value.from.trim() !== ""
+      : source === "const"
+        ? constant !== ""
+        : draft.value.random > 0;
 
   const renewOk =
     renewS === 0 ||
@@ -992,8 +1026,10 @@ function CookieDialog({
                 renewAfterS: renewS,
                 value: {
                   ...draft.value,
-                  from: draft.value.from.trim(),
-                  default: draft.value.default.trim(),
+                  from: source === "request" ? draft.value.from.trim() : "",
+                  default: source === "none" ? "" : constant,
+                  maxLen:
+                    source === "const" ? Math.max(draft.value.maxLen, constant.length) : draft.value.maxLen,
                 },
               })
             }
@@ -1063,44 +1099,78 @@ function CookieDialog({
             sx={{ flex: 1 }}
           />
         </Stack>
-        <TextField
-          size="small"
-          label={t("cookieProfiles.valueFrom")}
-          value={draft.value.from}
-          onChange={(e) => setValue({ from: e.target.value })}
-          helperText={t("cookieProfiles.valueFromHint")}
-        />
         <Stack direction="row" spacing={1}>
           <TextField
+            select
             size="small"
-            label={t("cookieProfiles.valueDefault")}
-            value={draft.value.default}
-            onChange={(e) => setValue({ default: e.target.value })}
-            error={!defaultOk}
-            helperText={t("cookieProfiles.valueDefaultHint")}
+            label={t("cookieProfiles.valueSource")}
+            value={source}
+            onChange={(e) => setSource(e.target.value as ValueSource)}
+            helperText={t(`cookieProfiles.valueSourceHints.${source}`)}
             sx={{ flex: 1.4 }}
-          />
+          >
+            {(["request", "const", "none"] as const).map((item) => (
+              <MenuItem key={item} value={item}>
+                {t(`cookieProfiles.valueSources.${item}`)}
+              </MenuItem>
+            ))}
+          </TextField>
           <TextField
             size="small"
             label={t("cookieProfiles.valueRandom")}
             value={String(draft.value.random)}
             onChange={(e) => setValue({ random: Number(e.target.value.trim()) || 0 })}
-            error={!randomOk}
+            error={!randomOk || (source === "none" && draft.value.random === 0)}
             helperText={t("cookieProfiles.valueRandomHint")}
             sx={{ flex: 1 }}
           />
+        </Stack>
+        {source === "request" && (
+          <>
+            <DialogFrame label={t("cookieProfiles.valueFrom")} hint={t("cookieProfiles.valueFromHint")}>
+              <VariableEdit
+                value={draft.value.from}
+                catalog={ACTION_CATALOG}
+                onChange={(from) => setValue({ from })}
+              />
+            </DialogFrame>
+            <Stack direction="row" spacing={1}>
+              <TextField
+                size="small"
+                label={t("cookieProfiles.valueFallback")}
+                value={draft.value.default}
+                onChange={(e) => setValue({ default: e.target.value })}
+                error={!defaultOk}
+                helperText={t("cookieProfiles.valueFallbackHint")}
+                sx={{ flex: 1.4 }}
+              />
+              <TextField
+                size="small"
+                label={t("cookieProfiles.valueMaxLen")}
+                value={String(draft.value.maxLen)}
+                onChange={(e) => setValue({ maxLen: Number(e.target.value.trim()) || 0 })}
+                error={!maxLenOk}
+                helperText={t("cookieProfiles.valueMaxLenHint")}
+                sx={{ flex: 1 }}
+              />
+            </Stack>
+          </>
+        )}
+        {source === "const" && (
           <TextField
             size="small"
-            label={t("cookieProfiles.valueMaxLen")}
-            value={String(draft.value.maxLen)}
-            onChange={(e) => setValue({ maxLen: Number(e.target.value.trim()) || 0 })}
-            error={!maxLenOk}
-            helperText={t("cookieProfiles.valueMaxLenHint")}
-            sx={{ flex: 1 }}
+            label={t("cookieProfiles.valueConst")}
+            value={draft.value.default}
+            onChange={(e) => setValue({ default: e.target.value })}
+            required
+            error={!defaultOk}
+            helperText={t("cookieProfiles.valueConstHint")}
           />
-        </Stack>
+        )}
         {!hasSource && (
-          <Alert severity="warning" icon={false}>{t("cookieProfiles.valueEmpty")}</Alert>
+          <Alert severity="warning" icon={false}>
+            {t(source === "none" ? "cookieProfiles.valueNeedRandom" : "cookieProfiles.valueEmpty")}
+          </Alert>
         )}
         <Alert severity="info" icon={false}>{t("cookieProfiles.cookieAlert")}</Alert>
       </Stack>
@@ -1339,11 +1409,14 @@ function AskDialog({
 
   const overload = trigger === "overload";
   const self = fields.target === TO_SELF;
-  const byLabel = !overload && labelled(trigger) && labelMode !== "any";
-  const byList = !overload && labelled(trigger) && listMode !== "none";
 
   const named = cookie || (cookies.length === 1 ? cookies[0].name : "");
   const decl = cookies.find((item) => item.name === named);
+
+  /* A cookie that is only a unique number has no value to compare. */
+  const valued = decl === undefined || valueSourceOf(decl.value) !== "none";
+  const byLabel = !overload && labelled(trigger) && valued && labelMode !== "any";
+  const byList = !overload && labelled(trigger) && listMode !== "none";
   const needsCookie = !overload && (trigger !== "always" || self || byLabel || byList);
 
   /* A cookie value is a string: an address list cannot hold it. */
@@ -1719,7 +1792,7 @@ function AskDialog({
               )}
             </Stack>
 
-            {!overload && labelled(trigger) && (
+            {!overload && labelled(trigger) && valued && (
               <Stack direction="row" spacing={1}>
                 <TextField
                   select
@@ -1742,7 +1815,10 @@ function AskDialog({
                     helper={t("cookieProfiles.tagsHint")}
                     badHelper={(tag) => t("cookieProfiles.tagsBad", { tag })}
                     value={tags}
-                    options={cookies.map((item) => item.value.default).filter((tag) => tag !== "")}
+                    options={cookies
+                      .filter((item) => valueSourceOf(item.value) !== "none")
+                      .map((item) => item.value.default)
+                      .filter((tag) => tag !== "")}
                     valid={(tag) => RULE_TAG_RE.test(tag)}
                     required
                     onChange={setTags}
