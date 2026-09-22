@@ -1823,7 +1823,8 @@ function AskDialog({
         tags: byLabel ? tags : [],
         tagsNot: byLabel && valueMode === "none_of",
         listed: byList ? { list: listName, op: valueMode === "not_in" ? "not_in" : "in" } : null,
-        cookie: needsCookie ? cookie : "",
+        /* The picked cookie is kept even where the trigger does not need it: a marker may name it. */
+        cookie,
         issue: self && op === "issue" ? named : "",
         drop: self && op === "drop" ? named : "",
       };
