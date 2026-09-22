@@ -16,7 +16,7 @@ import Typography from "@mui/material/Typography";
 
 import { Form } from "../components/Form.tsx";
 import { Modal } from "../components/Modal.tsx";
-import { DialogFrame, DialogSection } from "../components/dialog-kit.tsx";
+import { DialogAlert, DialogFrame, DialogSection } from "../components/dialog-kit.tsx";
 import {
   DataTable,
   RowActionsHead,
@@ -1214,7 +1214,7 @@ function CookieDialog({
             {t(source === "uid" ? "cookieProfiles.valueNeedRandom" : "cookieProfiles.valueEmpty")}
           </Alert>
         )}
-        <Alert severity="info" icon={false}>{t("cookieProfiles.cookieAlert")}</Alert>
+        <DialogAlert text={t("cookieProfiles.cookieAlert")} help="06-cookie#куки" />
       </Stack>
     </Modal>
   );
