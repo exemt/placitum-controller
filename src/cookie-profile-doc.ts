@@ -579,11 +579,10 @@ function checkRuleAsk(
 
 /*
  * A marker is a string with slots filled from the cookies of the request: {value} the value of the
- * rule's cookie ({tag} is its old name), {cookie} its whole string, {name} its name, {<name>} the
- * value of any cookie of the profile. The inspector refuses a slot it cannot fill, and so does the
- * controller.
+ * rule's cookie ({tag} is its old name), {name} its name, {<name>} the value of any cookie of the
+ * profile. The inspector refuses a slot it cannot fill, and so does the controller.
  */
-const OWN_SLOTS = new Set(["value", "tag", "cookie", "name"]);
+const OWN_SLOTS = new Set(["value", "tag", "name"]);
 
 export function markerSlots(marker: string): { slots: string[]; unpaired: boolean } {
   const slots: string[] = [];
@@ -639,7 +638,7 @@ function checkMarkerSlots(
     }
 
     if (!cookies.has(slot)) {
-      fail(`${at}: marker {${slot}} is not a cookie of the profile -- {value}, {cookie}, {name} or a cookie name`);
+      fail(`${at}: marker {${slot}} is not a cookie of the profile -- {value}, {name} or a cookie name`);
     }
   }
 }

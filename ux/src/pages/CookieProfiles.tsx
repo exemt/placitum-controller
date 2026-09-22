@@ -207,7 +207,12 @@ function scoreAsk(value: number): CookieProfileAsk {
 
 type ListWrite = NonNullable<CookieProfileAsk["write"]>;
 
-const LIST_WRITES: readonly ListWrite[] = [...COOKIE_WRITES];
+/*
+ * What a rule puts into a list: the value of the cookie or the address of the client. The whole
+ * cookie string (write: cookie) is for a check outside the cookie inspector -- auto-actions or the
+ * node compare the string as the browser sends it; the panel offers it only on a row that has it.
+ */
+const LIST_WRITES: readonly ListWrite[] = COOKIE_WRITES.filter((write) => write !== "cookie");
 
 /* The value of the cookie or the whole cookie: both need to know which cookie. */
 function writesCookie(write: ListWrite): boolean {
@@ -1318,10 +1323,10 @@ function fieldsOf(ask: CookieProfileAsk | null): AskFields {
 
 /*
  * A marker is a string with slots in braces, filled from the cookies of the request: {value} the
- * value of the rule's cookie, {cookie} its whole string, {name} its name, {<name>} the value of any
- * cookie of the profile. A slot of a cookie with no value leaves the request without the marker.
+ * value of the rule's cookie, {name} its name, {<name>} the value of any cookie of the profile. A
+ * slot of a cookie with no value leaves the request without the marker.
  */
-const OWN_SLOTS = ["value", "tag", "cookie", "name"];
+const OWN_SLOTS = ["value", "tag", "name"];
 
 function markerSlots(marker: string): { slots: string[]; unpaired: boolean } {
   const slots: string[] = [];
@@ -1414,7 +1419,6 @@ function MarkerField({
       token: `{${item.name}}`,
       label: t("cookieProfiles.markerSlotCookie", { name: item.name }),
     })),
-    ...(mine ? [{ token: "{cookie}", label: t("cookieProfiles.markerSlotWhole", { name: own }) }] : []),
   ];
 
   const hint =
@@ -2259,7 +2263,7 @@ function AskDialog({
                     helperText={t("outcomes.outcomeWriteHint")}
                     sx={{ flex: 1.6 }}
                   >
-                    {LIST_WRITES.map((write) => (
+                    {(fields.write === "cookie" ? [...LIST_WRITES, "cookie" as const] : LIST_WRITES).map((write) => (
                       <MenuItem key={write} value={write}>
                         {t(`cookieProfiles.writes.${write}`)}
                       </MenuItem>
