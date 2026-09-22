@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
 
-import { actionDatasetsOf, buildActionManifest } from "./action-manifest.ts";
+import { buildActionManifest } from "./action-manifest.ts";
 import { DocError, normalizeDoc, validateDoc } from "./action-profile-doc.ts";
 import type { ActionProfileRepo } from "./action-profiles.ts";
 import type { DatasetRepo } from "./datasets.ts";
@@ -18,6 +18,7 @@ import { log } from "./log.ts";
 import { asUuid } from "./model/id.ts";
 import type { ActionProfile } from "./model/action-profile.ts";
 import { scopeOf } from "./scope.ts";
+import { listSourceOf, putListBlobs, type BlobWriter } from "./static-lists.ts";
 import type { RootState } from "./state/types.ts";
 import { profileUses, usesDetail } from "./usage.ts";
 
@@ -48,10 +49,12 @@ export function actionProfilesRouter(
   desired: DesiredStore,
   settingsOf: InspectorSettingsSource,
   datasets: DatasetRepo,
+  blobs: BlobWriter | null = null,
 ): Router {
   const router = Router({ mergeParams: true });
 
-  const datasetsOf = actionDatasetsOf(datasets);
+  const listsOf = listSourceOf(datasets);
+  const datasetsOf = (scope: string) => listsOf.catalog(scope);
 
   router.get("/profiles", async (req: Request, res: Response, next) => {
     try {
@@ -288,11 +291,19 @@ export function actionProfilesRouter(
         scope,
         (current?.rev ?? 0) + 1,
         settingsOf,
-        datasetsOf,
+        listsOf,
       );
 
       if ("error" in built) {
         res.status(400).json(built);
+        return;
+      }
+
+      const unstored = await putListBlobs(blobs, built.blobs);
+
+      if (unstored !== null) {
+        log("warn", "action lists not stored", { space: scope, detail: unstored.detail });
+        res.status(503).json(unstored);
         return;
       }
 
@@ -303,6 +314,7 @@ export function actionProfilesRouter(
         rev: built.manifest.rev,
         hash: built.manifest.config_hash,
         profiles: Object.keys(built.manifest.profiles),
+        lists: Object.keys(built.manifest.lists ?? {}),
       });
 
       res.json(built.manifest);

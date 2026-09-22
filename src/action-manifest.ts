@@ -7,23 +7,15 @@ import {
   type InspectorSettingsSource,
 } from "./inspector-settings.ts";
 
-import { renderProfileYaml, validateDoc } from "./action-profile-doc.ts";
+import { renderProfileYaml, staticLists, validateDoc } from "./action-profile-doc.ts";
 import type { ActionProfileRepo } from "./action-profiles.ts";
-import type { DatasetRepo } from "./datasets.ts";
-import type { ActionDatasetInfo } from "./model/action-cond.ts";
-
-export type ActionDatasetsSource = (spaceId: string) => Promise<ActionDatasetInfo[]>;
-
-export function actionDatasetsOf(datasets: DatasetRepo): ActionDatasetsSource {
-  return async (spaceId) =>
-    (await datasets.list(spaceId)).map((row) => ({
-      name: row.name,
-      type: row.type,
-      kind: row.kind,
-      active: row.active,
-      hash: row.hash === true,
-    }));
-}
+import {
+  hashListHashes,
+  packStaticLists,
+  parseListHashes,
+  type Blob,
+  type ListSource,
+} from "./static-lists.ts";
 
 export const ACTION_KEY = "policy/action";
 export const ACTION_PROCESS = "action";
@@ -45,6 +37,8 @@ export interface ActionManifest {
   rev: number;
   config_hash: string;
   profiles: Record<string, ActionManifestProfile>;
+  /* Static lists the conditions compare with: name -> sha256 of the blob in the internal Redis. */
+  lists?: Record<string, string>;
   settings?: InspectorSettings;
 }
 
@@ -53,6 +47,7 @@ export type ActionSendError =
   | "missing_default"
   | "invalid_profile_name"
   | "invalid_profile"
+  | "blobs_unavailable"
   | "kv_unavailable";
 
 export interface ActionSendFailure {
@@ -64,6 +59,7 @@ export interface ActionSendFailure {
 export function hashActionProfiles(
   profiles: Record<string, ActionManifestProfile>,
   settings?: InspectorSettings,
+  lists: Record<string, string> = {},
 ): string {
   const digest = createHash("sha256");
 
@@ -79,9 +75,16 @@ export function hashActionProfiles(
     }
   }
 
+  hashListHashes(digest, lists);
   hashInspectorSettings(digest, settings);
 
   return `sha256:${digest.digest("hex")}`;
+}
+
+export interface ActionBuilt {
+  manifest: ActionManifest;
+  /* Bodies of the static lists, keyed as the internal Redis keeps them. */
+  blobs: Blob[];
 }
 
 export async function buildActionManifest(
@@ -89,10 +92,11 @@ export async function buildActionManifest(
   spaceId: string,
   rev: number,
   settingsOf: InspectorSettingsSource,
-  datasetsOf: ActionDatasetsSource,
-): Promise<{ manifest: ActionManifest } | ActionSendFailure> {
+  listsOf: ListSource,
+): Promise<ActionBuilt | ActionSendFailure> {
   const rows = await repo.list(spaceId);
-  const datasets = await datasetsOf(spaceId);
+  const datasets = await listsOf.catalog(spaceId);
+  const wanted = new Set<string>();
 
   if (rows.length === 0) {
     return { error: "no_profiles" };
@@ -112,7 +116,13 @@ export async function buildActionManifest(
     let yaml: string;
 
     try {
-      yaml = renderProfileYaml(row.name, validateDoc(row.doc, datasets), datasets);
+      const doc = validateDoc(row.doc, datasets);
+
+      for (const name of staticLists(doc, datasets)) {
+        wanted.add(name);
+      }
+
+      yaml = renderProfileYaml(row.name, doc, datasets);
     } catch (err) {
       return {
         error: "invalid_profile",
@@ -124,16 +134,19 @@ export async function buildActionManifest(
     profiles[row.name] = { files: [{ name: "profile.yaml", text: yaml }] };
   }
 
+  const { lists, blobs } = await packStaticLists(wanted, datasets, listsOf);
   const settings = await settingsOf(spaceId, ACTION_PROCESS);
 
   return {
     manifest: {
       v: 1,
       rev,
-      config_hash: hashActionProfiles(profiles, settings),
+      config_hash: hashActionProfiles(profiles, settings, lists),
       profiles,
+      ...(Object.keys(lists).length > 0 ? { lists } : {}),
       settings,
     },
+    blobs,
   };
 }
 
@@ -182,11 +195,18 @@ export function parseActionManifest(value: unknown): ActionManifest | null {
     return null;
   }
 
+  const lists = parseListHashes(row.lists);
+
+  if (lists === null) {
+    return null;
+  }
+
   return {
     v: 1,
     rev,
     config_hash: row.config_hash,
     profiles,
+    ...(Object.keys(lists).length > 0 ? { lists } : {}),
     ...(settings === undefined ? {} : { settings }),
   };
 }

@@ -1,8 +1,7 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
 
-import { BLOB_TTL_SEC } from "./compile/pointer.ts";
-import { cookieListsOf, buildCookieManifest } from "./cookie-manifest.ts";
+import { buildCookieManifest } from "./cookie-manifest.ts";
 import { DocError, normalizeDoc, validateDoc } from "./cookie-profile-doc.ts";
 import type { CookieProfileRepo } from "./cookie-profiles.ts";
 import type { DatasetRepo } from "./datasets.ts";
@@ -19,6 +18,7 @@ import { log } from "./log.ts";
 import { asUuid } from "./model/id.ts";
 import type { CookieProfile } from "./model/cookie-profile.ts";
 import { scopeOf } from "./scope.ts";
+import { listSourceOf, putListBlobs, type BlobWriter } from "./static-lists.ts";
 import type { RootState } from "./state/types.ts";
 import { profileUses, usesDetail } from "./usage.ts";
 
@@ -43,25 +43,17 @@ function badName(value: unknown): boolean {
   return typeof value !== "string" || !NAME_RE.test(value);
 }
 
-/* Where the bodies of static lists go before the generation that names them: the internal Redis. */
-export interface CookieBlobWriter {
-  setNxExpireMany(
-    items: { key: string; value: Buffer }[],
-    ttlSec: number,
-  ): Promise<{ wrote: number; reused: number }>;
-}
-
 export function cookieProfilesRouter(
   getState: () => RootState,
   repo: CookieProfileRepo,
   desired: DesiredStore,
   settingsOf: InspectorSettingsSource,
   datasets: DatasetRepo,
-  blobs: CookieBlobWriter | null = null,
+  blobs: BlobWriter | null = null,
 ): Router {
   const router = Router({ mergeParams: true });
 
-  const listsOf = cookieListsOf(datasets);
+  const listsOf = listSourceOf(datasets);
   const datasetsOf = (scope: string) => listsOf.catalog(scope);
 
   router.get("/profiles", async (req: Request, res: Response, next) => {
@@ -307,26 +299,12 @@ export function cookieProfilesRouter(
         return;
       }
 
-      // The bodies go first: the inspector reads them as soon as the generation names them.
-      if (built.blobs.length > 0) {
-        if (blobs === null) {
-          res.status(503).json({
-            error: "blobs_unavailable",
-            detail: "static lists travel through the internal Redis, and it is not configured",
-          });
-          return;
-        }
+      const unstored = await putListBlobs(blobs, built.blobs);
 
-        try {
-          await blobs.setNxExpireMany(built.blobs, BLOB_TTL_SEC);
-        } catch (err) {
-          log("warn", "cookie lists not stored", {
-            space: scope,
-            error: err instanceof Error ? err.message : String(err),
-          });
-          res.status(503).json({ error: "blobs_unavailable", detail: "the internal Redis did not take the lists" });
-          return;
-        }
+      if (unstored !== null) {
+        log("warn", "cookie lists not stored", { space: scope, detail: unstored.detail });
+        res.status(503).json(unstored);
+        return;
       }
 
       await desired.putCookie(built.manifest);

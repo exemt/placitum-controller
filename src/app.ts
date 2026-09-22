@@ -59,7 +59,7 @@ import type { JsonProfileRepo } from "./json-profiles.ts";
 import { counterRouter } from "./counter-http.ts";
 import type { CounterProfileRepo } from "./counter-profiles.ts";
 import { actionProfilesRouter } from "./action-profiles-http.ts";
-import { cookieProfilesRouter, type CookieBlobWriter } from "./cookie-profiles-http.ts";
+import { cookieProfilesRouter } from "./cookie-profiles-http.ts";
 import type { ActionProfileRepo } from "./action-profiles.ts";
 import type { CookieProfileRepo } from "./cookie-profiles.ts";
 import { vlaiRouter } from "./vlai-http.ts";
@@ -70,6 +70,7 @@ import { ruleFilesRouter } from "./rule-files-http.ts";
 import type { RuleFileRepo } from "./rule-files.ts";
 import type { IpCompiler, RulesCompiler } from "./compile.ts";
 import type { DesiredStore } from "./desired.ts";
+import type { BlobWriter } from "./static-lists.ts";
 import { ruleSetsRouter } from "./rule-sets-http.ts";
 import type { RuleSetRepo } from "./rule-sets.ts";
 import { rulesRouter } from "./rules-http.ts";
@@ -113,7 +114,7 @@ export interface AppServices {
   ipCompiler: IpCompiler;
   nginxCompiler: NginxCompiler;
   /* The internal Redis for the bodies the generations point to; null when it is not configured. */
-  blobs?: CookieBlobWriter | null;
+  blobs?: BlobWriter | null;
   dispatch: AppDispatch;
   getState: () => RootState;
   crypto?: ContourCrypto;
@@ -244,6 +245,7 @@ export function createApp(cfg: Config, services: AppServices): Express {
       services.desired,
       settingsOf,
       services.datasets,
+      services.blobs ?? null,
     ),
   );
   scoped.use(

@@ -13,7 +13,7 @@ import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 
 import { TableIconButton, TableNoticeRow, type FilterOption } from "../components/data-table/index.ts";
-import { DialogAlert, DialogFrame, DialogPick } from "../components/dialog-kit.tsx";
+import { DialogAlert, DialogFrame, DialogPick, type DialogOption } from "../components/dialog-kit.tsx";
 import { Modal } from "../components/Modal.tsx";
 import { AddCell, RowActions, TextCell } from "../components/rules-table.tsx";
 import { flushTableSx, HeadCell, TableBlock } from "../components/table-block.tsx";
@@ -223,9 +223,14 @@ export function ConditionDialog({
 
   const opOptions: FilterOption<ActionCondOp>[] = OPS.map((op) => ({ value: op, label: opLabel(op) }));
 
-  const datasetOptions: FilterOption<string>[] = [
+  /* A check compares with a dynamic list (the inspector mirrors it) and with a static one (it comes with the generation). */
+  const datasetOptions: DialogOption<string>[] = [
     { value: "", label: names.length === 0 ? t("actionProfiles.condNoLists") : t("cond.pickList") },
-    ...names.map((row) => ({ value: row, label: row })),
+    ...datasets.map((row) => ({
+      value: row.name,
+      label: row.name,
+      tag: t(row.active ? "datasets.dynamic" : "datasets.static"),
+    })),
   ];
 
   if (draft.dataset !== "" && !names.includes(draft.dataset)) {

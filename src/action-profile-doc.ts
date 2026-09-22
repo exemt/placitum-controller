@@ -568,6 +568,29 @@ export function validateDoc(input: unknown, datasets?: ActionDatasetInfo[]): Act
   return doc;
 }
 
+/*
+ * The static lists the conditions of a profile compare with. A dynamic list is mirrored by the
+ * inspector; a static one travels with the generation (its body through the internal Redis) and is
+ * printed with static: true.
+ */
+export function staticLists(doc: ActionProfileDoc, datasets: ActionDatasetInfo[]): string[] {
+  const out = new Set<string>();
+
+  for (const cond of doc.conditions) {
+    if (!opTakesDataset(cond.op)) {
+      continue;
+    }
+
+    const ds = datasets.find((row) => row.name === cond.dataset);
+
+    if (ds !== undefined && !ds.active) {
+      out.add(ds.name);
+    }
+  }
+
+  return [...out];
+}
+
 function checkCondition(
   cond: ActionCondition,
   at: string,
@@ -604,10 +627,6 @@ function checkCondition(
 
     if (ds === undefined || ds.kind !== "list") {
       fail(`${at}: dataset ${JSON.stringify(cond.dataset)} is not a list of this space`);
-    }
-
-    if (!ds.active) {
-      fail(`${at}: dataset ${JSON.stringify(cond.dataset)} is not active -- the inspector mirrors only active lists`);
     }
 
     if (isAddressDatasetType(ds.type) && !actionValueAddressable(value)) {
@@ -861,6 +880,10 @@ export function renderProfileYaml(
 
         if (ds !== undefined && ds.hash) {
           out.push("        hash: md5");
+        }
+
+        if (ds !== undefined && !ds.active) {
+          out.push("        static: true");
         }
       } else {
         out.push(`        text: ${q(cond.text)}`);

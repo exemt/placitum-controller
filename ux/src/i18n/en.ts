@@ -1356,7 +1356,7 @@ export const en: DeepString<typeof ru> = {
       "This inspector checks nothing and has no verdict: it looks at the route and tells the neighbours — with channel actions — and may add or remove points on the route. Which paths that covers is decided by the route the inspector is attached to via profile=.",
     sectionConditions: "Conditions",
     conditionsHint:
-      "Named checks of the request: `value · comparison · list or text`. In a rule, under «When», checks are put into groups: AND inside a group, OR between groups. Values are the path, method, host, address and request fields from the message, headers, cookies and arguments from the object store; lists are the dynamic lists of the space only.",
+      "Named checks of the request: `value · comparison · list or text`. In a rule, under «When», checks are put into groups: AND inside a group, OR between groups. Values are the path, method, host, address and request fields from the message, headers, cookies and arguments from the object store; lists are any lists of the space, dynamic and static.",
     conditionsEmpty: "No conditions — the rules fire on every request of the profile.",
     conditionsEmptyShort: "the profile has no conditions",
     condName: "Name",
@@ -1370,7 +1370,7 @@ export const en: DeepString<typeof ru> = {
     condNeedText: "type the text",
     condNeedList: "pick a list",
     condNoListsFix:
-      "the space has no dynamic lists: compare with a text (= or ≠) or create such a list in «Data → Lists»",
+      "the space has no lists: compare with a text (= or ≠) or create a list in «Data → Lists»",
     condPurpose:
       "A condition is one named check of the request. On its own it does nothing: in a rule, under «When», conditions are put into groups.",
     condCol: "Check",
@@ -1380,13 +1380,13 @@ export const en: DeepString<typeof ru> = {
     addCondition: "Add a condition",
     editCondition: "Edit the condition",
     condInUse: "Condition «{name}» is used in rules ({n}) — take it out of them first.",
-    condNoDataset: "not a dynamic list",
-    condNoLists: "no dynamic lists",
+    condNoDataset: "no such list",
+    condNoLists: "no lists",
     condAlert:
-      "A check compares a value from the request with a text (`=` / `≠`) or with a dynamic list of the space (`in` / `not in`). Example: `$uri` `=` `/logout` — the logout request.\n\nNo value means the check does not match: without the argument `=` and `in` fail, while `≠` and `not in` hold.",
-    clauseOpHint: "= and ≠ compare with a text, in and not in with a dynamic list",
+      "A check compares a value from the request with a text (`=` / `≠`) or with a list of the space (`in` / `not in`). Example: `$uri` `=` `/logout` — the logout request.\n\nThe list is dynamic or static. The inspector mirrors a dynamic one and gets a static one with the profiles: after a static list is edited, the profiles are sent again.\n\nNo value means the check does not match: without the argument `=` and `in` fail, while `≠` and `not in` hold.",
+    clauseOpHint: "= and ≠ compare with a text, in and not in with a list",
     clauseList: "List",
-    clauseListHint: "A dynamic list of the space",
+    clauseListHint: "A list of the space: dynamic or static",
     clauseTextLabel: "Text",
     clauseTextHint: "What the value is compared with",
     when: "When",

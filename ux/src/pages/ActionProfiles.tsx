@@ -346,7 +346,7 @@ function ActionProfileForm({
     fetchDatasets(scope)
       .then((rows) => {
         if (alive) {
-          setDatasets(rows.filter((row) => row.kind === "list" && row.active));
+          setDatasets(rows.filter((row) => row.kind === "list"));
         }
       })
       .catch(() => {
@@ -797,6 +797,9 @@ function AskDialog({
     row?.at === null || row?.at === undefined ? "" : String(row.at),
   );
 
+  /* A check compares with any list; a write goes only into a dynamic one: keeper writes it. */
+  const writable = datasets.filter((item) => item.active);
+
   const set = (patch: Partial<AskFields>) =>
     setFields((prev) => ({ ...prev, ...patch }));
 
@@ -1067,15 +1070,15 @@ function AskDialog({
                 onChange={(e) => set({ list: e.target.value })}
                 helperText={t("outcomes.outcomeListHint")}
               >
-                {datasets.map((row) => (
+                {writable.map((row) => (
                   <MenuItem key={row.uuid} value={row.name}>
                     {row.name}
                   </MenuItem>
                 ))}
-                {fields.list !== "" && !datasets.some((row) => row.name === fields.list) && (
+                {fields.list !== "" && !writable.some((row) => row.name === fields.list) && (
                   <MenuItem value={fields.list}>{fields.list}</MenuItem>
                 )}
-                {datasets.length === 0 && (
+                {writable.length === 0 && (
                   <MenuItem disabled value="">
                     {t("outcomes.listEmpty")}
                   </MenuItem>

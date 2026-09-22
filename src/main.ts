@@ -36,7 +36,9 @@ import { CaptchaProfileRepo } from "./captcha-profiles.ts";
 import { JsonProfileRepo } from "./json-profiles.ts";
 import { ActionProfileRepo } from "./action-profiles.ts";
 import { CookieProfileRepo } from "./cookie-profiles.ts";
-import { buildCookieManifest, cookieBlobKeys, cookieListsOf } from "./cookie-manifest.ts";
+import { buildActionManifest } from "./action-manifest.ts";
+import { buildCookieManifest } from "./cookie-manifest.ts";
+import { listBlobKeys, listSourceOf } from "./static-lists.ts";
 import { CounterProfileRepo } from "./counter-profiles.ts";
 import { VlaiProfileRepo } from "./vlai-profiles.ts";
 import { RewriteProfileRepo } from "./rewrite-profiles.ts";
@@ -251,11 +253,29 @@ const blobKeepalive =
             blobs: (spaceId) => ipCompiler.blobItems(spaceId),
           },
           {
+            // Static lists the conditions of auto-actions compare with.
+            id: "action",
+            async published() {
+              const m = await desired.getAction();
+              return m === null ? null : { rev: m.rev, sha256: m.config_hash, keys: listBlobKeys(m.lists) };
+            },
+            async blobs(spaceId) {
+              const built = await buildActionManifest(
+                actionProfiles,
+                spaceId,
+                1,
+                inspectorSettings,
+                listSourceOf(datasets),
+              );
+              return "error" in built ? null : { sha256: built.manifest.config_hash, items: built.blobs };
+            },
+          },
+          {
             // Static lists the cookie rules compare with.
             id: "cookie",
             async published() {
               const m = await desired.getCookie();
-              return m === null ? null : { rev: m.rev, sha256: m.config_hash, keys: cookieBlobKeys(m) };
+              return m === null ? null : { rev: m.rev, sha256: m.config_hash, keys: listBlobKeys(m.lists) };
             },
             async blobs(spaceId) {
               const built = await buildCookieManifest(
@@ -263,7 +283,7 @@ const blobKeepalive =
                 spaceId,
                 1,
                 inspectorSettings,
-                cookieListsOf(datasets),
+                listSourceOf(datasets),
               );
               return "error" in built ? null : { sha256: built.manifest.config_hash, items: built.blobs };
             },

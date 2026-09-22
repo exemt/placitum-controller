@@ -7,52 +7,15 @@ import {
   type InspectorSettingsSource,
 } from "./inspector-settings.ts";
 
-import { blobKey } from "./compile/pack.ts";
 import { renderProfileYaml, staticLists, validateDoc } from "./cookie-profile-doc.ts";
 import type { CookieProfileRepo } from "./cookie-profiles.ts";
-import type { DatasetRepo } from "./datasets.ts";
-import type { ActionDatasetInfo } from "./model/action-cond.ts";
-
-export interface CookieListInfo extends ActionDatasetInfo {
-  id: string;
-}
-
-/*
- * The lists of a space for cookie profiles: the catalog, and the entries of a static list. A rule
- * compares the value of its cookie with a static list too; the list travels to the inspector as a
- * blob in the internal Redis, and the generation carries only its hash.
- */
-export interface CookieLists {
-  catalog(spaceId: string): Promise<CookieListInfo[]>;
-  entries(id: string): Promise<string[]>;
-}
-
-export function cookieListsOf(datasets: DatasetRepo): CookieLists {
-  return {
-    async catalog(spaceId) {
-      return (await datasets.list(spaceId)).map((row) => ({
-        id: row.id,
-        name: row.name,
-        type: row.type,
-        kind: row.kind,
-        active: row.active,
-        hash: row.hash === true,
-      }));
-    },
-    async entries(id) {
-      const rows = await datasets.listAddresses(id);
-
-      return Array.isArray(rows) ? rows.map((row) => row.address) : [];
-    },
-  };
-}
-
-/* The body of a static list blob: its values sorted, one per line. */
-export function listBlob(values: string[]): Buffer {
-  const sorted = [...new Set(values.map((value) => value.trim()).filter((value) => value !== ""))].sort();
-
-  return Buffer.from(sorted.length === 0 ? "" : `${sorted.join("\n")}\n`, "utf8");
-}
+import {
+  hashListHashes,
+  packStaticLists,
+  parseListHashes,
+  type Blob,
+  type ListSource,
+} from "./static-lists.ts";
 
 export const COOKIE_KEY = "policy/cookie";
 export const COOKIE_PROCESS = "cookie";
@@ -112,15 +75,7 @@ export function hashCookieProfiles(
     }
   }
 
-  for (const name of Object.keys(lists).sort()) {
-    digest.update("list");
-    digest.update("\0");
-    digest.update(name);
-    digest.update("\0");
-    digest.update(lists[name]);
-    digest.update("\0");
-  }
-
+  hashListHashes(digest, lists);
   hashInspectorSettings(digest, settings);
 
   return `sha256:${digest.digest("hex")}`;
@@ -128,8 +83,8 @@ export function hashCookieProfiles(
 
 export interface CookieBuilt {
   manifest: CookieManifest;
-  /* Blobs of the static lists, keyed as the internal Redis keeps them. */
-  blobs: { key: string; value: Buffer }[];
+  /* Bodies of the static lists, keyed as the internal Redis keeps them. */
+  blobs: Blob[];
 }
 
 export async function buildCookieManifest(
@@ -137,7 +92,7 @@ export async function buildCookieManifest(
   spaceId: string,
   rev: number,
   settingsOf: InspectorSettingsSource,
-  listsOf: CookieLists,
+  listsOf: ListSource,
 ): Promise<CookieBuilt | CookieSendFailure> {
   const rows = await repo.list(spaceId);
   const datasets = await listsOf.catalog(spaceId);
@@ -179,23 +134,7 @@ export async function buildCookieManifest(
     profiles[row.name] = { files: [{ name: "profile.yaml", text: yaml }] };
   }
 
-  const lists: Record<string, string> = {};
-  const blobs: { key: string; value: Buffer }[] = [];
-
-  for (const name of [...wanted].sort()) {
-    const info = datasets.find((row) => row.name === name);
-
-    if (info === undefined) {
-      continue;
-    }
-
-    const value = listBlob(await listsOf.entries(info.id));
-    const hash = `sha256:${createHash("sha256").update(value).digest("hex")}`;
-
-    lists[name] = hash;
-    blobs.push({ key: blobKey(hash), value });
-  }
-
+  const { lists, blobs } = await packStaticLists(wanted, datasets, listsOf);
   const settings = await settingsOf(spaceId, COOKIE_PROCESS);
 
   return {
@@ -209,10 +148,6 @@ export async function buildCookieManifest(
     },
     blobs,
   };
-}
-
-export function cookieBlobKeys(manifest: CookieManifest): string[] {
-  return [...new Set(Object.values(manifest.lists ?? {}).map((hash) => blobKey(hash)))];
 }
 
 export function parseCookieManifest(value: unknown): CookieManifest | null {
@@ -260,20 +195,10 @@ export function parseCookieManifest(value: unknown): CookieManifest | null {
     return null;
   }
 
-  const lists: Record<string, string> = {};
+  const lists = parseListHashes(row.lists);
 
-  if (row.lists !== undefined && row.lists !== null) {
-    if (typeof row.lists !== "object") {
-      return null;
-    }
-
-    for (const [name, hash] of Object.entries(row.lists as Record<string, unknown>)) {
-      if (typeof hash !== "string" || !hash.startsWith("sha256:")) {
-        return null;
-      }
-
-      lists[name] = hash;
-    }
+  if (lists === null) {
+    return null;
   }
 
   return {
