@@ -54,7 +54,12 @@ function jsonProfileLink(link: DatasetSetLink) {
   };
 }
 
-function jsonDataset(row: Dataset, links: DatasetSetLink[] = []) {
+/** Names of lists that hold sign-in users of an auth source: login:bcrypt lines, TOTP stores. */
+export type UserLists = (spaceId: string) => Promise<ReadonlySet<string>>;
+
+const NO_USER_LISTS: UserLists = async () => new Set();
+
+function jsonDataset(row: Dataset, links: DatasetSetLink[] = [], users = false) {
   return {
     uuid: row.id,
     http_space_id: row.httpSpaceId,
@@ -75,6 +80,7 @@ function jsonDataset(row: Dataset, links: DatasetSetLink[] = []) {
     vars: row.vars ?? null,
     linked: links.length > 0,
     linked_sets: links.map(jsonProfileLink),
+    auth_users: users,
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
   };
@@ -83,8 +89,9 @@ function jsonDataset(row: Dataset, links: DatasetSetLink[] = []) {
 async function jsonDatasetOf(
   repo: DatasetRepo,
   row: Dataset,
+  users: ReadonlySet<string>,
 ): Promise<ReturnType<typeof jsonDataset>> {
-  return jsonDataset(row, await repo.profileLinksOf(row.id));
+  return jsonDataset(row, await repo.profileLinksOf(row.id), users.has(row.name));
 }
 
 function jsonContentType(row: ContentType) {
@@ -328,6 +335,7 @@ export function datasetsRouter(
   getState: () => RootState,
   repo: DatasetRepo,
   maxBytes: number,
+  userLists: UserLists = NO_USER_LISTS,
 ): Router {
   const router = Router({ mergeParams: true });
 
@@ -341,11 +349,14 @@ export function datasetsRouter(
       }
 
       const links = await repo.listProfileLinks(scope);
+      const users = await userLists(scope);
       const rows = await repo.withLiveSizes(
         selectDatasetsInSpace(getState(), scope).map((row) => ({ ...row })),
       );
       res.json({
-        datasets: rows.map((row) => jsonDataset(row, links.get(row.id) ?? [])),
+        datasets: rows.map((row) =>
+          jsonDataset(row, links.get(row.id) ?? [], users.has(row.name)),
+        ),
       });
     } catch (err) {
       next(err);
@@ -499,13 +510,54 @@ export function datasetsRouter(
         return;
       }
 
+      const users = await userLists(spaceId);
+
+      if (body.in_nginx === true && users.has(name)) {
+        res.status(400).json({ error: "users_list_nginx", detail: name });
+        return;
+      }
+
+      let source: Dataset | undefined;
+
+      if (body.copy_from !== undefined && body.copy_from !== null && body.copy_from !== "") {
+        const sourceId = typeof body.copy_from === "string" ? asUuid(body.copy_from) : undefined;
+        source = sourceId === undefined ? undefined : datasetInScope(getState, sourceId, spaceId);
+
+        if (source === undefined || source.kind !== "list") {
+          res.status(400).json({ error: "copy_from_missing" });
+          return;
+        }
+
+        // A starting membership is for a static list only: keeper fills a dynamic one.
+        if (kind !== "list" || mode === "active") {
+          res.status(400).json({ error: "copy_into_dynamic" });
+          return;
+        }
+
+        // Entries of a dynamic list live in keeper; the controller database has none of them.
+        if (source.active) {
+          res.status(400).json({ error: "copy_from_dynamic", detail: source.name });
+          return;
+        }
+
+        if (source.type !== type || (source.hash === true) !== (body.hash === true)) {
+          res.status(400).json({ error: "copy_from_mismatch", detail: source.name });
+          return;
+        }
+
+        if (users.has(source.name)) {
+          res.status(400).json({ error: "copy_from_users", detail: source.name });
+          return;
+        }
+      }
+
       const veto = shmVeto(getState, spaceId, {
         id: "",
         kind,
         inNginx: body.in_nginx === true,
         active: kind === "list" && mode === "active",
         maxEntries: maxEntries ?? 1_000_000,
-        size: 0,
+        size: source === undefined ? 0 : Math.min(source.size, maxEntries ?? 1_000_000),
       });
 
       if (veto !== undefined) {
@@ -529,21 +581,20 @@ export function datasetsRouter(
         }),
       ).unwrap();
 
+      let created = row;
       let copied = 0;
-      if (typeof body.copy_from === "string" && body.copy_from !== "") {
-        const source = datasetInScope(getState, body.copy_from, spaceId);
-        if (
-          source !== undefined &&
-          source.kind === "list" &&
-          source.type === row.type &&
-          (source.hash === true) === (row.hash === true)
-        ) {
-          copied = await repo.copyAddresses(source.id, row.id);
+
+      if (source !== undefined) {
+        copied = await repo.copyAddresses(source.id, row.id);
+
+        if (copied > 0) {
+          // The copy goes around the store: re-read the row so its size and the draft follow.
+          created = await dispatch(updateDataset({ id: row.id, patch: {} })).unwrap();
         }
       }
 
       log("info", "dataset created", { uuid: row.id, name: row.name, copied });
-      res.status(201).json({ ...jsonDataset(row), copied });
+      res.status(201).json({ ...jsonDataset(created, [], users.has(created.name)), copied });
     } catch (err) {
       sendWriteError(err, res, next);
     }
@@ -793,7 +844,7 @@ export function datasetsRouter(
 
       const [live] = await repo.withLiveSizes([{ ...row }]);
 
-      res.json(await jsonDatasetOf(repo, live));
+      res.json(await jsonDatasetOf(repo, live, await userLists(scope)));
     } catch (err) {
       next(err);
     }
@@ -920,6 +971,14 @@ export function datasetsRouter(
         return;
       }
 
+      const users = await userLists(scope);
+
+      // A declared list puts its entries on every node, in nginx.conf or in shared memory.
+      if (body.in_nginx === true && current !== undefined && users.has(current.name)) {
+        res.status(400).json({ error: "users_list_nginx", detail: current.name });
+        return;
+      }
+
       if (body.hash !== undefined && typeof body.hash !== "boolean") {
         res.status(400).json({ error: "invalid_hash" });
         return;
@@ -975,7 +1034,7 @@ export function datasetsRouter(
       ).unwrap();
 
       log("info", "dataset updated", { uuid: row.id, name: row.name });
-      res.json(await jsonDatasetOf(repo, row));
+      res.json(await jsonDatasetOf(repo, row, users));
     } catch (err) {
       sendWriteError(err, res, next);
     }

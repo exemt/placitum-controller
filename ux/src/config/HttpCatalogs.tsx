@@ -24,12 +24,14 @@ import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import {
   type BodyStoreRow,
   type Dataset,
+  type DatasetMode,
   type DatasetType,
   type DenyResponseRow,
   type DenyResponseUse,
   type LogFormatRow,
 } from "../api.ts";
-import { isNewRow, type CatalogDraft } from "./catalog-draft.tsx";
+import { errorMessage } from "../errors.ts";
+import { isNewRow, type CatalogDraft, type NewList } from "./catalog-draft.tsx";
 import {
   dataActionCellSx,
   dataCellSx,
@@ -39,12 +41,17 @@ import {
 import { SectionBleed } from "../components/settings-table.tsx";
 import { Modal } from "../components/Modal.tsx";
 import { TableIconButton } from "../components/data-table/index.ts";
+import { HintMarkup } from "../components/fields.tsx";
 import {
+  DialogAlert,
+  DialogInput,
   DialogLines,
+  DialogPick,
   DialogRow,
   DialogSelect,
   DialogText,
   dialogInputSx,
+  type DialogOption,
 } from "../components/dialog-kit.tsx";
 import { useT, type Translate } from "../i18n/index.ts";
 import type { LayerItem } from "./layer-tabs.tsx";
@@ -77,7 +84,9 @@ export function HttpCatalogs({
 
   return (
     <>
-      {catalog.error !== null && <Alert severity="error">{catalog.error}</Alert>}
+      {catalog.error !== null && (
+        <Alert severity="error">{errorMessage(t, catalog.error)}</Alert>
+      )}
 
       {only === "lists" && <ListsSection catalog={catalog} />}
 
@@ -121,18 +130,22 @@ function SubHead({ title, hint }: { title: string; hint: string }) {
 
 function ListsSection({ catalog }: { catalog: CatalogDraft }) {
   const t = useT();
-  const [adding, setAdding] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
 
   const rows = catalog.lists;
   const declared = rows.filter((row) => row.in_nginx !== false);
-  const spare = rows.filter((row) => row.in_nginx === false);
-
+  const users = declared.filter((row) => row.auth_users === true);
 
   const save = (row: Dataset, patch: Parameters<CatalogDraft["patchList"]>[1]) =>
     catalog.patchList(row.uuid, patch);
 
   return (
     <Stack spacing={1}>
+      {users.length > 0 && (
+        <Alert severity="warning">
+          {t("httpCat.listUsersDeclared", { lists: users.map((row) => row.name).join(", ") })}
+        </Alert>
+      )}
       <SectionBleed scroll>
       <Table size="small">
         <TableHead>
@@ -144,7 +157,14 @@ function ListsSection({ catalog }: { catalog: CatalogDraft }) {
             <Head width={100} hint={t("httpCat.listTtlHint")}>ttl=</Head>
             <Head width={80} hint={t("httpCat.listHashHint")}>hash=</Head>
             <Head width={120} hint={t("httpCat.listSizeHint")}>{t("httpCat.listSize")}</Head>
-            <Head width={48} />
+            <TableCell sx={{ ...headSx, width: 48, textAlign: "right" }}>
+              <TableIconButton
+                color="success"
+                icon={<AddIcon sx={{ fontSize: 16 }} />}
+                tooltip={t("httpCat.listAdd")}
+                onClick={() => setAddOpen(true)}
+              />
+            </TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -157,16 +177,14 @@ function ListsSection({ catalog }: { catalog: CatalogDraft }) {
                   onCommit={(name) => name !== row.name && save(row, { name })}
                 />
               </TableCell>
-              <TableCell sx={{ ...cellSx, color: "text.secondary" }}>{row.type}</TableCell>
+              <TableCell sx={{ ...cellSx, color: "text.secondary" }}>
+                <Tooltip arrow placement="top" title={t(`datasets.types.${row.type}`)}>
+                  <Box component="span">{directiveType(row.type)}</Box>
+                </Tooltip>
+              </TableCell>
               <TableCell sx={cellSx}>
-                <Tooltip
-                  arrow
-                  placement="top"
-                  title={t(row.active ? "httpCat.modeActive" : "httpCat.modeInternal")}
-                >
-                  <Box sx={{ color: "text.secondary" }}>
-                    {row.active ? "active" : "internal"}
-                  </Box>
+                <Tooltip arrow placement="top" title={t(modeHint(row.active))}>
+                  <Box sx={{ color: "text.secondary" }}>{t(modeLabel(row.active))}</Box>
                 </Tooltip>
               </TableCell>
               <TableCell sx={cellSx}>
@@ -215,21 +233,18 @@ function ListsSection({ catalog }: { catalog: CatalogDraft }) {
         </TableBody>
       </Table>
       </SectionBleed>
-      {adding === null ? (
-        <DeclareListRow
-          spare={spare}
-          onDeclare={(row) => save(row, { in_nginx: true })}
-          onNew={() => setAdding("")}
-        />
-      ) : (
-        <NewListRow
-          value={adding}
-          onValue={setAdding}
-          onCancel={() => setAdding(null)}
-          sources={rows}
-          onCreate={(name, type, copyFrom) => {
-            catalog.addList({ name, type: type as DatasetType, copyFrom });
-            setAdding(null);
+      {addOpen && (
+        <ListAddDialog
+          rows={rows}
+          taken={[...rows, ...catalog.pages].map((row) => row.name)}
+          onClose={() => setAddOpen(false)}
+          onDeclare={(row) => {
+            save(row, { in_nginx: true });
+            setAddOpen(false);
+          }}
+          onCreate={(input) => {
+            catalog.addList(input);
+            setAddOpen(false);
           }}
         />
       )}
@@ -1168,130 +1183,312 @@ function Head({
     return cell;
   }
   return (
-    <Tooltip arrow placement="top" title={hint}>
+    <Tooltip arrow placement="top" title={<HintMarkup text={hint} />}>
       {cell}
     </Tooltip>
   );
 }
 
-const NEW_LIST = " new";
+const LIST_NAME_RE = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/;
 
-function DeclareListRow({
-  spare,
-  onDeclare,
-  onNew,
-}: {
-  spare: Dataset[];
-  onDeclare: (row: Dataset) => void;
-  onNew: () => void;
-}) {
-  const t = useT();
-  const [seq, setSeq] = useState(0);
+const LIST_TTL_RE = /^[1-9][0-9]*[smhd]?$/i;
 
-  return (
-    <Box sx={{ width: 320 }}>
-      <Picker
-        key={seq}
-        value=""
-        placeholder={t("httpCat.declareList")}
-        options={[
-          ...spare.map((row) => ({
-            value: row.name,
-            hint: `${row.type} · ${row.active ? "active" : "internal"} · ${row.size}`,
-          })),
-          { value: NEW_LIST, label: t("httpCat.newList") },
-        ]}
-        onChange={(picked) => {
-          if (picked === "") {
-            return;
-          }
-          setSeq((n) => n + 1);
-          if (picked === NEW_LIST) {
-            onNew();
-            return;
-          }
-          const row = spare.find((item) => item.name === picked);
-          if (row !== undefined) {
-            onDeclare(row);
-          }
-        }}
-      />
-    </Box>
-  );
+const LIST_TYPES: readonly DatasetType[] = ["ipv4", "ip", "string", "numeric"];
+
+function directiveType(type: DatasetType): "cidr" | "string" {
+  return type === "ipv4" || type === "ip" ? "cidr" : "string";
 }
 
-function NewListRow({
-  value,
-  onValue,
-  onCancel,
-  sources,
+function modeLabel(active: boolean): string {
+  return active ? "httpCat.modeActiveLabel" : "httpCat.modeInternalLabel";
+}
+
+function modeHint(active: boolean): string {
+  return active ? "httpCat.modeActive" : "httpCat.modeInternal";
+}
+
+function listLine(list: {
+  name: string;
+  type: DatasetType;
+  active: boolean;
+  limit: number;
+  ttl: string;
+  hash: boolean;
+}): string {
+  const parts = [
+    `waf_local_dataset ${list.name === "" ? "?" : list.name}`,
+    `type=${directiveType(list.type)}`,
+    `limit=${String(list.limit)}`,
+  ];
+  if (list.hash) {
+    parts.push("hash=md5");
+  }
+  if (list.active && list.ttl !== "") {
+    parts.push(`ttl=${list.ttl}`);
+  }
+  parts.push(list.active ? "active" : "internal");
+  return `${parts.join(" ")};`;
+}
+
+function ListAddDialog({
+  rows,
+  taken,
+  onClose,
+  onDeclare,
   onCreate,
 }: {
-  value: string;
-  onValue: (next: string) => void;
-  onCancel: () => void;
-  sources: Dataset[];
-  onCreate: (name: string, type: string, copyFrom?: string) => void;
+  rows: Dataset[];
+  taken: readonly string[];
+  onClose: () => void;
+  onDeclare: (row: Dataset) => void;
+  onCreate: (input: NewList) => void;
 }) {
   const t = useT();
-  const [type, setType] = useState("ipv4");
+  const [pick, setPick] = useState("");
+  const [name, setName] = useState("");
+  const [type, setType] = useState<DatasetType>("ipv4");
+  const [mode, setMode] = useState<DatasetMode>("internal");
+  const [limit, setLimit] = useState("");
+  const [ttl, setTtl] = useState("");
+  const [hash, setHash] = useState(false);
   const [from, setFrom] = useState("");
 
-  const same = sources.filter((r) => r.type === type);
+  const spare = rows.filter((row) => row.in_nginx === false && row.auth_users !== true);
+  const existing = spare.find((row) => row.uuid === pick);
+  const active = mode === "active";
+  const hashed = type === "string" && hash;
+  const sources = rows.filter(
+    (row) =>
+      !row.active &&
+      !isNewRow(row.uuid) &&
+      row.auth_users !== true &&
+      row.type === type &&
+      (row.hash === true) === hashed,
+  );
+  const source = active ? undefined : sources.find((row) => row.uuid === from);
+
+  const trimmed = name.trim();
+  const limitN = limit.trim() === "" ? 1_000_000 : Number(limit.trim());
+  const nameBad = trimmed !== "" && !LIST_NAME_RE.test(trimmed);
+  const nameTaken = trimmed !== "" && taken.includes(trimmed);
+  const limitBad = !Number.isInteger(limitN) || limitN <= 0;
+  const ttlBad = active && ttl.trim() !== "" && !LIST_TTL_RE.test(ttl.trim());
+  const ready =
+    existing !== undefined ||
+    (trimmed !== "" && !nameBad && !nameTaken && !limitBad && !ttlBad);
+
+  const notice =
+    existing !== undefined
+      ? null
+      : nameBad
+        ? t("httpCat.listNameBad")
+        : nameTaken
+          ? t("httpCat.listNameTaken")
+          : limitBad
+            ? t("httpCat.listLimitBad")
+            : ttlBad
+              ? t("httpCat.listTtlBad")
+              : null;
+
+  const lines =
+    existing !== undefined
+      ? [
+          listLine({
+            name: existing.name,
+            type: existing.type,
+            active: existing.active,
+            limit: existing.max_entries,
+            ttl: existing.ttl ?? "",
+            hash: existing.hash === true,
+          }),
+          ...(!existing.active && existing.size > 0
+            ? [`# ${t("httpCat.listLineEntries", { n: existing.size })}`]
+            : []),
+        ]
+      : [
+          listLine({
+            name: trimmed,
+            type,
+            active,
+            limit: limitBad ? 1_000_000 : limitN,
+            ttl: ttl.trim(),
+            hash: hashed,
+          }),
+          ...(source !== undefined && source.size > 0
+            ? [`# ${t("httpCat.listLineCopy", { name: source.name, n: source.size })}`]
+            : []),
+        ];
+
+  const pickOptions: DialogOption[] = [
+    { value: "", label: t("httpCat.listNew"), hint: t("httpCat.listNewHint") },
+    ...spare.map((row) => ({
+      value: row.uuid,
+      label: row.name,
+      tag: directiveType(row.type),
+      hint: [
+        t(row.active ? "datasets.dynamic" : "datasets.static"),
+        t("httpCat.listEntries", { n: row.size }),
+        row.description,
+      ]
+        .filter((item) => item !== "")
+        .join(" · "),
+    })),
+  ];
+
+  const sourceOptions: DialogOption[] = [
+    { value: "", label: t("httpCat.listStartEmpty") },
+    ...sources.map((row) => ({
+      value: row.uuid,
+      label: row.name,
+      hint: t("httpCat.listEntries", { n: row.size }),
+    })),
+  ];
+
+  const submit = () => {
+    if (!ready) {
+      return;
+    }
+    if (existing !== undefined) {
+      onDeclare(existing);
+      return;
+    }
+    onCreate({
+      name: trimmed,
+      type,
+      mode,
+      limit: limitN,
+      ttl: active && ttl.trim() !== "" ? ttl.trim() : undefined,
+      hash: hashed,
+      copyFrom: source?.uuid,
+    });
+  };
 
   return (
-    <Stack
-      direction="row"
-      spacing={1}
-      sx={{ alignItems: "center", flexWrap: "wrap" }}
+    <Modal
+      onClose={onClose}
+      title={t("httpCat.listAddTitle")}
+      hint={t("httpCat.listAddHint")}
+      dirty={pick !== "" || name !== "" || limit !== "" || ttl !== "" || from !== ""}
+      notice={notice === null ? null : { severity: "warning", text: notice }}
+      onEnter={submit}
+      actions={
+        <>
+          <Modal.Cancel />
+          <Modal.Submit disabled={!ready} onClick={submit}>
+            {t("common.add")}
+          </Modal.Submit>
+        </>
+      }
     >
-      <TextField
-        size="small"
-        autoFocus
-        placeholder="blocklist"
-        label={t("httpCat.name")}
-        value={value}
-        onChange={(e) => onValue(e.target.value)}
-      />
-      <Box sx={{ width: 130 }}>
-        <Picker
-          value={type}
-          onChange={(next) => {
-            if (next !== "") {
-              setType(next);
-              setFrom("");
-            }
-          }}
-          options={["ipv4", "ip", "string", "numeric"].map((o) => ({ value: o }))}
-        />
-      </Box>
-      <Tooltip arrow title={t("httpCat.copyFromHint")}>
-        <Box sx={{ width: 220 }}>
-          <Picker
-            value={from}
-            placeholder={t("httpCat.copyFrom")}
-            options={same.map((r) => ({ value: r.name, hint: String(r.size) }))}
-            onChange={setFrom}
+      <Stack spacing={1.25}>
+        {spare.length > 0 && (
+          <DialogPick
+            mono
+            label={t("httpCat.listSource")}
+            hint={t("httpCat.listSourceHint")}
+            value={pick}
+            options={pickOptions}
+            onChange={setPick}
           />
-        </Box>
-      </Tooltip>
-      <Button size="small" onClick={onCancel}>
-        {t("common.cancel")}
-      </Button>
-      <Button
-        size="small"
-        variant="contained"
-        disabled={value.trim() === ""}
-        onClick={() =>
-          onCreate(
-            value.trim(),
-            type,
-            same.find((r) => r.name === from)?.uuid,
-          )
-        }
-      >
-        {t("common.create")}
-      </Button>
-    </Stack>
+        )}
+        {existing !== undefined ? (
+          <DialogAlert
+            text={
+              existing.active
+                ? t("httpCat.listTakeDynamic")
+                : t("httpCat.listTakeStatic", { n: existing.size })
+            }
+          />
+        ) : (
+          <>
+            <DialogInput
+              label={t("httpCat.name")}
+              hint={t("httpCat.listNameHint")}
+              placeholder="blocklist"
+              value={name}
+              error={nameBad || nameTaken}
+              onChange={setName}
+            />
+            <DialogPick
+              label={t("datasets.type")}
+              hint={t("httpCat.listTypeHint")}
+              value={type}
+              options={LIST_TYPES.map((item) => ({
+                value: item,
+                label: t(`datasets.types.${item}`),
+                tag: directiveType(item),
+              }))}
+              onChange={(next) => {
+                setType(next);
+                setFrom("");
+                if (next !== "string") {
+                  setHash(false);
+                }
+              }}
+            />
+            <DialogPick
+              label={t("httpCat.listMode")}
+              hint={t("httpCat.listModeNewHint")}
+              value={mode}
+              options={(["internal", "active"] as const).map((item) => ({
+                value: item,
+                label: t(modeLabel(item === "active")),
+                tag: item,
+                hint: t(modeHint(item === "active")),
+              }))}
+              onChange={(next) => {
+                setMode(next);
+                setFrom("");
+              }}
+            />
+            <DialogInput
+              label="limit="
+              hint={t("httpCat.listLimitHint")}
+              placeholder="1000000"
+              value={limit}
+              error={limitBad}
+              onChange={setLimit}
+            />
+            {active && (
+              <DialogInput
+                label="ttl="
+                hint={t("httpCat.listTtlHint")}
+                placeholder="5m"
+                value={ttl}
+                error={ttlBad}
+                onChange={setTtl}
+              />
+            )}
+            {type === "string" && (
+              <DialogPick
+                mono
+                label="hash="
+                hint={t("httpCat.listHashNewHint")}
+                value={hash ? "md5" : ""}
+                options={[
+                  { value: "", label: t("httpCat.listHashNone") },
+                  { value: "md5", label: "md5" },
+                ]}
+                onChange={(next) => {
+                  setHash(next === "md5");
+                  setFrom("");
+                }}
+              />
+            )}
+            {!active && (
+              <DialogPick
+                mono
+                label={t("httpCat.listStart")}
+                hint={t("httpCat.listStartHint")}
+                value={source?.uuid ?? ""}
+                options={sourceOptions}
+                onChange={setFrom}
+              />
+            )}
+          </>
+        )}
+        <DialogLines title={t("httpCat.listLine")} lines={lines} />
+      </Stack>
+    </Modal>
   );
 }

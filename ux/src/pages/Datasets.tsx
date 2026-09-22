@@ -226,8 +226,8 @@ export default function Datasets({ kind }: { kind: DatasetKind }) {
   const modeOptions = useMemo(
     () => [
       { value: "", label: t("datasets.mode") },
-      { value: "internal", label: t("datasets.internal") },
-      { value: "active", label: t("datasets.active") },
+      { value: "internal", label: t("datasets.static") },
+      { value: "active", label: t("datasets.dynamic") },
     ],
     [t],
   );
@@ -425,8 +425,8 @@ export default function Datasets({ kind }: { kind: DatasetKind }) {
                       variant={row.active ? "filled" : "outlined"}
                       label={
                         row.active
-                          ? t("datasets.active")
-                          : t("datasets.internal")
+                          ? t("datasets.dynamic")
+                          : t("datasets.static")
                       }
                     />
                   </TableCell>
@@ -771,13 +771,13 @@ function DatasetForm({
                 value={mode}
                 helperText={
                   mode === "active"
-                    ? t("datasets.activeHint")
-                    : t("datasets.internalHint")
+                    ? t("datasets.dynamicHint")
+                    : t("datasets.staticHint")
                 }
                 onChange={(e) => setMode(e.target.value as DatasetMode)}
               >
-                <MenuItem value="internal">{t("datasets.internal")}</MenuItem>
-                <MenuItem value="active">{t("datasets.active")}</MenuItem>
+                <MenuItem value="internal">{t("datasets.static")}</MenuItem>
+                <MenuItem value="active">{t("datasets.dynamic")}</MenuItem>
               </TextField>
               <TextField
                 size="small"

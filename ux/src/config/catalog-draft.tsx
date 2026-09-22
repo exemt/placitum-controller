@@ -14,6 +14,7 @@ import {
   updateDataset,
   type BodyStoreRow,
   type Dataset,
+  type DatasetMode,
   type DatasetType,
   type DenyResponseRow,
   type LogFormatRow,
@@ -40,7 +41,16 @@ function copySnap(snap: Snapshot): Snapshot {
 }
 
 interface ListSeed {
+  copyFrom?: string;
+}
+
+export interface NewList {
+  name: string;
   type: DatasetType;
+  mode: DatasetMode;
+  limit: number;
+  ttl?: string;
+  hash?: boolean;
   copyFrom?: string;
 }
 
@@ -89,7 +99,7 @@ export interface CatalogDraft {
     uuid: string,
     patch: { name?: string; limit?: number; ttl?: string; in_nginx?: boolean },
   ) => void;
-  addList: (input: { name: string; type: DatasetType; copyFrom?: string }) => void;
+  addList: (input: NewList) => void;
   patchDeny: (uuid: string, patch: Partial<Omit<DenyResponseRow, "uuid">>) => void;
   addDeny: (input: Omit<DenyResponseRow, "uuid">) => void;
   removeDeny: (uuid: string) => void;
@@ -178,7 +188,8 @@ export function useHttpCatalogDraft(): CatalogDraft {
   const addList = useCallback<CatalogDraft["addList"]>(
     (input) => {
       const uuid = `${NEW_ID}${String(++seq.current)}`;
-      setSeeds((cur) => ({ ...cur, [uuid]: { type: input.type, copyFrom: input.copyFrom } }));
+      const active = input.mode === "active";
+      setSeeds((cur) => ({ ...cur, [uuid]: { copyFrom: active ? undefined : input.copyFrom } }));
       patchRows((cur) => ({
         ...cur,
         datasets: [
@@ -191,10 +202,12 @@ export function useHttpCatalogDraft(): CatalogDraft {
             kind: "list",
             type: input.type,
             content_type_id: null,
-            max_entries: 1_000_000,
-            active: false,
+            max_entries: input.limit,
+            active,
             in_nginx: true,
-            mode: "internal",
+            mode: input.mode,
+            ttl: active && input.ttl !== undefined && input.ttl !== "" ? input.ttl : null,
+            hash: input.type === "string" && input.hash === true,
             size: 0,
             vars: null,
             linked: false,
@@ -402,9 +415,11 @@ export function useHttpCatalogDraft(): CatalogDraft {
         const saved = await createDataset(scope, {
           name: row.name,
           kind: "list",
-          type: seed?.type,
-          mode: "internal",
+          type: row.type,
+          mode: row.active ? "active" : "internal",
           limit: row.max_entries,
+          ttl: row.active && row.ttl !== undefined && row.ttl !== null ? row.ttl : undefined,
+          hash: row.type === "string" ? row.hash === true : undefined,
           in_nginx: true,
           copy_from: seed?.copyFrom,
         });

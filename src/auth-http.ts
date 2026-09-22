@@ -27,6 +27,7 @@ import { asUuid } from "./model/id.ts";
 import type { AuthProfile, AuthProfileDoc } from "./model/auth-profile.ts";
 import type { AuthSource, AuthSourceDoc } from "./model/auth-source.ts";
 import { scopeOf } from "./scope.ts";
+import { selectDatasetsInSpace } from "./state/slices/datasets.ts";
 import type { RootState } from "./state/types.ts";
 import { authFastPathUses, profileUses, usesDetail } from "./usage.ts";
 
@@ -162,6 +163,23 @@ export function authRouter(
     return true;
   }
 
+  // User lines hold bcrypt hashes and TOTP stores: a list the module declares would
+  // carry them to every node.
+  function checkUserLists(scope: string, doc: AuthSourceDoc, res: Response): boolean {
+    const names = [doc.providers.local?.users, doc.providers.code?.users];
+    const declared = selectDatasetsInSpace(getState(), scope).find(
+      (row) => row.kind === "list" && row.inNginx === true && names.includes(row.name),
+    );
+
+    if (declared !== undefined) {
+      res.status(400).json({ error: "users_list_nginx", detail: declared.name });
+
+      return false;
+    }
+
+    return true;
+  }
+
   async function checkLoginPage(
     scope: string,
     doc: AuthSourceDoc,
@@ -249,6 +267,10 @@ export function authRouter(
       }
 
       if (!(await checkLoginPage(scope, doc, res))) {
+        return;
+      }
+
+      if (!checkUserLists(scope, doc, res)) {
         return;
       }
 
@@ -354,6 +376,10 @@ export function authRouter(
       }
 
       if (doc !== undefined && !(await checkLoginPage(existing.httpSpaceId, doc, res))) {
+        return;
+      }
+
+      if (doc !== undefined && !checkUserLists(existing.httpSpaceId, doc, res)) {
         return;
       }
 

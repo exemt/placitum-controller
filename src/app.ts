@@ -192,6 +192,7 @@ export function createApp(cfg: Config, services: AppServices): Express {
       services.getState,
       services.datasets,
       cfg.storeMaxBytes,
+      (space) => services.authSources.userLists(space),
     ),
   );
   scoped.use(

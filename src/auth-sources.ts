@@ -230,4 +230,19 @@ export class AuthSourceRepo {
 
     return entries.map((row) => row.address);
   }
+
+  /** Lists a source reads sign-in users from: bcrypt lines and TOTP stores. */
+  async userLists(httpSpaceId: string): Promise<Set<string>> {
+    const out = new Set<string>();
+
+    for (const source of await this.list(httpSpaceId)) {
+      for (const name of [source.doc.providers.local?.users, source.doc.providers.code?.users]) {
+        if (name !== undefined && name !== "") {
+          out.add(name);
+        }
+      }
+    }
+
+    return out;
+  }
 }

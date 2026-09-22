@@ -7,7 +7,7 @@ import {
   editorInputSx,
   SubRow,
 } from "./editor-kit.tsx";
-import { useT } from "../i18n/index.ts";
+import { useT, type Translate } from "../i18n/index.ts";
 import type { Doc } from "./inherit.ts";
 import { Picker } from "./Picker.tsx";
 
@@ -61,6 +61,7 @@ export function CatalogEdit({
   kind: CatalogKind;
   filter?: (row: { name: string; kind?: string; in_nginx?: boolean }) => boolean;
 }) {
+  const t = useT();
   const catalog = useCatalog();
   const current = typeof value === "string" ? value : "";
 
@@ -81,13 +82,13 @@ export function CatalogEdit({
       onChange={onChange}
       options={rows.map((row) => ({
         value: row.name,
-        hint: summary(row as Record<string, unknown>),
+        hint: summary(t, row as Record<string, unknown>),
       }))}
     />
   );
 }
 
-function summary(row: Record<string, unknown>): string {
+function summary(t: Translate, row: Record<string, unknown>): string {
   if (typeof row.status === "number") {
     return String(row.status);
   }
@@ -98,7 +99,7 @@ function summary(row: Record<string, unknown>): string {
     return row.summary.slice(0, 40);
   }
   if (typeof row.type === "string") {
-    const mode = row.active === true ? "active" : "internal";
+    const mode = t(row.active === true ? "httpCat.modeActiveLabel" : "httpCat.modeInternalLabel");
     return `${row.type} · ${mode}`;
   }
   return "";

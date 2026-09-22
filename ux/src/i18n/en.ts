@@ -867,9 +867,9 @@ export const en: DeepString<typeof ru> = {
     address_taken: "This entry already exists.",
     invalid_address: "Not an address:",
     invalid_content_type: "Choose a content type.",
-    invalid_mode: "A list needs mode active or internal.",
-    ttl_internal: "ttl= is only valid on active lists.",
-    entries_active: "Active-list addresses are not written into nginx.",
+    invalid_mode: "A list needs a mode: dynamic (active) or static (internal).",
+    ttl_internal: "ttl= is only valid on a dynamic list.",
+    entries_active: "Entries of a dynamic list are not written into nginx: keeper holds them.",
     default_taken: "default_server is already set on another server.",
     ssl_mismatch: "A server cannot mix TLS and non-TLS ports.",
     port_taken: "This port is already bound to the server.",
@@ -886,9 +886,17 @@ export const en: DeepString<typeof ru> = {
     default_is_required: "default cannot be deleted: the manifest does not build without it.",
     default_name_locked: "The default profile cannot be renamed: a route without profile= looks it up by that name.",
     not_default: "Only the default profile can be restored.",
-    baseline_files_gone: "None of the shipped rule files are left in the catalog:",
-    builtin_locked: "A built-in object is locked: it is a shipped template. Get your own variant by copying.",
-    builtin_name_locked: "A built-in object cannot be renamed: it is referenced by name.",
+    baseline_files_gone: "None of the standard rule files are left in the catalog:",
+    builtin_locked: "A standard object is locked: it comes with the product. Get your own variant by copying.",
+    builtin_name_locked: "A standard object cannot be renamed: it is referenced by name.",
+    users_list_nginx:
+      "A list of sign-in users is not declared in the module: the lines with password hashes would reach every node. List:",
+    copy_from_missing: "The list to copy from is not found.",
+    copy_into_dynamic: "Only a static list gets a starting membership: keeper fills a dynamic one.",
+    copy_from_dynamic:
+      "Only a static list can be copied: keeper holds the entries of a dynamic one, the controller database has none of them. List:",
+    copy_from_mismatch: "The list to copy has another type or another hash=, its entries do not fit:",
+    copy_from_users: "Sign-in users are not copied: their lines hold password hashes. List:",
     shm_zone_too_small: "The zone of the local layer does not fit the lists kept in nginx:",
     invalid_shm_zone_size: "Zone size: a number with k or m, at least 256k.",
     invalid_page: "page= names a named location: @name.",
@@ -1028,32 +1036,31 @@ export const en: DeepString<typeof ru> = {
     blurb:
       "Space catalog: lists for `waf_local_dataset` and files that reach the edge whole — deny pages, forms, contract specifications.",
     description: "Description",
-    active: "active",
-    activeHint:
-      "Keeper holds the entries: deltas travel on `waf.sets.<name>`, without an nginx reload. Module autobans land there too.",
-    internal: "internal",
-    internalHint: "Addresses in the form become nginx lines. Changing them reloads nginx.",
     limit: "limit",
     limitHint: "Entry cap of the shm slot. Same as `limit=` on `waf_local_dataset`.",
     listTtl: "list ttl",
     listTtlHint:
-      "Active overlay: `ttl=5m`. An add without its own ttl uses this. Empty — live add without ttl is rejected.",
+      "The term of an entry that has none of its own: auto-blocks and adds without a ttl, e.g. `ttl=5m`. Empty — the list rejects such entries.",
     mode: "Mode",
-    static: "internal",
-    dynamic: "active",
+    static: "static",
+    staticHint:
+      "The controller keeps the entries and ships them with the configuration: to the module as config lines, a change means an nginx reload; to the inspectors with the generation. In the module such a list is built-in.",
+    dynamic: "dynamic",
+    dynamicHint:
+      "Keeper holds the entries and sends them to the nodes over the bus (`waf.sets.<name>`), without an nginx reload. Auto-blocks land here. In the module such a list is active.",
     linkedHint: "Composite sets that include this list",
     linkedExclude: "exclude",
     ttl: "TTL, sec",
     ttlHint: "0 — permanent. Otherwise the entry expires on its own.",
     ttlNone: "forever",
     kind: "Kind",
-    kindHint: "List — addresses in shm. Content — a single file.",
+    kindHint: "List — entries one by one: addresses or strings. Content — a single file.",
     type: "Type",
     typeHint: "Type is chosen at creation and cannot be changed later.",
     hash: "hash=md5",
     hashHint:
-      "The dataset stores md5 of its values instead of the values: sessions and tokens sit neither in shm nor in the database in clear text, and no entry is longer than 32 bytes. Checks, auto-bans, keeper and the panel hash the value themselves; enter raw values here. String lists only; inspector mirrors compare raw values and do not read such a set.",
-    hashLocked: "Changes only on an empty dataset: clear the entries first.",
+      "The list stores md5 of its values instead of the values: sessions and tokens sit neither in shm nor in the database in clear text, and no entry is longer than 32 bytes. Checks, auto-bans, keeper and the panel hash the value themselves; enter raw values here. String lists only; inspector mirrors compare raw values and do not read such a list.",
+    hashLocked: "Changes only on an empty list: clear the entries first.",
     contentType: "Content type",
     file: "File",
     records: "Size",
@@ -1082,13 +1089,13 @@ export const en: DeepString<typeof ru> = {
     empty: "No lists yet — create the first one.",
     emptyPages: "No files yet — create the first one.",
     builtinHint:
-      "Shipped with the release and fully locked: not editable, not deletable, not renamable. Get your own variant with Copy in the table row.",
+      "A standard page, fully locked: not editable, not deletable, not renamable. Get your own variant with Copy in the table row.",
     builtinNameHint:
-      "A built-in page is named after its waf_deny_response catalog entry — that is how try_files finds it. Locked.",
+      "A standard page is named after its waf_deny_response catalog entry — that is how try_files finds it. Locked.",
     builtinListHint:
-      "Shipped with the release: cannot be deleted or renamed. Entries, limit and mode are editable.",
+      "A standard list: cannot be deleted or renamed. Entries, limit and mode are editable.",
     builtinListNameHint:
-      "The preset's name is locked — it shipped with the release and presets refer to it. Entries and mode are editable.",
+      "The name is locked: the list is standard and presets refer to it. Entries and mode are editable.",
     previewTitle: "Preview",
     previewHint:
       "The draft with variables substituted — what the client will see. Rendered by the panel: include and further SSI logic are out of scope.",
@@ -1250,10 +1257,10 @@ export const en: DeepString<typeof ru> = {
     dataFilesHint:
       "Sets from Data → Files that a rule reads with @pmFromFile, @pmf, @ipMatchFromFile. The name in the rule is the set name plus the type extension: sqli_words of type text is seen as sqli_words.txt. Order here means nothing: the file is found by name.",
     defaultModified:
-      "The default profile has been changed: it no longer matches what shipped. The button restores it — your edits are lost.",
+      "The default profile has been changed: it no longer matches the standard one. The button restores the standard variant — your edits are lost.",
     defaultNameHint:
       "The default profile cannot be renamed: a route without profile= looks it up by that name",
-    restoreMissing: "Shipped files missing from the catalog:",
+    restoreMissing: "Standard files missing from the catalog:",
     description: "Description",
     lists: "Lists",
     newTitle: "New profile",
@@ -1587,7 +1594,7 @@ export const en: DeepString<typeof ru> = {
     priorHint:
       "Whose signals to apply: threshold — a coefficient on the score we hand over, skip — do not check the request (skips inference). Both weaken, so the sender is always named.",
     outcomesHint:
-      "What to do ourselves: on a score against a threshold — and on overload, when the request was shed at the door because the queue was full. A signal to a neighbour or the client address written into an active set; prefixes and systems are written by those with geo.",
+      "What to do ourselves: on a score against a threshold — and on overload, when the request was shed at the door because the queue was full. A signal to a neighbour or the client address written into a dynamic list; prefixes and systems are written by those with geo.",
     unknownTargets: "Targets missing from the registry",
     noRegistry: "The action dictionary did not arrive: signal selectors are empty.",
   },
@@ -1718,11 +1725,11 @@ export const en: DeepString<typeof ru> = {
   outcomes: {
     hint: {
       request:
-        "What to do once the request phase is decided: signal a neighbour or write a subject into an active dataset. The condition is the decision itself, not its premises",
+        "What to do once the request phase is decided: signal a neighbour or write a subject into a dynamic list. The condition is the decision itself, not its premises",
       response:
         "The same for the response phase. A signal does travel: prior spans phases, and later response waves see it",
       rules:
-        "What to do once the request is decided: signal a neighbour or write a subject into an active dataset. The threshold is compared against the score we hand over",
+        "What to do once the request is decided: signal a neighbour or write a subject into a dynamic list. The threshold is compared against the score we hand over",
     },
     sectionWhen: "Trigger",
     sectionWhenHint: "what pulls this row",
@@ -1749,12 +1756,12 @@ export const en: DeepString<typeof ru> = {
     toModule: "the route event",
     toScore: "Points on the route",
     toRoute: "the route",
-    outcomeToHint: "A receiving inspector, or a dataset write",
+    outcomeToHint: "A receiving inspector, or a list write",
     outcomeToDenyHint: "No signals on deny: it ends the phase, and the signal has nowhere to go",
     outcomeToDenyRouteHint:
-      "On deny a signal cannot reach a neighbour: a dataset write and the route's log and archive remain — the module executes those",
+      "On deny a signal cannot reach a neighbour: a list write and the route's log and archive remain — the module executes those",
     outcomeWhat: "What",
-    outcomeWrite: "Write to dataset",
+    outcomeWrite: "Write to list",
     outcomeWriteLabel: "Subject",
     outcomeWriteHint: "The inspector takes subnets and the system from geo and writes them in one batch",
     writes: {
@@ -1764,9 +1771,9 @@ export const en: DeepString<typeof ru> = {
       asn: "the whole system: all of its announces",
     },
     outcomeParams: "Parameters",
-    outcomeList: "Dataset",
-    outcomeListHint: "Active ones only: a passive dataset has no subject",
-    listEmpty: "No active datasets",
+    outcomeList: "List",
+    outcomeListHint: "Dynamic ones only: a static list has no subject",
+    listEmpty: "No dynamic lists",
     outcomeTtl: "TTL",
     outcomeTtlHint: "1h, 15m, 7d",
     outcomeCode: "Reason",
@@ -1784,7 +1791,7 @@ export const en: DeepString<typeof ru> = {
     outcomeTagsHint: "Exactly as the engine reports them: attack-sqli, paranoia-level/1. The event card shows them",
     addOutcome: "Add trigger",
     editOutcome: "Outcome trigger",
-    toDataset: "Write to dataset",
+    toDataset: "Write to list",
     toAll: "Everyone",
     toAny: "everyone",
     ons: {
@@ -1915,7 +1922,7 @@ export const en: DeepString<typeof ru> = {
       "Every frame in both directions: measure rules charge buckets, evaluation rules read the levels in the same round trip — the frame that fills a bucket to the threshold is denied itself. A deny closes the connection with a Close frame from a type=websocket entry",
     frameEnabledHint: "A disabled phase answers allow with a reason: frames are neither counted nor evaluated",
     frameDenyResponseHint: "A type=websocket catalog entry: the Close frame code and reason. Default — ws_policy",
-    frameOutcomesHint: "On the frame verdict: signal a neighbour or write the subject into an active set",
+    frameOutcomesHint: "On the frame verdict: signal a neighbour or write the subject into a dynamic list",
     anyFrame: "any frame",
     condDirection: "Side",
     condDirectionHint: "c2s — from the client, s2c — from the application. Empty — both",
@@ -1951,7 +1958,7 @@ export const en: DeepString<typeof ru> = {
     codeHint: "Machine reason for the audit and neighbours; empty — COUNTER_LEVEL",
     denyResponse: "Deny response",
     denyResponseHint: "Deny catalog entry name: nginx serves the code and the page. 429 is more accurate than 403 — the client can wait it out",
-    outcomesHint: "On the evaluation: a signal to a neighbour or a subject written into an active set",
+    outcomesHint: "On the evaluation: a signal to a neighbour or a subject written into a dynamic list",
     measure: "Metrics",
     measureHint:
       "A row is a rule: which response, measured how, into which counter. All matching rules fire; condition and multiplier are behind the summary",
@@ -2129,7 +2136,7 @@ export const en: DeepString<typeof ru> = {
     frameDenyResponseHint:
       "Catalog entry of type=websocket: the Close code and reason. An entry of another type falls back to 1008",
     frameOutcomesHint: {
-      c2s: "What to do on the client-frame decision: a signal to a same-wave neighbour or an address write into a set",
+      c2s: "What to do on the client-frame decision: a signal to a same-wave neighbour or an address write into a list",
       s2c: "The same for the application output",
     },
   },
@@ -2151,7 +2158,7 @@ export const en: DeepString<typeof ru> = {
     pathEmpty: "The server has no addressable locations",
     pathNone: "Add /waf/captcha proxied to the captcha service — the widget has nowhere to live",
     page: "Page",
-    pageHint: "A file from the data section; empty — the built-in page from the image",
+    pageHint: "A file from the data section; empty — the standard page from the image",
     pageEmpty: "No html files in the Files section",
     title: "Page title",
     note: "Note under the title",
@@ -2180,7 +2187,7 @@ export const en: DeepString<typeof ru> = {
       "Session cookie lifetime, network and browser binding, page fingerprint. A session spans the whole server",
     sectionExtraHint:
       "Page texts and the widget HTTP self-protection — process properties, not policy",
-    pageBuiltin: "built-in page from the image",
+    pageBuiltin: "standard page from the image",
     bucketKind: "Bucket",
     bucketMaxHint:
       "Dimensionless units; neighbours' percentages count against it. 0 disables the bucket",
@@ -2195,7 +2202,7 @@ export const en: DeepString<typeof ru> = {
       "Shared subject score across all instances: neighbours fill it with counter signals, percent of the bucket capacity. A bucket leaks at its decay rate; no capacity — disabled",
     bucketCaptchaAt: "Captcha, %",
     bucketBanAt: "Ban, %",
-    bucketBanNeedsList: "Banning needs a banned set in the Lists section",
+    bucketBanNeedsList: "Banning needs a banned list in the Lists section",
     buckets: {
       ip: "Address",
       sess: "Session (past the widget)",
@@ -2232,21 +2239,21 @@ export const en: DeepString<typeof ru> = {
     ruleBucketHint: "Empty — any that reached this threshold",
     bucketAny: "any",
     ruleTo: "To",
-    ruleToHint: "A neighbour inspector, the route event, points, an own set or an own bucket",
-    ruleToHttpHint: "A signal cannot travel: fail and pass are not on the wave. A set or a bucket",
+    ruleToHint: "A neighbour inspector, the route event, points, an own list or an own bucket",
+    ruleToHttpHint: "A signal cannot travel: fail and pass are not on the wave. A list or a bucket",
     ruleToWidgetHint:
-      "A neighbour down the chain, the route event, points, an own set or an own bucket. A signal travels only if the request goes on: the captcha let the client through or stands in vote — the widget ends the phase",
+      "A neighbour down the chain, the route event, points, an own list or an own bucket. A signal travels only if the request goes on: the captcha let the client through or stands in vote — the widget ends the phase",
     ruleToChallengeHint:
-      "The captcha showed the widget: a signal reaches a neighbour only if it stands in vote — in active the phase ends. The route event, points, an own set and an own bucket always work",
+      "The captcha showed the widget: a signal reaches a neighbour only if it stands in vote — in active the phase ends. The route event, points, an own list and an own bucket always work",
     toBucket: "own bucket",
     toBucketShort: "into a bucket",
-    toDataset: "dataset: write",
-    toDatasetShort: "into a set",
+    toDataset: "list: write",
+    toDatasetShort: "into a list",
     toAll: "everyone",
     ruleCharge: "Bucket",
     chargeHint: "1..100 — share of capacity; five fails at 20% fill it up",
-    ruleList: "Which set",
-    ruleListHint: "An active set: the module cuts by it downstream",
+    ruleList: "Which list",
+    ruleListHint: "A dynamic list: the module cuts by it downstream",
     ruleWrite: "What to write",
     ruleWriteHint:
       "The /32 address, subnet, AS number; the clearance id — only where the cookie is known: on pass and for a client with a valid clearance",
@@ -2283,7 +2290,7 @@ export const en: DeepString<typeof ru> = {
     clearanceCookieHint: "Sealed “challenge passed” token. The name lives in the profile only",
     idCookie: "Id cookie",
     idCookieHint:
-      "Short clearance id — the same value that goes into the active clearance dataset. The name is wired elsewhere too: the counter's sess axis reads the cookie by name, so renaming means editing that as well",
+      "Short clearance id — the same value that goes into the active clearances list. The name is wired elsewhere too: the counter's sess axis reads the cookie by name, so renaming means editing that as well",
     challengeCookie: "Challenge cookie",
     challengeCookieHint: "The widget ticket: nginx and the counter never read it, rename freely",
     providers: "Providers",
@@ -2346,13 +2353,13 @@ export const en: DeepString<typeof ru> = {
     issuePerSubnet: "Issues per subnet",
     verifyPerSubnet: "Verifications per subnet",
     limitsHint: "Format 30/m; empty — no limit",
-    listEmpty: "No active string lists",
+    listEmpty: "No dynamic string lists",
     sectionList: "Active clearances",
     sectionListHint:
       "The captcha's source of truth: issuing adds an entry, the inspector checks it on every request, deleting the entry kills the clearance",
-    clearanceList: "Active clearance dataset",
+    clearanceList: "Active clearances list",
     clearanceListHint:
-      "An active string list: the clearance id goes into it. Empty means the clearance rides on its signature alone and cannot be killed from outside",
+      "A dynamic string list: the clearance id goes into it. Empty means the clearance rides on its signature alone and cannot be killed from outside",
     clearanceListNone: "None",
     clearanceGrace: "Entry arrival window, s",
     clearanceGraceHint:
@@ -2406,10 +2413,10 @@ export const en: DeepString<typeof ru> = {
       "The application's logout address: a successful response there drops the trust in the cookie. Empty — the entry lives until it expires",
     sectionTrusted: "Trusted sessions",
     sectionTrustedHint:
-      "The set the observed sessions live in: an entry means the cookie is trusted, removing it ends the session",
-    trustedSessions: "Trusted sessions set",
+      "The list the observed sessions live in: an entry means the cookie is trusted, removing it ends the session",
+    trustedSessions: "Trusted sessions list",
     trustedSessionsHint:
-      "A live string set: the gate puts the cookie hash there along with the login. Without a set the method does not work",
+      "A dynamic string list: the gate puts the cookie hash there along with the login. Without the list the method does not work",
     trustedTtl: "Trust lifetime, s",
     trustedTtlHint:
       "How long the cookie stays trusted after the observed login. 0 — the session lifetime",
@@ -2432,8 +2439,8 @@ export const en: DeepString<typeof ru> = {
     identityFrom: "Identity from source",
     identityFromHint: "The first source of the chain: the code is checked for whoever signed in through it",
     identityFromEmpty: "No identity-establishing sources",
-    codeUsers: "User set with TOTP secrets",
-    codeUsersHint: "The same string list as for the local provider",
+    codeUsers: "User list with TOTP secrets",
+    codeUsersHint: "The same string list as for the User list provider",
     empty: "No gate profiles yet",
     sourcesEmpty: "No login sources yet: the gate starts with one",
     newTitle: "New gate profile",
@@ -2456,7 +2463,7 @@ export const en: DeepString<typeof ru> = {
     sourceEmpty: "No login sources yet — create one on the neighbouring tab",
     sourceSummary: "{provider}, form {uri}",
     factor: {
-      local: "Local list",
+      local: "User list",
       code: "One-time code",
       ldap: "LDAP directory",
       ntlm: "NTLM domain",
@@ -2521,11 +2528,11 @@ export const en: DeepString<typeof ru> = {
     appJsonPath: "Response JSON field",
     appJsonPathHint: "A dotted path in the response body; empty — not checked. Needs a response body capture on the route",
     appJsonEquals: "Expected value",
-    appListRequired: "This method needs an active sessions set: it is the set of trusted application cookies",
+    appListRequired: "This method needs an active sessions list: it is the set of trusted application cookies",
     factorHint: {
       jwt: "A foreign issuer minted the token: the gate reads it by a claims schema and verifies the signature when it has a key",
       app: "The application's cookie, trusted after the gate has watched the login: the login in the form and the response carrying that cookie",
-      local: "Login and password from a controller user set",
+      local: "Login and password from a user list under Data",
       code: "TOTP from an authenticator app, or a shared access code",
       ldap: "The organisation directory checks the password with a bind",
       ntlm: "The domain controller checks the password, NTLM bind",
@@ -2535,7 +2542,7 @@ export const en: DeepString<typeof ru> = {
     sectionSessionHint:
       "The sign-in cookie: ttl, renewal, binding to the network and the browser. The session is shared by every profile of the source",
     sectionListHint:
-      "An active dataset through which a session is ended from outside: entry deleted, session gone",
+      "A dynamic list through which a session is ended from outside: entry deleted, session gone",
     sectionUpstreamHint: "What the gate tells the application about the visitor: headers and the identity cookie",
     sectionExtra: "Extra",
     sectionExtraHint: "Protecting the form itself from brute force — a property of the process, not a policy",
@@ -2549,7 +2556,7 @@ export const en: DeepString<typeof ru> = {
     sectionChannel: "Action channel",
     sectionChannelHint:
       "Signals from neighbours: cut the session or let through without a login. Without a rule a signal shows up in the audit only",
-    loginPageBuiltin: "built-in page from the image",
+    loginPageBuiltin: "standard page from the image",
     listSessionsNone: "None",
     deliver: "How to show the form",
     deliverHint:
@@ -2579,7 +2586,7 @@ export const en: DeepString<typeof ru> = {
     loginNote: "Note",
     loginPage: "Form page",
     loginPageHint:
-      "Your own markup from the Files section. Empty means the built-in one. A POST form and a csrf field holding {{.Nonce}} are required",
+      "Your own markup from the Files section. Empty means the standard one. A POST form and a csrf field holding {{.Nonce}} are required",
     sectionGate: "Gate",
     redirectMethods: "Methods shown the form",
     redirectMethodsHint:
@@ -2613,9 +2620,9 @@ export const en: DeepString<typeof ru> = {
       "A younger session ignores the cut-session signal: someone who just signed in is not sent to the form in a loop. 0 — the signal always applies",
     sectionRules: "Rules",
     rulesSectionHint:
-      "What the gate tells its neighbours and the route on its own: no captcha and no vlai for the signed-in, an anonymous client on a closed zone into a counter bucket or a set, a wrong group marked in the journal",
+      "What the gate tells its neighbours and the route on its own: no captcha and no vlai for the signed-in, an anonymous client on a closed zone into a counter bucket or a list, a wrong group marked in the journal",
     rulesHint:
-      "What to do on wave events: signed in, anonymous, broken session, wrong group. A signal to a neighbour travels only with «signed in» — deny and redirect end the phase; the other events keep the journal, archive, marker, points and a set write",
+      "What to do on wave events: signed in, anonymous, broken session, wrong group. A signal to a neighbour travels only with «signed in» — deny and redirect end the phase; the other events keep the journal, archive, marker, points and a list write",
     rulesEmpty: "No rules: the gate only listens",
     ruleWhen: "When",
     ruleWhenHint:
@@ -2627,20 +2634,20 @@ export const en: DeepString<typeof ru> = {
       forbidden: "signed in at the wrong door: not in the access groups",
       overload: "inspector overloaded: the queue is at the threshold or above",
     },
-    ruleToHint: "A neighbour inspector, the route event, points or an active set",
+    ruleToHint: "A neighbour inspector, the route event, points or a dynamic list",
     ruleToDenyHint:
-      "A signal cannot travel: deny and redirect end the phase. The route event, points or a set",
+      "A signal cannot travel: deny and redirect end the phase. The route event, points or a list",
     toAll: "everyone",
     addRule: "Add rule",
     editRule: "Rule",
     sectionList: "Active sessions",
-    listSessions: "Active session dataset",
+    listSessions: "Active sessions list",
     listSessionsHint:
       "The gate's source of truth: sign-in adds an entry, the inspector checks every request against it, deleting the entry ends the session. Empty means sessions cannot be ended from outside",
-    listSessionsEmpty: "No active string lists in this space",
+    listSessionsEmpty: "No dynamic string lists in this space",
     listCookie: "List cookie",
     listCookieHint:
-      "A separate short cookie: the dataset holds the session id, not a token hundreds of bytes long. Must differ from the session and ticket cookies",
+      "A separate short cookie: the list holds the session id, not a token hundreds of bytes long. Must differ from the session and ticket cookies",
     listTtl: "Entry ttl, s",
     listTtlHint: "0 means the session ttl",
     listGrace: "Entry arrival window, s",
@@ -2695,10 +2702,10 @@ export const en: DeepString<typeof ru> = {
   ipSetsPage: {
     description: "Description",
     lists: "Lists",
-    live: "Live",
-    liveChip: "live",
+    live: "Dynamic",
+    liveChip: "yes",
     liveHint:
-      "This set includes an active list: its contents reach the inspector over the bus, not with the generation. The pack carries a reference, not a copy.",
+      "This set includes a dynamic list: its entries reach the inspector over the bus, not with the generation. The pack carries a reference, not a copy.",
     newTitle: "New set",
     editTitle: "Set",
     nameHint: "The name is what profile rules refer to",
@@ -2709,11 +2716,11 @@ export const en: DeepString<typeof ru> = {
     asns: "ASN",
     asnsHint: "Autonomous systems from ASN sets. Both v4 and v6 apply.",
     addList: "List",
-    listHint: "Address sets (ipv4/ip). Live ones travel as a bus subject.",
+    listHint: "Address lists (ipv4/ip). Dynamic ones travel as a bus subject.",
     exclude: "ext",
     excludeHint:
       "Subtracted from the set above. Inverse applies after: Russia + inverse + office in ext — everything except Russia, plus the office.",
-    needSources: "Add ipv4/ip datasets, geo sets, or ASN sets first.",
+    needSources: "Add ipv4/ip lists, geo sets, or ASN sets first.",
     empty: "No composite sets yet — create the first one.",
   },
   ipProfiles: {
@@ -2744,7 +2751,7 @@ export const en: DeepString<typeof ru> = {
       value: "counter {n}%",
     },
     toInspectors: "Inspectors",
-    toLists: "Datasets",
+    toLists: "Lists",
     noRegistry: "The action vocabulary failed to load: the verb list is empty.",
     sectionProfile: "Profile",
     sectionProfileHint: "Name and description: the name is what a route selects",
@@ -2756,7 +2763,7 @@ export const en: DeepString<typeof ru> = {
       "What to pack and ship to the inspector: only declared lists reach the node, and only they are offered as a rule's condition",
     sectionChannel: "Actions channel",
     sectionChannelHint:
-      "What the profile tells its neighbours and writes into datasets. There is no accept table here: the address inspector runs on wave zero and nobody sends to it",
+      "What the profile tells its neighbours and writes into lists. There is no accept table here: the address inspector runs on wave zero and nobody sends to it",
     whiteTitle: "Allowlists",
     whiteHint:
       "A match returns allow at once. Checked first and independent of row order: an exception must beat a ban.",
@@ -2773,7 +2780,7 @@ export const en: DeepString<typeof ru> = {
     },
     trigger: "When",
     triggerHint:
-      "Where the address turned up: in a particular list, outside it, or in the profile's own lists. \"In no list\" is the fallback branch — it covers everyone who matched nothing. The last entry is not about the address at all but about the inspector itself: its queue has reached the threshold. The action is the same for all of them: a signal to a neighbour or writing the address into an active dataset.",
+      "Where the address turned up: in a particular list, outside it, or in the profile's own lists. \"In no list\" is the fallback branch — it covers everyone who matched nothing. The last entry is not about the address at all but about the inspector itself: its queue has reached the threshold. The action is the same for all of them: a signal to a neighbour or writing the address into a dynamic list.",
     triggers: {
       white: "address in the allowlists",
       black: "address in the denylists",
@@ -2792,16 +2799,16 @@ export const en: DeepString<typeof ru> = {
     listStatic: "in the pack",
     listInUse: "A rule points at this list — remove the rule first",
     datasetsHint:
-      "They carry no logic: they are simply shipped. Active ones sync over the bus from keeper, the rest travel as bodies in the pack.",
+      "They carry no logic: they are simply passed on. Dynamic ones sync over the bus from keeper, static ones travel as bodies in the pack.",
     datasetsEmpty: "Nothing declared yet — rules have nothing to pick from.",
     addList: "Add a list",
     chooseList: "Choose a list",
     askCodeHint:
       "The signal's reason: the receiver filters on it when deciding whether to apply. Empty — no reason. [A-Z][A-Z0-9_]*",
-    outcomeCodeHint: "What explains the dataset entry. Empty — the decision code. [A-Z][A-Z0-9_]*",
+    outcomeCodeHint: "What explains the list entry. Empty — the decision code. [A-Z][A-Z0-9_]*",
     toDenyRiskHint:
-      "The receiving inspector. A signal does not arrive where the decision is deny: it ends the phase. A marker and writing the address into a dataset always work",
-    toDatasetShort: "into a dataset",
+      "The receiving inspector. A signal does not arrive where the decision is deny: it ends the phase. A marker and writing the address into a list always work",
+    toDatasetShort: "into a list",
     rulesTitle: "Rules",
     rulesHint:
       "These decide nothing: they tell the neighbours, and they work in both outcomes -- on the allowlist and on the denylist. The order is set by dragging.",
@@ -2810,7 +2817,7 @@ export const en: DeepString<typeof ru> = {
     removeRule: "Remove rule",
     drag: "drag",
     needSets: "Create a composite set under Sets (composite) first.",
-    needLive: "There is no active list to write into.",
+    needLive: "There is no dynamic list to write into.",
     code: "Reason",
     codeHint: "[A-Z][A-Z0-9_]*. Empty means the default code (IP_LIST or IP_GEO).",
     response: "Response",
@@ -2825,8 +2832,8 @@ export const en: DeepString<typeof ru> = {
     applyHint:
       "This request, the address, the whole provider network, or the session. What to make of it is the receiver's call.",
     verbHint: "Only what the chosen receiver listens to.",
-    listDataset: "Which dataset",
-    toDataset: "dataset: write the address",
+    listDataset: "Which list",
+    toDataset: "list: write the address",
     ttl: "ttl, sec",
     ttlHint: "0 means forever. Otherwise the address expires on its own.",
     empty: "No profiles yet — create the first one.",
@@ -2896,8 +2903,8 @@ export const en: DeepString<typeof ru> = {
         hint: "Executed by the module: a signed number added to the phase sum of this request (on frames, this frame), next to the neighbours' verdict points. Add and the sum grows; remove and it shrinks, but never below zero: only what was accumulated can be removed. One inspector's contribution stays within a hundred either way, and neighbours see it as its score in prior. What to do with the sum is up to the route threshold (waf_score_deny). From a passive sender the signal is dropped: it affects traffic in no way.",
       },
       list: {
-        label: "Add to a dataset",
-        hint: "The address goes to an active set and outlives the request.",
+        label: "Add to a list",
+        hint: "The address goes to a dynamic list and outlives the request.",
       },
     },
     group: {
@@ -3085,14 +3092,14 @@ export const en: DeepString<typeof ru> = {
         "Entry point, distribution and cluster membership: which port to listen on, how to balance and which path proves an edge is healthy.",
       servers: "Servers",
       serversHint:
-        "The backend server lines: name, address and port. An empty list prints the shipped edge-01..03. haproxy merges two servers with one name, so names are unique.",
+        "The backend server lines: name, address and port. An empty list prints the standard edge-01..03. haproxy merges two servers with one name, so names are unique.",
       nodes: "Nodes",
       nodesHint:
         "Which revision each balancer applied. Stale means the presence frame has not brought the new one yet, or `haproxy -c` rejected it.",
     },
     group: {
       process: "Process",
-      processHint: "The global section. An empty field keeps the shipped default.",
+      processHint: "The global section. An empty field keeps the standard value.",
       timeouts: "Timeouts",
       timeoutsHint:
         "The defaults section: applies to the entry point and to edge connections. Tunnel covers websocket and socket.io after the upgrade; it outlives timeout server.",
@@ -3161,7 +3168,7 @@ export const en: DeepString<typeof ru> = {
       host: "Address",
       port: "Port",
       add: "+ add server",
-      defaults: "The list is empty -- the shipped edge-01..03 are printed.",
+      defaults: "The list is empty -- the standard edge-01..03 are printed.",
       addTitle: "New server",
       nameTaken: "A server with this name already exists: haproxy merges two lines with one name.",
     },
@@ -3620,7 +3627,7 @@ export const en: DeepString<typeof ru> = {
       mainErrorLog:
         "`error_log` of the process itself, above `http {}`. Path and level on one line.",
       mainErrorLogShip:
-        "A second `error_log` line at the same level — into the agent socket, and from there into the Logs section. That is everything the module writes outside a request (bus, dataset subscriptions, breaker) and what the master writes itself (reload, a crashed worker). No key — the copy is on; “off” keeps only the file. Without `error_log` there is no copy: a lone socket line would cancel nginx’s built-in file.",
+        "A second `error_log` line at the same level — into the agent socket, and from there into the Logs section. That is everything the module writes outside a request (bus, list subscriptions, breaker) and what the master writes itself (reload, a crashed worker). No key — the copy is on; “off” keeps only the file. Without `error_log` there is no copy: a lone socket line would cancel nginx’s default file.",
       workerConnections: "Connections per worker. Client and protected server are two.",
       multiAccept: "Accept all ready connections at once instead of one per cycle.",
       eventsUse: "Connection method: `epoll` on Linux. Empty lets nginx choose.",
@@ -3939,7 +3946,7 @@ export const en: DeepString<typeof ru> = {
     },
     local: "Lists and limits",
     localHint:
-      "What is decided before the bus: allow and block by dataset, rate limits. The outcome is final — no inspector is called.",
+      "What is decided before the bus: allow and block by list, rate limits. The outcome is final — no inspector is called.",
     listKind: "List",
     inspector: "Inspector",
     inspectorHint:
@@ -3993,7 +4000,7 @@ export const en: DeepString<typeof ru> = {
     callTitle: "Call — {name}",
     condsBlock: "When to call",
     condsAlert:
-      "With no conditions the inspector is called on every request. A condition matches a value against a dataset: all conditions hold — the call works; one of them fails — the row is not published at all and the wave goes on without it: nobody waits for it, it adds nothing to the score and does not move the deadline.\n\nThe condition is settled before the mode and outranks it: a row it drops is raised neither by 'active' nor by a neighbour's request — there is no longer anyone to call. The reverse does not hold: a condition that matched is permission to call, not an order, and 'off' overrides it.\n\nAn empty value counts as 'not in the dataset': no cookie means it is not among the trusted ones either. A condition without a dataset is not saved.",
+      "With no conditions the inspector is called on every request. A condition matches a value against a list: all conditions hold — the call works; one of them fails — the row is not published at all and the wave goes on without it: nobody waits for it, it adds nothing to the score and does not move the deadline.\n\nThe condition is settled before the mode and outranks it: a row it drops is raised neither by 'active' nor by a neighbour's request — there is no longer anyone to call. The reverse does not hold: a condition that matched is permission to call, not an order, and 'off' overrides it.\n\nAn empty value counts as 'not in the list': no cookie means it is not among the trusted ones either. A condition without a list is not saved.",
     condsSummaryAny: "on every request",
     condsSummary: "conditions: {count}",
     kind: {
@@ -4294,47 +4301,47 @@ export const en: DeepString<typeof ru> = {
   cond: {
     title: "Conditions — {name}",
     alert:
-      "A condition matches a value against a dataset: `if <value> in|not in <dataset>`. There can be several, and the line works only when all of them hold; with no conditions it works on every request.\n\nAn empty value counts as 'not in the dataset': no cookie means it is not among the trusted ones either. A condition without a dataset is not saved.",
+      "A condition matches a value against a list: `if <value> in|not in <list>`. There can be several, and the line works only when all of them hold; with no conditions it works on every request.\n\nAn empty value counts as 'not in the list': no cookie means it is not among the trusted ones either. A condition without a list is not saved.",
     value: "Value",
-    dataset: "Dataset",
+    dataset: "List",
     add: "Add condition",
     addTitle: "New condition",
     valueHint: "What to compare: an nginx variable, a header, a cookie or a request argument",
     op: "Comparison",
-    opHint: "in — the value is in the dataset, not in — it is not. An empty value counts as not in the dataset",
+    opHint: "in — the value is in the list, not in — it is not. An empty value counts as not in the list",
     datasetHint: "A list declared in the config: the value is compared against it",
     empty: "No conditions — the line works on every request.",
-    pickList: "pick a dataset",
+    pickList: "pick a list",
     notDeclared: "not declared in the config",
     lineTitle: "Line",
   },
   local: {
-    dynamicList: "dynamic",
-    staticList: "local",
+    dynamicList: "active",
+    staticList: "built-in",
     ttlMissingTitle: "Ban has no expiry",
     ttlMissingText:
-      "Set {list} has no ttl= of its own and the rule does not set one. nginx -t on the node rejects such a line, and the whole template with it.",
-    listMismatchTitle: "Key will not fit the set",
+      "List {list} has no ttl= of its own and the rule does not set one. nginx -t on the node rejects such a line, and the whole template with it.",
+    listMismatchTitle: "Key will not fit the list",
     listMismatchText:
       "{list} takes addresses ({type}) while key {key} arrives as a request string: the ban has nowhere to write.",
-    mismatchTitle: "Set and value never match",
+    mismatchTitle: "List and value never match",
     mismatchText:
       "{dataset} holds addresses ({type}) while {value} arrives as a request string. The line compiles and passes nginx -t, but never matches.",
     meansNever: "Never matches: {dataset} compares addresses, this is a string.",
     notDeclaredTag: "gone",
     checks: "Lists",
-    checksHint: "waf_local_check: a set against a value, first match wins",
+    checksHint: "waf_local_check: a list against a value, first match wins",
     actionHint:
       "allow skips inspection entirely: own probes, partners, service addresses.\nwave skips the rest of the local layer (blocks and rates) but still goes to the inspectors.\nblock denies before the bus: no inspector is called.",
     responseHint:
       "An empty page means the route's waf_deny_response_default. Only block has one: an allow row has nothing to hand the client.",
     orderHint:
-      "A block stands above an allow. The first matching row top down decides, so a key present in both datasets ends up denied. If that is not intended, drag the allow higher.",
+      "A block stands above an allow. The first matching row top down decides, so a key present in both lists ends up denied. If that is not intended, drag the allow higher.",
     drag: "Drag",
     rates: "Rate limits",
     ratesHint: "waf_local_rate: a bucket per key, after every check",
     rateHint:
-      "What happens once the bucket overflows. count=waves counts bus round trips, not requests. action=pass only counts, without denying. list= auto-bans the key into the dataset overlay and tells the neighbours; an empty ttl= takes the dataset's own.",
+      "What happens once the bucket overflows. count=waves counts bus round trips, not requests. action=pass only counts, without denying. list= auto-bans the key into the list overlay and tells the neighbours; an empty ttl= takes the list's own.",
     outcome: "Outcome",
     decision: "Decision",
     page: "Page",
@@ -4349,17 +4356,17 @@ export const en: DeepString<typeof ru> = {
     countHint: "waves counts bus round trips, requests counts requests, frames counts WebSocket frames (websocket locations only; the handshake is not counted).",
     rateActionHint: "block denies, pass only counts.",
     rateResponseHint: "An empty page means the route's waf_deny_response_default.",
-    listHint: "Auto-bans the key into the dataset overlay and tells the neighbours.",
-    ttlHint: "Empty takes the dataset's own term.",
+    listHint: "Auto-bans the key into the list overlay and tells the neighbours.",
+    ttlHint: "Empty takes the list's own term.",
     passNoPage: "A counting limit has no page: nothing is handed to the client.",
     passNoBan: "The module rejects action=pass together with an auto-ban.",
     noBan: "no auto-ban",
     hashLabel: "hash=md5",
     hashHint:
-      "The bucket is kept per md5 of the key, not the key itself: a shm node is 32 bytes however long the key is. Without it a key over 255 bytes (a JWT in a cookie) silently skips the rule. The auto-ban receives the raw key: whether the dataset hashes it is up to the dataset.",
+      "The bucket is kept per md5 of the key, not the key itself: a shm node is 32 bytes however long the key is. Without it a key over 255 bytes (a JWT in a cookie) silently skips the rule. The auto-ban receives the raw key: whether the list hashes it is up to the list.",
     hashedList: "md5",
     hashedListHint:
-      "The dataset stores md5 of its values: checks and auto-bans hash the value themselves, and the set holds no value in clear text.",
+      "The list stores md5 of its values: checks and auto-bans hash the value themselves, and the list holds no value in clear text.",
     sumHash: "md5 key",
     lineTitle: "Config line",
     sumWaves: "by waves",
@@ -4370,16 +4377,16 @@ export const en: DeepString<typeof ru> = {
     sumBan: "bans into {list}",
     sumBanTtl: "bans into {list} for {ttl}",
     kind: "Rules",
-    dataset: "Dataset",
+    dataset: "List",
     value: "Value",
     key: "Key",
     addCheck: "Add rule",
     addCond: "Add condition",
     conds: "Conditions",
     addRate: "Add limit",
-    emptyChecks: "No rules: no dataset passes anyone through or bans anyone.",
+    emptyChecks: "No rules: no list passes anyone through or bans anyone.",
     emptyRates: "No limits.",
-    pickList: "pick a dataset",
+    pickList: "pick a list",
     notDeclared: "not declared in the config",
     defaultPage: "default",
     ttlNeeded: "ttl needed",
@@ -4392,18 +4399,18 @@ export const en: DeepString<typeof ru> = {
     parentEmptyChecks: "The server set no checks.",
     parentEmptyRates: "The server set no limits.",
     keyHint:
-      "The value the bucket is kept per: `waf_local_rate <key>`. One value, not a set: the module rejects `$waf_request_args.*` — a request would land in several counters at once.",
+      "The value the bucket is kept per: `waf_local_rate <key>`. One value, not several: the module rejects `$waf_request_args.*` — a request would land in several counters at once.",
     datasetHint:
-      "A dataset declared in the config by a `waf_local_dataset` slot. Its membership is edited under Data.",
+      "A list declared in the module by a `waf_local_dataset` line (http → Lists). Its entries are edited under Data.",
     valueHint:
-      "What is compared against the dataset. The dataset type decides what is offered: only an address compares against cidr.",
-    checkWhere: "Look up in dataset",
+      "What is compared against the list. The list type decides what is offered: only an address compares against cidr.",
+    checkWhere: "Look up in list",
     checkWhat: "Value from the request",
     someValue: "the value",
-    someList: "the dataset",
+    someList: "the list",
     meansTitle: "What this means",
     meansHint:
-      "The rule fires on a hit only: it has no inverse check. \"Everything except the dataset\" is either an `if <value> not in <dataset>` condition (the conditions icon in the row) or an allow row placed above the block one.",
+      "The rule fires on a hit only: it has no inverse check. \"Everything except the list\" is either an `if <value> not in <list>` condition (the conditions icon in the row) or an allow row placed above the block one.",
     meansHit: "{value} is in {dataset} — {outcome}.",
     meansMiss:
       "{value} is not in {dataset} — the row stays silent: the next row decides, and if none match, the limits and the inspectors do.",
@@ -4417,7 +4424,7 @@ export const en: DeepString<typeof ru> = {
     orderTitle: "Order decides",
     badRowTitle: "The row will not build",
     noDataset:
-      "The rule has no dataset. The dataset name is the directive's first word: without it the node rejects the config.",
+      "The rule has no list. The list name is the directive's first word: without it the node rejects the config.",
     badRate:
       "The key is required, and rate= is written as <n>r/s or <n>r/m — the unit is part of the value, not a default. Check: {keys}",
     dupRuleTitle: "One counter for two rows",
@@ -4425,34 +4432,61 @@ export const en: DeepString<typeof ru> = {
       "The module tells counters apart by key, rate=, burst= and count=; neither the place of declaration nor the if conditions are part of that signature. Rows with the same signature count into one bucket: a request matching both is charged twice, and the limit fires twice as early as written. Check: {keys}",
     banNoTtlTitle: "Auto-ban without a term",
     banNoTtl:
-      "Neither the rule nor the dataset itself has a ttl=, and nginx -t rejects such a config. Datasets: {lists}",
+      "Neither the rule nor the list itself has a ttl=, and nginx -t rejects such a config. Lists: {lists}",
     passNoPageCheck: "Only block has a page: an allow row has nothing to hand the client.",
   },
   httpCat: {
-    copyFrom: "initial membership…",
-    copyFromHint:
-      "Copy live entries from an existing set of the same type. Empty means the list starts empty.",
     lists: "Lists",
     listsHint:
-      "Which datasets from Data are declared as waf_local_dataset slots. The dataset with its membership lives under Data; here you decide whether it reaches the template.",
-    listsEmpty: "No dataset is declared. Local checks would have nothing to reference.",
-    declareList: "Declare a dataset in the config…",
-    newList: "Create a new dataset under Data",
-    undeclare: "Remove from the config (the dataset stays under Data)",
+      "Which lists from Data are declared in the module by a waf_local_dataset line. The list with its entries lives under Data; here you decide whether it reaches the configuration.",
+    listsEmpty: "No list is declared. Local checks have nothing to refer to.",
+    listAdd: "Add a list",
+    listAddTitle: "New list",
+    listAddHint:
+      "Declare a ready list from Data in the module or create a new one. It reaches the configuration after Save.",
+    listSource: "List",
+    listSourceHint:
+      "A list from Data that is not declared in the module yet, or a new one. A new list is created under Data on save.",
+    listNew: "New list",
+    listNewHint: "created under Data on save",
+    listEntries: "entries: {n}",
+    listTakeDynamic:
+      "The list is dynamic: in the module it becomes active. Keeper sends its entries over the bus, no reload needed.",
+    listTakeStatic:
+      "The list is static: in the module it becomes built-in. Its entries ({n}) go into the configuration as lines, and every edit of them under Data means an nginx reload.",
+    listModeNewHint:
+      "Built-in — the entries stand in the configuration as lines, a change means an nginx reload; under Data the list is static. Active — keeper sends the entries over the bus, no reload; under Data the list is dynamic, auto-blocks write into it.",
+    listStart: "Starting membership",
+    listStartHint:
+      "How a built-in list starts: empty or with a copy of the entries of a static list of the same type. The copy is one-off: after it the lists are edited separately.",
+    listStartEmpty: "empty",
+    listHashNone: "no",
+    listHashNewHint:
+      "`hash=md5` — the list stores md5 of its values, not the values: checks and auto-blocks hash the value themselves. Later the flag changes only on an empty list.",
+    listNameBad: "Name: Latin letters, digits, dot, _ and -; starts with a letter; up to 64 characters.",
+    listNameTaken: "The name is taken: Data already has a list or a file with it.",
+    listLimitBad: "limit= is a whole number above zero.",
+    listTtlBad: "ttl= is a number with s, m, h or d: 30s, 5m, 12h.",
+    listLine: "Configuration line",
+    listLineEntries: "followed by a line with the entries: {n}",
+    listLineCopy: "followed by a line with the entries of {name}: {n}",
+    listUsersDeclared:
+      "Lists of sign-in users are declared in the module: {lists}. Their lines with password hashes reach every node. Take them off the configuration.",
+    undeclare: "Remove from the configuration (the list stays under Data)",
     listMode: "Mode",
     listModeHint:
-      "Where the set came from, not a setting of this row. active — the controller fills the membership over the bus, no nginx reload; such a set is taken from Data. internal — entries live inside the config and change with it; such a set is created right here.",
+      "How the module gets the entries. Active (`active`) — keeper sends them over the bus, no nginx reload; under Data such a list is dynamic. Built-in (`internal`) — the entries stand in the configuration as lines, a change means a reload; under Data such a list is static. The mode follows the kind of the list and is changed under Data.",
     listNameHint:
-      "The name in the directive: `waf_local_dataset <name>`. Local checks on a route refer to the set by it.",
+      "The name in the directive: `waf_local_dataset <name>`. Local checks on a route refer to the list by it.",
     listTypeHint:
-      "The element type is set under Data and never changes afterwards: a string cannot be matched against an address.",
+      "What the list holds: `cidr` — addresses and networks, `string` — strings and numbers. The type is set under Data and never changes afterwards: a string cannot be matched against an address.",
     listLimitHint:
       "`limit=` — entry cap of the shm slot. Below the membership size the extra entries never reach the slot.",
     listTtlHint:
-      "`ttl=` is printed for active only: the lifetime of a live entry that carries no ttl of its own. internal has no such directive — `nginx -t` rejects it.",
+      "`ttl=` exists on an active list only: the term of an entry that has none of its own. A built-in list has no such parameter, `nginx -t` rejects it.",
     listHashHint:
-      "`hash=md5` — the dataset stores md5 of its values: checks and auto-bans hash the value themselves. Set under Data on an empty string list.",
-    listSizeHint: "How many entries the set holds now. Membership itself is edited under Data.",
+      "`hash=md5` — the list stores md5 of its values: checks and auto-blocks hash the value themselves. Set under Data on an empty string list.",
+    listSizeHint: "How many entries the list holds now. The entries are edited under Data.",
     denyCode: "Code",
     denyPagePick: "pick a page…",
     denyMessagePlaceholder: "blocked by policy",
@@ -4497,8 +4531,10 @@ export const en: DeepString<typeof ru> = {
     formatNameTaken: "A format with this name already exists.",
     formatQuote: "A single quote cannot be written in a format: such a format does not reach the config.",
     formatsEmpty: "No custom formats.",
-    modeActive: "Membership arrives from the controller over the bus. No nginx reload.",
-    modeInternal: "Entries live in the config. A change means an nginx reload.",
+    modeActiveLabel: "active",
+    modeInternalLabel: "built-in",
+    modeActive: "active: keeper sends the entries over the bus, a change needs no nginx reload. Under Data the list is dynamic.",
+    modeInternal: "internal: the entries stand in the configuration as lines, a change means an nginx reload. Under Data the list is static.",
     listSize: "Entries",
     deny: "Deny responses",
     denyHint:

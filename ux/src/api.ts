@@ -72,6 +72,8 @@ export interface Dataset {
   vars: string[] | null;
   linked: boolean;
   linked_sets: DatasetSetLink[];
+  /** Sign-in users of an auth source: never declared in the module, never copied. */
+  auth_users?: boolean;
   created_at: string;
   updated_at: string;
 }
