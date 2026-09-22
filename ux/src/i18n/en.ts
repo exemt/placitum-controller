@@ -1059,7 +1059,7 @@ export const en: DeepString<typeof ru> = {
     typeHint: "Type is chosen at creation and cannot be changed later.",
     hash: "hash=md5",
     hashHint:
-      "The list stores md5 of its values instead of the values: sessions and tokens sit neither in shm nor in the database in clear text, and no entry is longer than 32 bytes. Checks, auto-bans, keeper and the panel hash the value themselves; enter raw values here. String lists only; inspector mirrors compare raw values and do not read such a list.",
+      "The list stores md5 of its values instead of the values: sessions and tokens sit neither in shm nor in the database in clear text, and no entry is longer than 32 bytes. Checks, auto-bans, keeper, the panel and the inspectors hash the value themselves; enter raw values here. String lists only.",
     hashLocked: "Changes only on an empty list: clear the entries first.",
     contentType: "Content type",
     file: "File",
