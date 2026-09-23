@@ -6,22 +6,19 @@ export const HAPROXY_MODES = ["http", "tcp"] as const;
 
 export type HaproxyMode = (typeof HAPROXY_MODES)[number];
 
-// One entry port with its own backend over the shared servers. With sendProxy a tcp frontend
-// passes connections on with PROXY protocol v2, and the nodes see the real client address.
-// addresses: where the port listens; without them, on every address.
-export interface HaproxyFrontend {
-  name: string;
-  port: number;
-  mode: HaproxyMode;
-  serverPort?: number;
-  sendProxy?: boolean;
-  addresses?: string[];
-}
-
 export interface HaproxyServer {
   name: string;
   host: string;
-  port?: number;
+}
+
+// Where the balancer listens. The entry points themselves come from the ports of the space: every
+// port the nodes serve to the network gets one. addresses: the addresses of the machine haproxy
+// binds on; none means every address. ports: the entry port in front of a node port when the two
+// differ, such as 80 in front of 8080 for haproxy on the machine; a node port not listed keeps its
+// number.
+export interface HaproxyEntry {
+  addresses?: string[];
+  ports?: Record<string, number>;
 }
 
 export interface HaproxySettings {
@@ -36,10 +33,7 @@ export interface HaproxySettings {
     keepaliveMs?: number;
     tunnelMs?: number;
   };
-  frontend?: {
-    port?: number;
-  };
-  frontends?: HaproxyFrontend[];
+  entry?: HaproxyEntry;
   backend?: {
     balance?: HaproxyBalance;
     check?: {

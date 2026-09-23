@@ -106,6 +106,22 @@ function parseReturnPage(value: unknown): string | null | undefined | "bad" {
   return RETURN_PAGE.test(trimmed) ? trimmed : "bad";
 }
 
+// A file of the space for handler=static: the name of a content dataset. Characters nginx cannot
+// take in try_files are refused here, so the compiler never prints them.
+const STATIC_FILE_BAD = /[\s"'\;{}$#]/;
+
+function parseStaticFile(value: unknown): string | null | undefined | "bad" {
+  const file = parseOptStr(value);
+  if (file === "bad" || file === undefined || file === null) {
+    return file;
+  }
+  const trimmed = file.trim();
+  if (trimmed === "") {
+    return null;
+  }
+  return STATIC_FILE_BAD.test(trimmed) ? "bad" : trimmed;
+}
+
 export function parseServerCreate(
   body: unknown,
   httpSpaceId: string,
@@ -296,6 +312,10 @@ export function parseLocationCreate(
   if (returnUrl === "bad") {
     return fail("invalid_return_url");
   }
+  const staticFile = parseStaticFile(body.static_file);
+  if (staticFile === "bad") {
+    return fail("invalid_static_file");
+  }
   const nginx =
     body.nginx === undefined
       ? { ok: true as const, value: {} as NginxLocationSettings }
@@ -342,6 +362,9 @@ export function parseLocationCreate(
   }
   if (returnUrl !== undefined && returnUrl !== null) {
     row.returnUrl = returnUrl;
+  }
+  if (staticFile !== undefined && staticFile !== null) {
+    row.staticFile = staticFile;
   }
   return { ok: true, value: row };
 }
@@ -430,6 +453,13 @@ export function parseLocationPatch(body: unknown): ParseResult<LocationPatch> {
   }
   if (returnUrl !== undefined) {
     patch.returnUrl = returnUrl;
+  }
+  const staticFile = parseStaticFile(body.static_file);
+  if (staticFile === "bad") {
+    return fail("invalid_static_file");
+  }
+  if (staticFile !== undefined) {
+    patch.staticFile = staticFile;
   }
   if (body.nginx !== undefined) {
     const nginx = parseNginxLocation(body.nginx);

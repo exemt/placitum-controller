@@ -7,6 +7,7 @@ import { AgentSettingsRepo } from "./agent-settings.ts";
 import { originGuard, securityHeaders } from "./browser-guard.ts";
 import { haproxyRouter } from "./haproxy-http.ts";
 import { HaproxySettingsRepo } from "./haproxy-settings.ts";
+import { PortRepo } from "./ports.ts";
 import { certificatesRouter } from "./certificates-http.ts";
 import type { Config } from "./config.ts";
 import { catalogRouter } from "./catalog-http.ts";
@@ -39,6 +40,10 @@ import { GEO_SERVICE, geoFilesRouter, geoImportRouter } from "./geo-import-http.
 import { searchRouter } from "./search-http.ts";
 import { log } from "./log.ts";
 import { logLevelsRouter } from "./log-levels-http.ts";
+import { licenseRouter } from "./license-http.ts";
+import type { LicenseService } from "./license.ts";
+import { feedsRouter } from "./feeds-http.ts";
+import type { FeedsClient } from "./feeds.ts";
 import { actionsRouter } from "./actions-http.ts";
 import { buildMeta } from "./meta.ts";
 import { ipAsnsRouter } from "./ip-asns-http.ts";
@@ -120,6 +125,8 @@ export interface AppServices {
   crypto?: ContourCrypto;
   cryptoService: CryptoServiceClient;
   convergence: ConvergenceService;
+  license: LicenseService;
+  feeds: FeedsClient;
 }
 
 export function createApp(cfg: Config, services: AppServices): Express {
@@ -172,6 +179,7 @@ export function createApp(cfg: Config, services: AppServices): Express {
   app.use("/api/fleet", fleetRouter(services.dispatch, services.getState));
   app.use("/api/search", searchRouter(cfg.searchUrl));
   app.use("/api/log-levels", logLevelsRouter(services.desired));
+  app.use("/api/license", licenseRouter(services.license));
   app.use("/api/geo/files", geoFilesRouter(services.geoFiles));
 
   const scoped = express.Router({ mergeParams: true });
@@ -180,6 +188,7 @@ export function createApp(cfg: Config, services: AppServices): Express {
   scoped.use("/crypto", cryptoRouter(services.crypto));
   scoped.use("/store", storeRouter(services.store, cfg.storeMaxBytes));
   scoped.use("/content-types", contentTypesRouter(services.datasets));
+  scoped.use("/feeds", feedsRouter(services.feeds, services.license, services.dispatch, services.getState));
   scoped.use(
     "/inspectors",
     inspectorsRouter(
@@ -359,7 +368,7 @@ export function createApp(cfg: Config, services: AppServices): Express {
   );
   scoped.use(
     "/haproxy",
-    haproxyRouter(new HaproxySettingsRepo(services.pool), services.desired),
+    haproxyRouter(new HaproxySettingsRepo(services.pool), new PortRepo(services.pool), services.desired),
   );
   app.use("/api/:scopeUuid", scoped);
 

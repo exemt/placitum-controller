@@ -16,7 +16,6 @@ export const LOCATION_HANDLERS = [
   "proxy",
   "static",
   "return",
-  "named",
 ] as const;
 
 export type LocationHandler = (typeof LOCATION_HANDLERS)[number];
@@ -51,6 +50,7 @@ export interface Location {
   returnStatus?: number;
   returnPage?: string;
   returnUrl?: string;
+  staticFile?: string;
   nginx: NginxLocationSettings;
   waf: WafRouteSettings;
   raw: boolean;

@@ -213,6 +213,7 @@ function ExceptionDialog({
     <Modal
       onClose={onClose}
       title={t("exception.title")}
+      help="05-protection#волны-дедлайн-и-счёт"
       hint={t("exception.hint")}
       actions={
         <>

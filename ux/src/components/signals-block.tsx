@@ -36,6 +36,7 @@ function broadcast(from: string): boolean {
 
 export function SignalsBlock({
   hint,
+  help,
   rules,
   verbs,
   weakening = [],
@@ -49,6 +50,7 @@ export function SignalsBlock({
   onChange,
 }: {
   hint: string;
+  help?: string;
   rules: SignalRule[];
   verbs: readonly FilterOption<string>[];
   weakening?: readonly string[];
@@ -145,6 +147,7 @@ export function SignalsBlock({
 
   const dialog = editing !== undefined && (
     <SignalDialog
+      help={help}
       rule={editing === null ? defaultRule() : (rules[editing] ?? defaultRule())}
       isNew={editing === null}
       verbsOf={verbsOf}
@@ -177,6 +180,7 @@ export function SignalsBlock({
       <TableBlock
         title={t("channel.signals")}
         label={hint}
+        help={help}
         notice={notice}
       >
         {table}
@@ -213,6 +217,7 @@ function summaryOf(
 }
 
 function SignalDialog({
+  help,
   rule,
   isNew,
   verbsOf,
@@ -223,6 +228,7 @@ function SignalDialog({
   onSave,
   onClose,
 }: {
+  help?: string;
   rule: SignalRule;
   isNew: boolean;
   verbsOf: (rule: SignalRule) => readonly FilterOption<string>[];
@@ -311,6 +317,7 @@ function SignalDialog({
       size="xs"
       title={isNew ? t("prior.addSignal") : t("prior.editSignal")}
       hint={t("prior.dialogHint")}
+      help={help}
       actions={
         <>
           <Modal.Cancel />

@@ -224,6 +224,7 @@ function PortForm({
         <Section
           title={t("ports.sectionListen")}
           hint={t("ports.sectionListenHint")}
+          help="05-protection#адреса-для-прослушивания"
           flush
           defaultExpanded
         >
@@ -248,6 +249,7 @@ function PortForm({
         <Section
           title={t("ports.sectionSocket")}
           hint={t("ports.sectionSocketHint")}
+          help="05-protection#адреса-для-прослушивания"
           flush
           defaultExpanded
         >

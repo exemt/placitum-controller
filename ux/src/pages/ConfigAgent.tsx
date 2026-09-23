@@ -20,6 +20,7 @@ import {
 import { editorChipSx } from "../config/editor-kit.tsx";
 import ChannelNotice from "../components/ChannelNotice.tsx";
 import { useChannel } from "../convergence.tsx";
+import { HelpLink } from "../help/link.tsx";
 import { useT } from "../i18n/index.ts";
 import { usePageBar } from "../layout/PageBarHost.tsx";
 import { useAppSelector } from "../store/hooks.ts";
@@ -53,6 +54,14 @@ const BUCKETS: Record<AgentArchiveKind, readonly string[]> = {
 };
 
 const AGENT_TABS = ["archive", "pace", "nodes"] as const;
+
+const ARCHIVE_HELP = "05-config#агент-узла-архив-и-темп-выгрузки";
+
+const HELP: Record<AgentTab, string> = {
+  archive: ARCHIVE_HELP,
+  pace: ARCHIVE_HELP,
+  nodes: "10-monitoring#применение-конфигурации",
+};
 
 type AgentTab = (typeof AGENT_TABS)[number];
 
@@ -231,6 +240,7 @@ export default function ConfigAgent() {
   const help = (key: string) => t(`agent.help.${key}`);
 
   const items: LayerItem<AgentTab>[] = AGENT_TABS.map((id) => ({
+    help: HELP[id],
     id,
     label: t(`agent.section.${id}`),
     hint: t(`agent.section.${id}Hint`),
@@ -241,14 +251,20 @@ export default function ConfigAgent() {
     <Stack spacing={2}>
       {error !== null && <Alert severity="error">{error}</Alert>}
 
-      <Alert severity="info">{t("agent.scopeHint")}</Alert>
+      <Alert severity="info">
+        {t("agent.scopeHint")}{" "}
+        <HelpLink
+          to="11-admin#что-живёт-на-узле-а-не-в-панели"
+          label={t("common.helpMore")}
+        />
+      </Alert>
 
       <ChannelNotice id="agent" />
 
       <LayerBar>
         <LayerTabs items={items} value={tab} onChange={setTab} />
 
-      <LayerCard flush title={item?.label ?? ""} hint={item?.hint}>
+      <LayerCard flush title={item?.label ?? ""} hint={item?.hint} help={item?.help}>
         {tab === "nodes" ? (
           <SectionBleed scroll>
           <Table size="small">

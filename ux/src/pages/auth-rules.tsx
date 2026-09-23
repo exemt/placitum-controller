@@ -282,6 +282,7 @@ function RuleDialog({
       onClose={onClose}
       size="xs"
       title={rule === null ? t("auth.addRule") : t("auth.editRule")}
+      help="06-auth#что-проверка-входа-говорит-сама"
       actions={
         <>
           <Modal.Cancel />

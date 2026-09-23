@@ -414,6 +414,7 @@ function AddDialog({
     <Modal
       onClose={onClose}
       title={t("registry.addTitle")}
+      help="06-inspectors#каталог-объявление-вызов"
       hint={t("registry.declareBlurb")}
       dirty={process !== "" || name !== "" || profile !== ""}
       actions={
@@ -636,6 +637,7 @@ function SettingsDialog({
         <DialogSection
           title={t("registry.audit")}
           hint={auditOn ? t("registry.auditBlurb") : t("registry.auditOffHint")}
+          help="09-logs#журнал-аудита"
           summary={
             auditOn
               ? audit.trim() === ""
@@ -660,6 +662,7 @@ function SettingsDialog({
         <DialogSection
           title={t("registry.breaker")}
           hint={breakerOn ? t("registry.breakerBlurb") : t("registry.breakerOff")}
+          help="13-troubleshooting#инспектор-не-отвечает-открылся-предохранитель"
           summary={breakerOn ? breakerShort(breaker, t) : ""}
           checked={breakerOn}
           onCheck={setBreakerOn}
@@ -707,6 +710,7 @@ function SettingsDialog({
         <DialogSection
           title={t("registry.vars")}
           hint={varsOn ? t("registry.varsBlurb") : t("registry.varsOffHint")}
+          help="12-reference#переменные"
           summary={
             varsOn ? (vars.includes("all") ? t("registry.varsAllSummary") : vars.join(", ")) : ""
           }

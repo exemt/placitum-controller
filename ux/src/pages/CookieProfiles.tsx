@@ -642,6 +642,7 @@ function CookieProfileForm({
         <Section
           title={t("cookieProfiles.sectionProfile")}
           hint={t("cookieProfiles.sectionProfileHint")}
+          help="06-cookie#что-он-решает"
           flush
           defaultExpanded
         >
@@ -664,6 +665,7 @@ function CookieProfileForm({
         <Section
           title={t("cookieProfiles.sectionCookies")}
           hint={t("cookieProfiles.cookiesHint")}
+          help="06-cookie#куки"
           flush
           defaultExpanded
         >
@@ -684,6 +686,7 @@ function CookieProfileForm({
         <Section
           title={t("cookieProfiles.sectionRules")}
           hint={t("cookieProfiles.rulesHint")}
+          help="06-cookie#правила"
           flush
           defaultExpanded
         >
@@ -1050,6 +1053,7 @@ function CookieDialog({
       onClose={onClose}
       size="xs"
       title={decl === null ? t("cookieProfiles.addCookie") : t("cookieProfiles.editCookie")}
+      help="06-cookie#куки"
       actions={
         <>
           <Modal.Cancel />
@@ -1933,6 +1937,7 @@ function AskDialog({
       title={
         row === null ? t("cookieProfiles.addRule") : t("cookieProfiles.editRule")
       }
+      help="06-cookie#правила"
       actions={
         <>
           <Modal.Cancel />

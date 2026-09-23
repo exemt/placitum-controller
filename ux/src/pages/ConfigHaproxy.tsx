@@ -40,6 +40,7 @@ import {
   sendHaproxySettings,
   type HaproxyBalance,
   type HaproxyConfDesired,
+  type HaproxyEntryPointWire,
   type HaproxyServerWire,
   type HaproxySettingsWire,
 } from "../api.ts";
@@ -55,6 +56,15 @@ import { MS_PRESETS } from "./config-fields.tsx";
 const BALANCES: readonly HaproxyBalance[] = ["roundrobin", "leastconn", "source"];
 
 const HAPROXY_TABS = ["proxy", "routing", "servers", "nodes"] as const;
+
+const BALANCER_HELP = "05-config#балансировщик-перед-узлами";
+
+const HELP: Record<HaproxyTab, string> = {
+  proxy: BALANCER_HELP,
+  routing: BALANCER_HELP,
+  servers: BALANCER_HELP,
+  nodes: "10-monitoring#применение-конфигурации",
+};
 
 type HaproxyTab = (typeof HAPROXY_TABS)[number];
 
@@ -90,13 +100,14 @@ function prune(input: HaproxySettingsWire): HaproxySettingsWire {
   }
   if (Object.keys(timeouts).length > 0) out.timeouts = timeouts;
 
-  if (input.frontend?.port !== undefined) {
-    out.frontend = { port: input.frontend.port };
+  const entry: NonNullable<HaproxySettingsWire["entry"]> = {};
+  if (input.entry?.addresses !== undefined && input.entry.addresses.length > 0) {
+    entry.addresses = [...input.entry.addresses];
   }
-
-  if (input.frontends !== undefined && input.frontends.length > 0) {
-    out.frontends = input.frontends.map((row) => ({ ...row }));
+  if (input.entry?.ports !== undefined && Object.keys(input.entry.ports).length > 0) {
+    entry.ports = { ...input.entry.ports };
   }
+  if (Object.keys(entry).length > 0) out.entry = entry;
 
   const backend: NonNullable<HaproxySettingsWire["backend"]> = {};
   if (input.backend?.balance !== undefined) backend.balance = input.backend.balance;
@@ -109,9 +120,9 @@ function prune(input: HaproxySettingsWire): HaproxySettingsWire {
     check.inter_ms = input.backend.check.inter_ms;
   }
   if (Object.keys(check).length > 0) backend.check = check;
-  const servers = (input.backend?.servers ?? []).filter(
-    (row) => row.name.trim() !== "" && row.host.trim() !== "",
-  );
+  const servers = (input.backend?.servers ?? [])
+    .filter((row) => row.name.trim() !== "" && row.host.trim() !== "")
+    .map((row) => ({ name: row.name, host: row.host }));
   if (servers.length > 0) backend.servers = servers;
   if (Object.keys(backend).length > 0) out.backend = backend;
 
@@ -147,18 +158,7 @@ function ServersTable({
   const inputSx = { ...dataInputSx, fontFamily: "monospace" } as const;
 
   const patchAt = (index: number, patch: Partial<HaproxyServerWire>) =>
-    onChange(
-      rows.map((row, i) => {
-        if (i !== index) {
-          return row;
-        }
-        const next = { ...row, ...patch };
-        if (patch.port === undefined && "port" in patch) {
-          delete next.port;
-        }
-        return next;
-      }),
-    );
+    onChange(rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
 
   return (
     <SectionBleed>
@@ -173,11 +173,6 @@ function ServersTable({
             <HeadCell
               label={t("haproxy.servers.host")}
               help={t("haproxy.help.serverHost")}
-            />
-            <HeadCell
-              label={t("haproxy.servers.port")}
-              help={t("haproxy.help.serverPort")}
-              width={110}
             />
             <TableCell sx={{ ...headCellSx, width: 48, minWidth: 48 }}>
               <Box sx={{ display: "flex", justifyContent: "flex-end", width: "100%" }}>
@@ -210,14 +205,6 @@ function ServersTable({
                   sx={inputSx}
                 />
               </TableCell>
-              <TableCell sx={cellSx}>
-                <InputBase
-                  value={numText(row.port)}
-                  inputProps={{ "aria-label": t("haproxy.servers.port") }}
-                  onChange={(e) => patchAt(index, { port: parseNum(e.target.value) })}
-                  sx={inputSx}
-                />
-              </TableCell>
               <TableCell sx={dataActionCellSx}>
                 <TableIconButton
                   color="error"
@@ -230,7 +217,7 @@ function ServersTable({
           ))}
           {rows.length === 0 && (
             <TableRow>
-              <TableCell colSpan={4} sx={{ ...cellSx, color: "text.secondary" }}>
+              <TableCell colSpan={3} sx={{ ...cellSx, color: "text.secondary" }}>
                 {t("haproxy.servers.defaults")}
               </TableCell>
             </TableRow>
@@ -266,32 +253,24 @@ function ServerDialog({
   const t = useT();
   const [name, setName] = useState("");
   const [host, setHost] = useState("");
-  const [port, setPort] = useState("");
 
   const trimmedName = name.trim();
   const trimmedHost = host.trim();
-  const portValue = parseNum(port);
   const nameTaken = taken.includes(trimmedName);
-  const ready =
-    SERVER_NAME_RE.test(trimmedName) &&
-    !nameTaken &&
-    SERVER_HOST_RE.test(trimmedHost) &&
-    (port === "" || (portValue !== undefined && portValue >= 1 && portValue <= 65535));
+  const ready = SERVER_NAME_RE.test(trimmedName) && !nameTaken && SERVER_HOST_RE.test(trimmedHost);
 
   const submit = () => {
     if (!ready) {
       return;
     }
-    const row: HaproxyServerWire = { name: trimmedName, host: trimmedHost };
-    if (portValue !== undefined) row.port = portValue;
-    onAdd(row);
+    onAdd({ name: trimmedName, host: trimmedHost });
   };
 
   return (
     <Modal
       onClose={onClose}
       spacing={0}
-      dirty={name !== "" || host !== "" || port !== ""}
+      dirty={name !== "" || host !== ""}
       title={t("haproxy.servers.addTitle")}
       notice={
         nameTaken ? { severity: "warning", text: t("haproxy.servers.nameTaken") } : null
@@ -323,13 +302,6 @@ function ServerDialog({
           value={host}
           onChange={setHost}
         />
-        <Text
-          label={t("haproxy.servers.port")}
-          helper={t("haproxy.help.serverPort")}
-          placeholder="8080"
-          value={port}
-          onChange={(raw) => setPort(raw.replace(/\D/g, ""))}
-        />
       </SettingsTable>
     </Modal>
   );
@@ -342,6 +314,7 @@ export default function ConfigHaproxy() {
   const [saved, setSaved] = useState<HaproxySettingsWire | null>(null);
   const [draft, setDraft] = useState<HaproxySettingsWire | null>(null);
   const [desired, setDesired] = useState<HaproxyConfDesired | null>(null);
+  const [entries, setEntries] = useState<HaproxyEntryPointWire[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useLayerTab<HaproxyTab>(TAB_KEY, HAPROXY_TABS);
@@ -357,6 +330,7 @@ export default function ConfigHaproxy() {
       ]);
       setSaved(doc.settings);
       setDraft(doc.settings);
+      setEntries(doc.entries ?? []);
       setDesired(pointer);
       setError(null);
     } catch (err) {
@@ -384,6 +358,7 @@ export default function ConfigHaproxy() {
       const doc = await saveHaproxySettings(scope, prune(draft));
       setSaved(doc.settings);
       setDraft(doc.settings);
+      setEntries(doc.entries ?? []);
       setError(null);
       channel.refresh();
     } catch (err) {
@@ -452,6 +427,7 @@ export default function ConfigHaproxy() {
   const help = (key: string) => t(`haproxy.help.${key}`);
 
   const items: LayerItem<HaproxyTab>[] = HAPROXY_TABS.map((id) => ({
+    help: HELP[id],
     id,
     label: t(`haproxy.section.${id}`),
     hint: t(`haproxy.section.${id}Hint`),
@@ -469,7 +445,7 @@ export default function ConfigHaproxy() {
       <LayerBar>
         <LayerTabs items={items} value={tab} onChange={setTab} />
 
-      <LayerCard flush title={item?.label ?? ""} hint={item?.hint}>
+      <LayerCard flush title={item?.label ?? ""} hint={item?.hint} help={item?.help}>
         {tab === "nodes" ? (
           <SectionBleed scroll>
           <Table size="small">
@@ -631,7 +607,6 @@ export default function ConfigHaproxy() {
               </>
             ) : (
               <>
-          {(draft.frontends ?? []).length > 0 ? (
           <SettingsGroup
             title={t("haproxy.group.frontends")}
             hint={t("haproxy.group.frontendsHint")}
@@ -640,7 +615,7 @@ export default function ConfigHaproxy() {
               <Table size="small" sx={serversTableSx}>
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={headSx}>{t("haproxy.frontends.name")}</TableCell>
+                    <TableCell sx={headSx}>{t("haproxy.frontends.ports")}</TableCell>
                     <TableCell sx={headSx}>{t("haproxy.frontends.port")}</TableCell>
                     <TableCell sx={headSx}>{t("haproxy.frontends.mode")}</TableCell>
                     <TableCell sx={headSx}>{t("haproxy.frontends.serverPort")}</TableCell>
@@ -648,46 +623,38 @@ export default function ConfigHaproxy() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {(draft.frontends ?? []).map((row) => (
+                  {entries.map((row) => (
                     <TableRow key={row.name}>
-                      <TableCell sx={{ ...cellSx, fontFamily: "monospace" }}>{row.name}</TableCell>
                       <TableCell sx={{ ...cellSx, fontFamily: "monospace" }}>
-                        {(row.addresses ?? ["*"]).map((address) => `${address}:${row.port}`).join(" ")}
+                        {row.ports.join(", ")}
+                      </TableCell>
+                      <TableCell
+                        sx={{ ...cellSx, fontFamily: row.taken === null ? "monospace" : undefined, color: row.taken === null ? undefined : "text.secondary" }}
+                      >
+                        {row.taken === null
+                          ? (row.addresses.length === 0 ? ["*"] : row.addresses)
+                              .map((address) => `${address}:${row.port}`)
+                              .join(" ")
+                          : t("haproxy.frontends.taken", { port: row.port, name: row.taken })}
                       </TableCell>
                       <TableCell sx={{ ...cellSx, fontFamily: "monospace" }}>{row.mode}</TableCell>
+                      <TableCell sx={{ ...cellSx, fontFamily: "monospace" }}>{row.server_port}</TableCell>
                       <TableCell sx={{ ...cellSx, fontFamily: "monospace" }}>
-                        {row.server_port ?? row.port}
-                      </TableCell>
-                      <TableCell sx={{ ...cellSx, fontFamily: "monospace" }}>
-                        {row.send_proxy === true ? "send-proxy-v2" : "—"}
+                        {row.send_proxy ? "send-proxy-v2" : "—"}
                       </TableCell>
                     </TableRow>
                   ))}
+                  {entries.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} sx={{ ...cellSx, color: "text.secondary" }}>
+                        {t("haproxy.frontends.empty")}
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </SectionBleed>
           </SettingsGroup>
-          ) : (
-          <SettingsGroup
-            title={t("haproxy.group.frontend")}
-            hint={t("haproxy.group.frontendHint")}
-          >
-            <Num
-              optional
-              fallback={8080}
-              presets={[80, 8080, 8443]}
-              label={field("port")}
-              helper={help("port")}
-              value={numText(draft.frontend?.port)}
-              onChange={(v) =>
-                setDraft({
-                  ...draft,
-                  frontend: { ...draft.frontend, port: parseNum(v) },
-                })
-              }
-            />
-          </SettingsGroup>
-          )}
           <SettingsGroup
             title={t("haproxy.group.backend")}
             hint={t("haproxy.group.backendHint")}
@@ -705,7 +672,6 @@ export default function ConfigHaproxy() {
               label={field("checkPath")}
               helper={help("checkPath")}
               value={draft.backend?.check?.path ?? ""}
-              placeholder="/healthz"
               onChange={(v) => setCheck({ path: v })}
             />
             <Num

@@ -7,6 +7,7 @@ import Link from "@mui/material/Link";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 
+import { HelpMark } from "../help/link.tsx";
 import { useT } from "../i18n/index.ts";
 
 export type PageBarCrumb = {
@@ -124,9 +125,11 @@ function StatusItem({ item }: { item: PageBarStatus }) {
 
 export default function PageBar({
   crumbs,
+  help,
   flush = false,
   status,
   onCreate,
+  onLoad,
   onSetup,
   onUpdate,
   onSave,
@@ -134,6 +137,9 @@ export default function PageBar({
   onReset,
   onUpload,
   createDisabled,
+  loadDisabled,
+  loadHighlight,
+  loadCount,
   setupDisabled,
   updateDisabled,
   saveDisabled,
@@ -143,9 +149,11 @@ export default function PageBar({
   extra,
 }: {
   crumbs: PageBarCrumb[];
+  help?: string;
   flush?: boolean;
   status?: PageBarStatus[];
   onCreate?: () => void;
+  onLoad?: () => void;
   onSetup?: () => void;
   onUpdate?: () => void;
   onSave?: () => void;
@@ -153,6 +161,9 @@ export default function PageBar({
   onReset?: () => void;
   onUpload?: () => void;
   createDisabled?: boolean;
+  loadDisabled?: boolean;
+  loadHighlight?: boolean;
+  loadCount?: number;
   setupDisabled?: boolean;
   updateDisabled?: boolean;
   saveDisabled?: boolean;
@@ -212,6 +223,7 @@ export default function PageBar({
           );
         })}
       </Breadcrumbs>
+      {help !== undefined && <HelpMark to={help} size={15} />}
       <Box sx={{ flexGrow: 1 }} />
       {status?.map((item) => (
         <StatusItem key={item.key} item={item} />
@@ -237,6 +249,21 @@ export default function PageBar({
           sx={pageBarBtnSx}
         >
           {t("common.save")}
+        </Button>
+      )}
+      {onLoad !== undefined && (
+        <Button
+          size="small"
+          variant={loadHighlight ? "contained" : "outlined"}
+          color={loadHighlight ? "warning" : "primary"}
+          disabled={loadDisabled}
+          onClick={onLoad}
+          sx={pageBarBtnSx}
+          title={loadHighlight ? t("common.loadUpdates") : undefined}
+        >
+          {loadHighlight && loadCount !== undefined && loadCount > 0
+            ? `${t("common.load")} · ${loadCount}`
+            : t("common.load")}
         </Button>
       )}
       {onUpdate !== undefined && (

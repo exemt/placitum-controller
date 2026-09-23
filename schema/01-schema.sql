@@ -186,6 +186,7 @@ CREATE TABLE public.datasets (
     ttl text,
     builtin boolean DEFAULT false NOT NULL,
     hash boolean DEFAULT false NOT NULL,
+    source jsonb,
     CONSTRAINT datasets_kind_check CHECK ((kind = ANY (ARRAY['list'::text, 'content'::text]))),
     CONSTRAINT datasets_kind_shape CHECK ((((kind = 'list'::text) AND (type = ANY (ARRAY['string'::text, 'numeric'::text, 'ipv4'::text, 'ip'::text])) AND (content_type_id IS NULL)) OR ((kind = 'content'::text) AND (content_type_id IS NOT NULL)))),
     CONSTRAINT datasets_max_entries_check CHECK ((max_entries > 0))
@@ -194,6 +195,7 @@ CREATE TABLE public.datasets (
 COMMENT ON COLUMN public.datasets.in_nginx IS 'Слот waf_local_dataset в шаблоне nginx. Наборы ip-компилятора -- false.';
 
 COMMENT ON COLUMN public.datasets.description IS 'Описание для каталога. На compile и шину не влияет.';
+COMMENT ON COLUMN public.datasets.source IS 'Набор сервера лицензий, из которого скачан список: {feed, version, sha256, fetched_at, server}. NULL -- список свой.';
 
 CREATE TABLE public.deny_responses (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -241,6 +243,15 @@ CREATE TABLE public.http_spaces (
 COMMENT ON COLUMN public.http_spaces.waf IS 'Реестр инспекторов контура: inspectors, inspectorProfiles. Решения по запросу живут на servers.waf и locations.waf.';
 
 COMMENT ON COLUMN public.http_spaces.nginx_main IS 'Скелет файла: load_module, worker_processes, error_log, events {}.';
+
+CREATE TABLE public.license (
+    id integer DEFAULT 1 NOT NULL,
+    key text NOT NULL,
+    applied_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT license_id_check CHECK ((id = 1))
+);
+
+COMMENT ON TABLE public.license IS 'Ключ коммерческой лицензии установки: одна строка, подписанный документ сервера лицензий. Проверяется контроллером офлайн.';
 
 CREATE TABLE public.inspectors (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -439,13 +450,16 @@ CREATE TABLE public.locations (
     return_page text,
     builtin boolean DEFAULT false NOT NULL,
     protocol text DEFAULT 'http'::text NOT NULL,
-    CONSTRAINT locations_handler_check CHECK ((handler = ANY (ARRAY['proxy'::text, 'static'::text, 'return'::text, 'named'::text]))),
+    static_file text,
+    CONSTRAINT locations_handler_check CHECK ((handler = ANY (ARRAY['proxy'::text, 'static'::text, 'return'::text]))),
     CONSTRAINT locations_match_check CHECK ((match = ANY (ARRAY['prefix'::text, 'exact'::text, 'regex'::text, 'regex_i'::text, 'named'::text])))
 );
 
 COMMENT ON COLUMN public.locations.return_url IS 'Адрес для 3xx: return 302 <url>. Не тело ответа -- у прочих кодов не печатается.';
 
 COMMENT ON COLUMN public.locations.return_page IS 'Цель error_page для handler=return: именованный путь того же сервера (@waf_deny).';
+
+COMMENT ON COLUMN public.locations.static_file IS 'Файл пространства для handler=static: имя набора вида content из «Файлов». Печатается как root pages: и try_files /имя.расширение =404.';
 
 COMMENT ON COLUMN public.locations.builtin IS 'Корень сервера: не удаляется, match и path не меняются. Заводится вместе с сервером.';
 
@@ -703,6 +717,9 @@ ALTER TABLE ONLY public.inspectors
 
 ALTER TABLE ONLY public.inspectors
     ADD CONSTRAINT inspectors_pkey PRIMARY KEY (id);
+
+ALTER TABLE ONLY public.license
+    ADD CONSTRAINT license_pkey PRIMARY KEY (id);
 
 ALTER TABLE ONLY public.ip_asn_addresses
     ADD CONSTRAINT ip_asn_addresses_asn_id_address_key UNIQUE (asn_id, address);

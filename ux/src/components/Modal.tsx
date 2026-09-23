@@ -15,6 +15,7 @@ import Typography from "@mui/material/Typography";
 import type { SxProps, Theme } from "@mui/material/styles";
 
 import { Form, FormHead } from "./Form.tsx";
+import { HelpMark } from "../help/link.tsx";
 import { useT } from "../i18n/index.ts";
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import {
@@ -34,6 +35,7 @@ export type ModalProps = {
   label?: ReactNode;
   hint?: ReactNode;
   head?: ReactNode;
+  help?: string;
 
   size?: ModalSize;
   busy?: boolean;
@@ -74,6 +76,7 @@ function ModalRoot({
   label,
   hint,
   head,
+  help,
   size = "sm",
   busy: busyProp,
   notice: noticeProp,
@@ -189,6 +192,7 @@ function ModalRoot({
             busy={busy}
             onClose={closable ? dismiss : undefined}
             closeDisabled={busy}
+            help={help === undefined ? undefined : <HelpMark to={help} size={15} />}
           >
             {head}
           </Form.Title>

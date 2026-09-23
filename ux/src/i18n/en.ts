@@ -70,6 +70,29 @@ export const en: DeepString<typeof ru> = {
     version: "Version {version}",
     acceptedAt: "Terms accepted on {date} in this browser",
     notAccepted: "The terms have not been accepted in this browser yet",
+    key: {
+      title: "Commercial license key",
+      field: "License key",
+      hint: "The license server issues the key to an e-mail address; without it the free functions work as before, and the sets of the server are out of reach.",
+      holder: "{id} · {licensee}",
+      until: "until {date}",
+      forever: "no end date",
+      apply: "Apply",
+      remove: "Remove the key",
+      state: {
+        active: "active",
+        pending: "not started yet",
+        expired: "expired",
+        invalid: "key refused",
+        missing: "no key",
+      },
+      errors: {
+        invalid_key: "Paste a key.",
+        key_format: "This is not a license key: a PLC1.… text is expected.",
+        key_unknown_key: "The key is signed by an unknown server: the controller lacks its public key.",
+        key_signature: "The signature of the key does not match.",
+      },
+    },
   },
   connection: {
     checking: "checking…",
@@ -944,6 +967,8 @@ export const en: DeepString<typeof ru> = {
     edit: "edit",
     hide: "hide",
     create: "Create",
+    load: "Load",
+    loadUpdates: "Downloaded sets have newer versions",
     refresh: "Refresh",
     uploadData: "Upload data",
     cancel: "Cancel",
@@ -973,7 +998,8 @@ export const en: DeepString<typeof ru> = {
     off: "off",
     more: "advanced",
     hint: "hint",
-    helpMore: "More in the help",
+    helpMore: "More in the docs",
+    helpSection: "Docs: {name}",
     blockedAdd: "To add: {what}.",
     blockedSave: "To save: {what}.",
     back: "Back",
@@ -1049,6 +1075,41 @@ export const en: DeepString<typeof ru> = {
     dynamicHint:
       "Keeper holds the entries and sends them to the nodes over the bus (`waf.sets.<name>`), without an nginx reload. Auto-blocks land here. In the module such a list is active.",
     linkedHint: "Composite sets that include this list",
+    cloudHint: "Downloaded from the license server: set {feed}, version {version}",
+    cloudUpdate: "Downloaded from the license server: set {feed}, version {have}; version {version} is available",
+    cloudLocked: "The entries come from the license server: refresh them with the Load button on the lists page.",
+    feeds: {
+      title: "Sets of the license server",
+      hint: "A downloaded set becomes a static list of this space. When the server publishes a newer version, the Load button turns yellow and an Update button appears here.",
+      checkedAt: "Checked {at}.",
+      check: "Check now",
+      empty: "The server offers no sets under this license.",
+      set: "Set",
+      entries: "Entries",
+      version: "Version",
+      state: "State",
+      notInstalled: "not downloaded",
+      updateAvailable: "newer version",
+      installedAs: "list {name}",
+      download: "Load",
+      update: "Update",
+      updateAll: "Update all ({count})",
+      working: "…",
+      errors: {
+        license_missing: "There is no active license.",
+        license_revoked: "The server revoked the license.",
+        license_expired: "The license has expired.",
+        license_invalid: "The server refused the license key.",
+        license_unknown: "The server does not know this license.",
+        unreachable: "The license server is unreachable.",
+        already_installed: "This set is already downloaded.",
+        not_installed: "This set is not downloaded.",
+        active_list: "The list is dynamic: the keeper holds its entries, a set cannot refresh it.",
+        type_changed: "The set changed its type on the server; delete the list and download it again.",
+        bad_feed: "The set holds entries of another type.",
+        addresses_over_max: "The set is larger than the entry limit of the list.",
+      },
+    },
     linkedExclude: "exclude",
     ttl: "TTL, sec",
     ttlHint: "0 — permanent. Otherwise the entry expires on its own.",
@@ -1616,7 +1677,7 @@ export const en: DeepString<typeof ru> = {
     description: "Description",
     overload: "Overload",
     overloadHint:
-      "The process queue is full. “Allow” — answer allow right away, fail-open; “wait” — stay queued until the deadline; “deny” — refuse right away, for routes where unchecked text costs more than a refusal. Queue depth stays a process property (inspector.conf in the catalog).",
+      "The process queue is full. “Allow” — answer allow right away, fail-open; “wait” — stay queued until the deadline; “deny” — refuse right away, for routes where unchecked text costs more than a refusal. Queue depth stays a process property (inspector.conf in the catalog).\n\nMore: [Когда инспектор перегружен](06-inspectors#когда-инспектор-перегружен)",
     overloads: { wait: "wait until deadline", shed: "answer at once" },
     newTitle: "New classifier profile",
     editTitle: "Classifier profile",
@@ -1739,7 +1800,7 @@ export const en: DeepString<typeof ru> = {
     codes: "Reasons",
     codesAny: "any",
     codesHint:
-      "Sender reasons the rule fires on; empty -- any. Suggestions list every reason declared by sender profiles along with who declared it, and the search matches both. The list is incomplete: file-based profiles are invisible to the controller, so your own reason is typed by hand",
+      "Sender reasons the rule fires on; empty -- any. Suggestions list every reason declared by sender profiles along with who declared it, and the search matches both. The list is incomplete: file-based profiles are invisible to the controller, so your own reason is typed by hand\n\nMore: [Автодействия](06-inspectors#автодействия)",
     apply: "About what",
     applyAny: "any axis",
     applyHint:
@@ -2308,14 +2369,14 @@ export const en: DeepString<typeof ru> = {
     editRule: "Edit the rule",
     deliver: "How to show the widget",
     deliverHint:
-      "A redirect sends the browser to the widget address (30x; behind a TLS terminator or on a non-standard port the address may drift). As the response body — the inspector fetches the page from the captcha service and answers on the same URI with the deny entry's status; the client never leaves, no catalog entries or locations needed",
+      "A redirect sends the browser to the widget address (30x; behind a TLS terminator or on a non-standard port the address may drift). As the response body — the inspector fetches the page from the captcha service and answers on the same URI with the deny entry's status; the client never leaves, no catalog entries or locations needed\n\nMore: [Как показывают виджет](06-captcha#как-показывают-виджет)",
     delivers: { redirect: "redirect", body: "response body" },
     redirectMethods: "Methods shown the widget",
     redirectMethodsHint:
       "Only these requests get the widget page — by redirect or as the body. The rest get the deny entry below: a request body would not survive the widget",
     htmlOnly: "HTML only",
     htmlOnlyHint:
-      "The widget goes only to a request asking for a page: Accept holds text/html, application/xhtml+xml or */*. A GET from fetch/XHR after JSON — and a request with no Accept at all — get the deny entry below instead: widget markup where JSON was expected would break the client anyway. Off — every method listed on the left gets the widget",
+      "The widget goes only to a request asking for a page: Accept holds text/html, application/xhtml+xml or */*. A GET from fetch/XHR after JSON — and a request with no Accept at all — get the deny entry below instead: widget markup where JSON was expected would break the client anyway. Off — every method listed on the left gets the widget\n\nMore: [Как показывают виджет](06-captcha#как-показывают-виджет)",
     denyResponse: "Deny entry",
     denyResponseHint:
       "For those not shown the widget (POST, fetch, API): nginx serves the status and the body per waf_deny_response. captcha_required is machine-readable — an SPA shows the widget itself. The same status is used for the widget as the response body",
@@ -2593,7 +2654,7 @@ export const en: DeepString<typeof ru> = {
     listSessionsNone: "None",
     deliver: "How to show the form",
     deliverHint:
-      "A redirect sends the browser to the source's form address (30x; behind a TLS terminator or on a non-standard port the address may drift). As the response body — the inspector fetches the form from the login service and answers on the same URI with the deny entry's status; the client never leaves, no catalog entries or locations needed",
+      "A redirect sends the browser to the source's form address (30x; behind a TLS terminator or on a non-standard port the address may drift). As the response body — the inspector fetches the form from the login service and answers on the same URI with the deny entry's status; the client never leaves, no catalog entries or locations needed\n\nMore: [Форма входа и как её показывают](06-auth#форма-входа-и-как-её-показывают)",
     delivers: { redirect: "redirect", body: "response body" },
     binds: { subnet: "Subnet", ua: "Browser (UA)" },
     ldapBinds: { upn: "UPN suffix", dn_template: "DN template", search: "Directory search" },
@@ -2626,13 +2687,13 @@ export const en: DeepString<typeof ru> = {
       "Only these requests get the form — by redirect or as the body. The rest get 401 with the deny entry: a request body would not survive the form",
     htmlOnly: "HTML only",
     htmlOnlyHint:
-      "The form goes only to a request asking for a page: Accept holds text/html, application/xhtml+xml or */*. A GET from fetch/XHR after JSON — and a request with no Accept at all — get 401 with the deny entry instead: form markup where JSON was expected would break the client anyway. Off — every method listed on the left gets the form",
+      "The form goes only to a request asking for a page: Accept holds text/html, application/xhtml+xml or */*. A GET from fetch/XHR after JSON — and a request with no Accept at all — get 401 with the deny entry instead: form markup where JSON was expected would break the client anyway. Off — every method listed on the left gets the form\n\nMore: [Форма входа и как её показывают](06-auth#форма-входа-и-как-её-показывают)",
     denyResponse: "Deny entry",
     denyResponseHint:
       "For those not shown the form (POST, fetch, API): nginx serves the status and the body per waf_deny_response. The same status is used for the form as the response body",
     gateGroups: "Allowed groups",
     gateGroupsHint:
-      "Empty — the login itself is enough. Otherwise the visitor must belong to at least one: a stranger to the groups does not pass, yet no second login is needed either — the source session is shared. Groups travel in the session as taken at login: removing someone takes effect on their next login, or at once by revoking the session",
+      "Empty — the login itself is enough. Otherwise the visitor must belong to at least one: a stranger to the groups does not pass, yet no second login is needed either — the source session is shared. Groups travel in the session as taken at login: removing someone takes effect on their next login, or at once by revoking the session\n\nMore: [Допуск: кого пускать после входа](06-auth#допуск-кого-пускать-после-входа)",
     forbiddenResponse: "Deny entry for a foreign group",
     forbiddenResponseHint:
       "Separate from the entry above: that one says «log in» (401), this one — «logged in, but not here» (403). Such a request is never sent to the form",
@@ -2980,7 +3041,7 @@ export const en: DeepString<typeof ru> = {
       budgetHint: "How many bytes of the object go into the record; empty — the whole object, up to the datagram ceiling. The sum over objects is clamped to it",
       sizeHint: "How many bytes of the object go to the archive; empty — the whole object",
       sourceHint:
-        "As captured — the capture slice and masks, the route's own lists on top. Original — before the capture masks: only the route's own lists apply, and without them the object goes with no masks at all. A body nobody read is read for this.",
+        "As captured — the capture slice and masks, the route's own lists on top. Original — before the capture masks: only the route's own lists apply, and without them the object goes with no masks at all. A body nobody read is read for this.\n\nMore: [Копия данных](05-protection#копия-данных)",
       objectOff: "exclude",
     },
     mark: {
@@ -3072,9 +3133,6 @@ export const en: DeepString<typeof ru> = {
       s3: "Storage",
       s3Hint:
         "Three buckets -- different sensitivity, different retention. A node rejects an endpoint with no bucket named.",
-      serverOff: "Virtual server «{name}»: {names} — switched off",
-      cert: "Certificate «{name}» — onto server «{server}»",
-      serverRedirect: "Virtual server «{name}» for the redirect",
       pool: "Pool",
       poolHint: "An empty field is the agent default.",
       batch: "Baskets",
@@ -3125,10 +3183,10 @@ export const en: DeepString<typeof ru> = {
         "Process limits and default timeouts: how many connections to hold, when to cut stalled clients and how long a tunnel lives after an upgrade.",
       routing: "Routing",
       routingHint:
-        "Entry point, distribution and cluster membership: which port to listen on, how to balance and which path proves an edge is healthy.",
+        "Entry points, distribution and cluster membership: which ports the balancer listens on, how to balance and which path proves a node is healthy.",
       servers: "Servers",
       serversHint:
-        "The backend server lines: name, address and port. An empty list prints the standard edge-01..03. haproxy merges two servers with one name, so names are unique.",
+        "The backend server lines: name and address of every node; the port comes from the entry point. An empty list prints the standard edge-01..03. haproxy merges two servers with one name, so names are unique.",
       nodes: "Nodes",
       nodesHint:
         "Which revision each balancer applied. Stale means the presence frame has not brought the new one yet, or `haproxy -c` rejected it.",
@@ -3139,14 +3197,12 @@ export const en: DeepString<typeof ru> = {
       timeouts: "Timeouts",
       timeoutsHint:
         "The defaults section: applies to the entry point and to edge connections. Tunnel covers websocket and socket.io after the upgrade; it outlives timeout server.",
-      frontend: "Entry point",
-      frontendHint: "The port the balancer listens on.",
       frontends: "Entry points",
       frontendsHint:
-        "Set by the installer when the machine runs several nodes: traffic addresses and ports, the mode and how connections reach the nodes. In tcp mode with PROXY protocol the nodes terminate TLS themselves and see the real client address.",
+        "Derived from the ports of the space: every port the nodes serve to the network gets one, except the panel port and ports on the loopback. A TLS port and a port with PROXY protocol are passed through in tcp mode, and with PROXY protocol the nodes see the real client address; a plain port is spoken to in HTTP with X-Forwarded-For. Where the balancer listens comes from the installer: the traffic addresses of the machine and the traffic port in front of a node port.",
       backend: "Edge cluster",
       backendHint:
-        "Where traffic goes: the balancing algorithm and the health check. A failed edge leaves rotation until the first successful answer.",
+        "Where traffic goes: the balancing algorithm and the health check. A failed node leaves rotation until the first successful check.",
       stats: "Statistics",
       statsHint:
         "The stats page: cluster distribution and edge health without entering the container.",
@@ -3159,7 +3215,6 @@ export const en: DeepString<typeof ru> = {
       server: "timeout server",
       keepalive: "timeout http-keep-alive",
       tunnel: "timeout tunnel",
-      port: "bind",
       balance: "balance",
       checkPath: "httpchk",
       checkStatus: "http-check expect status",
@@ -3178,31 +3233,30 @@ export const en: DeepString<typeof ru> = {
       keepalive: "How long to hold an idle keep-alive. Defaults to 5s.",
       tunnel:
         "Tunnel lifetime after an upgrade: websocket outlives timeout server. Defaults to 1h.",
-      port: "Entry port. Defaults to 8080.",
       balance:
         "roundrobin cycles, leastconn picks the least busy, source hashes the client address.",
-      checkPath: "Health check path on the edge. Defaults to /healthz.",
-      checkStatus: "Which status counts as healthy. Defaults to 200.",
+      checkPath: "Health check path on the node for the plain ports. Empty: a TCP connect check, the node counts as healthy once it listens. TLS and PROXY protocol ports are always checked by connect.",
+      checkStatus: "Which status counts as healthy when a path is set. Defaults to 200.",
       checkInter: "Check period. Defaults to 2s.",
       statsEnabled: "Show the statistics page.",
       statsPort: "Statistics page port. Defaults to 8404.",
       dockerDns:
         "The Docker DNS resolver: without it a recreated edge keeps its old IP and stays DOWN forever. Turn off outside compose.",
       serverName: "Name of the server line; the stats page labels the edge with it.",
-      serverHost: "Edge address: a compose service name or a DNS name.",
-      serverPort: "Edge port. Empty means the entry port.",
+      serverHost: "Node address: a compose service name, a DNS name or an IP address. The port comes from the entry point.",
     },
     frontends: {
-      name: "Name",
+      ports: "Ports",
       port: "bind",
       mode: "mode",
       serverPort: "Node port",
       proxy: "PROXY",
+      empty: "No traffic ports in the space -- the balancer has nothing to listen on.",
+      taken: "port {port} is taken by {name}",
     },
     servers: {
       name: "Name",
       host: "Address",
-      port: "Port",
       add: "+ add server",
       defaults: "The list is empty -- the standard edge-01..03 are printed.",
       addTitle: "New server",
@@ -3936,6 +3990,8 @@ export const en: DeepString<typeof ru> = {
       port: "Address {listen} — port «{name}»",
       portRedirect: "Address {listen} for the redirect — port «{name}»",
       server: "Virtual server «{name}»: {names}, default pool «{pool}»",
+      serverOff: "Virtual server «{name}»: {names}, default pool «{pool}» — switched off",
+      cert: "Certificate «{name}» — onto server «{server}»",
       serverRedirect: "Virtual server «{name}» for the redirect",
       pool: "Pool «{name}»: {peers}",
       bind: "Port «{port}» — onto server «{server}»",
@@ -4030,7 +4086,7 @@ export const en: DeepString<typeof ru> = {
       "Name sent in the handshake (SNI). The nginx default is the host from proxy_pass, i.e. the pool name — nobody issued a certificate for that. Empty — the host of the pool's only server is used.",
     hostHeader: "Host",
     hostHeaderHint:
-      "Host header sent to the protected server. Overrides the one set on the path: the pool knows the external name, the path only knows the name we were reached by. Empty — with TLS the handshake name is sent, otherwise Host stays up to the path.",
+      "Host header sent to the protected server. Overrides the one set on the path: the pool knows the external name, the path only knows the name we were reached by. Empty — with TLS the handshake name is sent, otherwise Host stays up to the path.\n\nMore: [Защищаемые серверы](05-protection#защищаемые-серверы)",
     sectionBalance: "Balancing",
     sectionBalanceHint: "How the pool picks a server for a request.",
     sectionKeepalive: "Keepalive",
@@ -4082,7 +4138,7 @@ export const en: DeepString<typeof ru> = {
       "A declared name (settings → Inspectors). The list holds only those whose process claims this phase; under the name — the profile and the subject. A row only switches between profiles of the same process: a different kind goes on its own row.",
     order: "Order",
     orderHint:
-      "Inspectors are polled top to bottom. The same number means one wave: those inspectors run in parallel, and the next wave starts once the previous one has answered.\n\nDrag a row by its grip to reorder it. The number is a button: it merges the row into the previous wave or lifts it into its own.",
+      "Inspectors are polled top to bottom. The same number means one wave: those inspectors run in parallel, and the next wave starts once the previous one has answered.\n\nDrag a row by its grip to reorder it. The number is a button: it merges the row into the previous wave or lifts it into its own.\n\nMore: [Волны, дедлайн и счёт](05-protection#волны-дедлайн-и-счёт)",
     drag: "drag",
     waveFirst: "Wave 0 — the first one, nothing to merge with",
     waveJoin: "Wave {n}, its own. Merge with the previous — they will run in parallel",
@@ -4091,13 +4147,13 @@ export const en: DeepString<typeof ru> = {
     timeoutHint: "How long to wait for this inspector. Empty — the whole phase budget (waf_deadline).",
     mode: "Mode",
     modeHint:
-      "**active** — the verdict counts.\n**passive** — the inspector is polled, but its verdict decides nothing: the answer only reaches the log.\n**vote** — only points are taken from the inspector: a score lands in the sum as sent, a deny counts as 100 points, and it decides nothing on its own — no denial, no redirect, no traffic edits. How many such votes make a denial is the route threshold waf_score_deny. Neighbours see it, it may signal and control, and it is awaited like an active one.\n**off** — the row is written, but the inspector is not asked until a neighbour changes the mode with a request: any inspector asked on this route may.\n\nThe mode says how the answer counts, not whether to call: that is the call condition, and it is settled first. It fails — the inspector is not asked in any mode.",
+      "**active** — the verdict counts.\n**passive** — the inspector is polled, but its verdict decides nothing: the answer only reaches the log.\n**vote** — only points are taken from the inspector: a score lands in the sum as sent, a deny counts as 100 points, and it decides nothing on its own — no denial, no redirect, no traffic edits. How many such votes make a denial is the route threshold waf_score_deny. Neighbours see it, it may signal and control, and it is awaited like an active one.\n**off** — the row is written, but the inspector is not asked until a neighbour changes the mode with a request: any inspector asked on this route may.\n\nThe mode says how the answer counts, not whether to call: that is the call condition, and it is settled first. It fails — the inspector is not asked in any mode.\n\nMore: [Режим вызова](06-inspectors#режим-вызова)",
     keep: "Keep",
     keepHint:
-      "keep=on: the inspector leaves the transaction open after it answers — the response phase of the same inspector will come back for it. Without it the transaction is dropped with the answer.\n\nOnly in a pair with Resume on the same name in the response phase: one without the other is rejected by the controller and by nginx -t — nobody to keep for, or nothing to keep.",
+      "keep=on: the inspector leaves the transaction open after it answers — the response phase of the same inspector will come back for it. Without it the transaction is dropped with the answer.\n\nOnly in a pair with Resume on the same name in the response phase: one without the other is rejected by the controller and by nginx -t — nobody to keep for, or nothing to keep.\n\nMore: [Фаза ответа: «Держать» и «Продолжение»](06-modsec#фаза-ответа-держать-и-продолжение)",
     resume: "Resume",
     resumeHint:
-      "What to do with the state the request phase kept (Keep). Resuming plays phases 3–4 on the same transaction, with the real request context and inbound score.\n\n**off** — start over from the request context in the buffer.\n**prefer** — resume; no state (instance died, ttl expired, registry was full) — replay quietly.\n**require** — resume; no state — deny (MODSEC_RESUME_LOST) and log an error: for rules that need the request body or the real score a replay is no check at all.\n\nNeeds Keep on the same name in the request phase.",
+      "What to do with the state the request phase kept (Keep). Resuming plays phases 3–4 on the same transaction, with the real request context and inbound score.\n\n**off** — start over from the request context in the buffer.\n**prefer** — resume; no state (instance died, ttl expired, registry was full) — replay quietly.\n**require** — resume; no state — deny (MODSEC_RESUME_LOST) and log an error: for rules that need the request body or the real score a replay is no check at all.\n\nNeeds Keep on the same name in the request phase.\n\nMore: [Фаза ответа: «Держать» и «Продолжение»](06-modsec#фаза-ответа-держать-и-продолжение)",
     timeoutInherit: "phase budget",
     addInspector: "Add inspector",
     addDialogHint:
@@ -4232,13 +4288,13 @@ export const en: DeepString<typeof ru> = {
     path: "Path",
     pathHint: "URI or named location name.",
     handler: "Handler",
-    handlerHint: "proxy to a server pool, static files, return a status, or named.",
+    handlerHint: "proxy to a server pool, static a file of the space, return a status code.",
     protocol: "Protocol",
     protocolHint:
       "http — request and response. websocket — handshake and frames: the upgrade preset, an hour of read timeout and waf_inspect response none are printed automatically; frame inspectors are assigned only here.",
     protocols: { http: "http", websocket: "websocket" },
     handlerSection: "Handler",
-    handlerSectionHint: "Where the request goes: a server pool, files, a status code.",
+    handlerSectionHint: "Where the request goes: a server pool, a file of the space, a status code.",
     drag: "drag — order matters for regex paths",
     dragLocked: "Pick a server and clear the other filters to change the order.",
     cut: "Cut",
@@ -4270,6 +4326,11 @@ export const en: DeepString<typeof ru> = {
       "This server has no named paths. A page is served by a match=named path: ssi on, root pages:, try_files.",
     returnUrl: "Target",
     returnUrlHint: "Address for Location. For 3xx the second return argument is a URL, not a body.",
+    staticFile: "File",
+    staticFileHint:
+      "A file from Data → Files: printed as root pages: and try_files /name.ext =404. Empty serves files by root or alias from the Files section below.",
+    staticFileNone: "none",
+    needFile: "The space has no files yet — upload a page under",
     wafHint: "Overlay on the server and the space. An empty array clears parent checks.",
     rawNginx: "location {} body",
     rawWarn:
@@ -4475,7 +4536,7 @@ export const en: DeepString<typeof ru> = {
     rates: "Rate limits",
     ratesHint: "waf_local_rate: a bucket per key, after every check",
     rateHint:
-      "What happens once the bucket overflows. count=waves counts bus round trips, not requests. action=pass only counts, without denying. list= auto-bans the key into the list overlay and tells the neighbours; an empty ttl= takes the list's own.",
+      "What happens once the bucket overflows. count=waves counts bus round trips, not requests. action=pass only counts, without denying. list= auto-bans the key into the list overlay and tells the neighbours; an empty ttl= takes the list's own.\n\nMore: [Лимиты частоты](05-protection#лимиты-частоты)",
     outcome: "Outcome",
     decision: "Decision",
     page: "Page",
@@ -4589,7 +4650,7 @@ export const en: DeepString<typeof ru> = {
     listTakeStatic:
       "The list is static: in the module it becomes built-in. Its entries ({n}) go into the configuration as lines, and every edit of them under Data means an nginx reload.",
     listModeNewHint:
-      "Built-in — the entries stand in the configuration as lines, a change means an nginx reload; under Data the list is static. Active — keeper sends the entries over the bus, no reload; under Data the list is dynamic, auto-blocks write into it.",
+      "Built-in — the entries stand in the configuration as lines, a change means an nginx reload; under Data the list is static. Active — keeper sends the entries over the bus, no reload; under Data the list is dynamic, auto-blocks write into it.\n\nMore: [Динамические и статические списки](07-data#динамические-и-статические-списки)",
     listStart: "Starting membership",
     listStartHint:
       "How a built-in list starts: empty or with a copy of the entries of a static list of the same type. The copy is one-off: after it the lists are edited separately.",
@@ -4609,7 +4670,7 @@ export const en: DeepString<typeof ru> = {
     undeclare: "Remove from the configuration (the list stays under Data)",
     listMode: "Mode",
     listModeHint:
-      "How the module gets the entries. Active (`active`) — keeper sends them over the bus, no nginx reload; under Data such a list is dynamic. Built-in (`internal`) — the entries stand in the configuration as lines, a change means a reload; under Data such a list is static. The mode follows the kind of the list and is changed under Data.",
+      "How the module gets the entries. Active (`active`) — keeper sends them over the bus, no nginx reload; under Data such a list is dynamic. Built-in (`internal`) — the entries stand in the configuration as lines, a change means a reload; under Data such a list is static. The mode follows the kind of the list and is changed under Data.\n\nMore: [Динамические и статические списки](07-data#динамические-и-статические-списки)",
     listNameHint:
       "The name in the directive: `waf_local_dataset <name>`. Local checks on a route refer to the list by it.",
     listTypeHint:
@@ -4642,7 +4703,7 @@ export const en: DeepString<typeof ru> = {
     storeCreate: "Create an buffer",
     storeWhere: "Buffer",
     storeWhereHint:
-      "Driver and address are not editable: the same redis is declared twice more — by the agent (agent.conf) and by the inspectors (REDIS_URL). The controller prints them from its own environment (CONTROLLER_REDIS_URL); editing one of the three would silently split them, and the module would put objects where nobody reads.",
+      "Driver and address are not editable: the same redis is declared twice more — by the agent (agent.conf) and by the inspectors (REDIS_URL). The controller prints them from its own environment (CONTROLLER_REDIS_URL); editing one of the three would silently split them, and the module would put objects where nobody reads.\n\nMore: [Копия данных](05-protection#копия-данных)",
     storeUrlUnset: "The controller runs without CONTROLLER_REDIS_URL: no buffer address, the config will not build.",
     storeTtlHint: "Object lifetime during the wave. Default 30s.",
     storeRetainHint: "Until the agent takes archive and preview. Below ttl= — nginx -t.",
@@ -4707,7 +4768,7 @@ export const en: DeepString<typeof ru> = {
   tail: {
     object: "Object",
     objectHint:
-      "**A row is one object of the phase**: `headers`, `args` — the query string, `body`. The columns are what happens to that object: Capture — what inspectors see, To event — what lands in the event, To archive — what the agent takes to S3, Deliver — which version the recipient gets.\n\nClicking a row opens the object window: every axis is edited together there, next to the lines that go into the config. A row's object never changes — for another one, delete the row and add the object you need.",
+      "**A row is one object of the phase**: `headers`, `args` — the query string, `body`. The columns are what happens to that object: Capture — what inspectors see, To event — what lands in the event, To archive — what the agent takes to S3, Deliver — which version the recipient gets.\n\nClicking a row opens the object window: every axis is edited together there, next to the lines that go into the config. A row's object never changes — for another one, delete the row and add the object you need.\n\nMore: [Копия данных](05-protection#копия-данных)",
     objects: {
       headers: "headers",
       args: "query args",
@@ -4782,7 +4843,7 @@ export const en: DeepString<typeof ru> = {
     budgetNone: "required",
     pairCap: "Pair cap",
     pairCapHint:
-      "The second value of a headers or args slice: `30k/2k` — at most 2k per name–value pair inside the budget. Empty — pairs are not cut.\n\nA value longer than the cap is cut at a character boundary, and the pair is marked as cut. A pair whose name alone takes more than half of the cap is skipped entirely and counted in `headers_preview_dropped` or `args_preview_dropped`.",
+      "The second value of a headers or args slice: `30k/2k` — at most 2k per name–value pair inside the budget. Empty — pairs are not cut.\n\nA value longer than the cap is cut at a character boundary, and the pair is marked as cut. A pair whose name alone takes more than half of the cap is skipped entirely and counted in `headers_preview_dropped` or `args_preview_dropped`.\n\nMore: [Копия данных](05-protection#копия-данных)",
     pairCapNone: "none",
     archiveSize: "Size",
     archiveSizeHint:
@@ -4791,7 +4852,7 @@ export const en: DeepString<typeof ru> = {
       "How many bytes of the object to take to S3. Empty — the whole object, but no more than the phase's `waf_body_limit`.\n\nThe phase has no inspectors: the object is taken from the traffic itself and reaches the agent with the record.",
     source: "Source",
     sourceHint:
-      "Which version of the body the record shows.\n\n**As received** — the body before any rewrite. **As delivered** — what the recipient got after an inspector rewrite; the record marks it with `body_preview_source: sent`. No rewrite happened — the record shows what was received.\n\nHeaders and args have no second version: the name lists decide what of them is shown.",
+      "Which version of the body the record shows.\n\n**As received** — the body before any rewrite. **As delivered** — what the recipient got after an inspector rewrite; the record marks it with `body_preview_source: sent`. No rewrite happened — the record shows what was received.\n\nHeaders and args have no second version: the name lists decide what of them is shown.\n\nMore: [Копия данных](05-protection#копия-данных)",
     sourceCapture: "as captured",
     sourceCaptureHint: "the capture slice and masks; the route's own lists apply on top",
     sourceOriginal: "original",
@@ -4815,7 +4876,7 @@ export const en: DeepString<typeof ru> = {
     listsOwnHint: "your own choice of names and masks instead of the capture lists",
     namesMode: "Which names",
     namesModeHint:
-      "**All except the named** — every name lands, the named ones are dropped. Good for removing a few known secrets.\n\n**Only the named** — only the named names land, the rest are dropped, including ones you do not know about in advance. Good for responses and strict routes.\n\nMasks apply separately in both modes: a masked name stays, its value replaced with sha256.",
+      "**All except the named** — every name lands, the named ones are dropped. Good for removing a few known secrets.\n\n**Only the named** — only the named names land, the rest are dropped, including ones you do not know about in advance. Good for responses and strict routes.\n\nMasks apply separately in both modes: a masked name stays, its value replaced with sha256.\n\nMore: [Маскирование и запрет имён](05-protection#маскирование-и-запрет-имён)",
     namesExcept: "all except the named",
     namesExceptHint: "the named names are dropped, the rest land",
     namesOnly: "only the named",
@@ -4830,12 +4891,12 @@ export const en: DeepString<typeof ru> = {
       "The only names that land here; every other name is dropped. Masked names need not be listed here — they stay by themselves. Case-insensitive.",
     mask: "Mask",
     ownMaskHint:
-      "The name stays, the value is replaced with its sha256. Hashes let you match requests — say, the same token from different addresses — without revealing the value. A name the capture already hashed is not hashed again. Empty — no masks.",
+      "The name stays, the value is replaced with its sha256. Hashes let you match requests — say, the same token from different addresses — without revealing the value. A name the capture already hashed is not hashed again. Empty — no masks.\n\nMore: [Маскирование и запрет имён](05-protection#маскирование-и-запрет-имён)",
     captureMaskHint:
-      "The name stays, the value is replaced with its sha256 — before the buffer, so inspectors see only the hash. Hashes let you match requests (the same token from different addresses) without revealing the value.\n\nThe record and the archive with lists “as captured” get the same hash. Names are matched case-insensitively.",
+      "The name stays, the value is replaced with its sha256 — before the buffer, so inspectors see only the hash. Hashes let you match requests (the same token from different addresses) without revealing the value.\n\nThe record and the archive with lists “as captured” get the same hash. Names are matched case-insensitively.\n\nMore: [Маскирование и запрет имён](05-protection#маскирование-и-запрет-имён)",
     deny: "Do not capture",
     captureDenyHint:
-      "The name is dropped together with its value before the buffer: inspectors never learn it was there.\n\nThe record and the archive with lists “as captured” do not get it either; with own lists they do, unless those lists drop it themselves. Names are matched case-insensitively.",
+      "The name is dropped together with its value before the buffer: inspectors never learn it was there.\n\nThe record and the archive with lists “as captured” do not get it either; with own lists they do, unless those lists drop it themselves. Names are matched case-insensitively.\n\nMore: [Маскирование и запрет имён](05-protection#маскирование-и-запрет-имён)",
     addName: "add name…",
     whole: "whole",
     no: "no",
@@ -4845,10 +4906,10 @@ export const en: DeepString<typeof ru> = {
     ttl: "Keep",
     ttlForever: "forever",
     ttlHint:
-      "How long the object lives in the archive: `30d`, `12h`. Empty — forever.\n\nThe lifetime travels as the object tag `waf-retain-ttl`, and the bucket's lifecycle rule for that tag deletes the object. **Every lifetime needs its own rule in the bucket**: without one the object is never deleted and stays forever.",
+      "How long the object lives in the archive: `30d`, `12h`. Empty — forever.\n\nThe lifetime travels as the object tag `waf-retain-ttl`, and the bucket's lifecycle rule for that tag deletes the object. **Every lifetime needs its own rule in the bucket**: without one the object is never deleted and stays forever.\n\nMore: [Архив](05-protection#архив)",
     when: "Outcome",
     whenHint:
-      "On which request outcomes the object goes to the archive.\n\nNothing pressed — on any outcome, redirect included. **Deny** — only when the request was denied. **Allow** — only when it was let through. Both — everything but redirect.\n\nThe outcome is the whole route's: a deny on the response phase counts as a deny for request objects too, so their record waits for the end of the response.",
+      "On which request outcomes the object goes to the archive.\n\nNothing pressed — on any outcome, redirect included. **Deny** — only when the request was denied. **Allow** — only when it was let through. Both — everything but redirect.\n\nThe outcome is the whole route's: a deny on the response phase counts as a deny for request objects too, so their record waits for the end of the response.\n\nMore: [Архив](05-protection#архив)",
     whenSummaryAny: "any outcome, redirect included",
     whenSummaryDeny: "deny only",
     whenSummaryAllow: "allow only",
@@ -4913,7 +4974,7 @@ export const en: DeepString<typeof ru> = {
     },
     frameAudit: "Frame records",
     frameAuditHint:
-      "`waf_audit_frames` — **which frames reach the journal**, and with them the frame slice (To event) and archive.\n\n**Record denials** — only a frame that was denied, rewritten or scored; without inspectors there are none. **Record all** — every frame of both sides (or every n-th); the frame goes to the recipient without waiting for the record. **No records** — neither frames nor the session summary.\n\nThe session summary is written when the connection closes, with any value but “no records”. One policy per path, for both sides.",
+      "`waf_audit_frames` — **which frames reach the journal**, and with them the frame slice (To event) and archive.\n\n**Record denials** — only a frame that was denied, rewritten or scored; without inspectors there are none. **Record all** — every frame of both sides (or every n-th); the frame goes to the recipient without waiting for the record. **No records** — neither frames nor the session summary.\n\nThe session summary is written when the connection closes, with any value but “no records”. One policy per path, for both sides.\n\nMore: [Что регистрируется](08-events#что-регистрируется)",
     frameAuditOptions: {
       inherit: "inherits: {value}",
       off: "no records",

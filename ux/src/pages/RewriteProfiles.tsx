@@ -348,6 +348,7 @@ function RewriteProfileForm({
         <Section
           title={t("rewrite.sectionProfile")}
           hint={t("rewrite.sectionProfileHint")}
+          help="06-rewrite#что-он-решает"
           flush
           defaultExpanded
         >
@@ -382,6 +383,7 @@ function RewriteProfileForm({
         <Section
           title={t("rewrite.groups")}
           hint={t("rewrite.groupsHint")}
+          help="06-rewrite#группы-модификаторов"
           flush
           defaultExpanded
         >
@@ -392,8 +394,14 @@ function RewriteProfileForm({
           />
         </Section>
 
-        <Section title={t("channel.signals")} hint={t("rewrite.priorHint")} flush>
+        <Section
+          title={t("channel.signals")}
+          hint={t("rewrite.priorHint")}
+          flush
+          help="06-rewrite#канал-действий"
+        >
           <SignalsBlock
+            help="06-rewrite#канал-действий"
             embedded
             hint={t("rewrite.priorHint")}
             rules={doc.prior.map((rule) => ({
@@ -662,6 +670,7 @@ function GroupDialog({
       spacing={0}
       size="md"
       title={fresh ? t("rewrite.groupNewDialog") : t("rewrite.groupDialog")}
+      help="06-rewrite#группы-модификаторов"
       actions={
         <>
           <Modal.Cancel />
@@ -938,6 +947,7 @@ function BodyOpDialog({
       spacing={0}
       dirty={pattern !== "" || value !== "" || matches !== ""}
       title={t("rewrite.bodyOpNewDialog")}
+      help="06-rewrite#операции-над-телом"
       onEnter={submit}
       actions={
         <>
@@ -1105,6 +1115,7 @@ function HeaderOpDialog({
       spacing={0}
       dirty={name !== "" || value !== ""}
       title={t("rewrite.headerOpNewDialog")}
+      help="06-rewrite#операции-над-заголовками"
       onEnter={submit}
       actions={
         <>

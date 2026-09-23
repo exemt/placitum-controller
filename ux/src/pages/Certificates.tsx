@@ -27,6 +27,7 @@ import {
   useRowOps,
   usePager,
 } from "../components/data-table/index.ts";
+import { HelpLink } from "../help/link.tsx";
 import { useT } from "../i18n/index.ts";
 import { thunkError } from "../errors.ts";
 import { usePageBar } from "../layout/PageBarHost.tsx";
@@ -446,7 +447,8 @@ function UploadForm({
       </Form.Header>
       <Form.Body spacing={1.5} scroll>
         <Typography variant="body2" color="text.secondary">
-          {t("certificates.uploadBlurb")}
+          {t("certificates.uploadBlurb")}{" "}
+          <HelpLink to="11-admin#секреты-и-ключи" label={t("common.helpMore")} />
         </Typography>
         <TextField
           select

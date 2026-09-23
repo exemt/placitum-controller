@@ -523,6 +523,7 @@ async function rootTo(
     return_status: null,
     return_page: null,
     return_url: null,
+    static_file: null,
     nginx: root.nginx,
     waf: root.waf,
     raw: root.raw,

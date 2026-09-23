@@ -20,6 +20,7 @@ import {
   useConvergence,
   type Tone,
 } from "../convergence.tsx";
+import { HelpMark } from "../help/link.tsx";
 import { useT } from "../i18n/index.ts";
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import { sendConvergenceChannel } from "../store/slices/convergence.ts";
@@ -112,6 +113,7 @@ export default function ConfigLamp() {
           <Typography sx={{ fontSize: "0.8rem", fontWeight: 600, flex: 1 }}>
             {t("convergence.blurb")}
           </Typography>
+          <HelpMark to="04-interface#индикатор-применения-конфигурации" />
           <Button
             size="small"
             variant="outlined"

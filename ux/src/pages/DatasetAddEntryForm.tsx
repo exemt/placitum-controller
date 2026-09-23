@@ -85,6 +85,7 @@ export function DatasetAddEntryForm({
     <Modal
       id={FORM_DATASET_ADD_ENTRY}
       title={t("datasets.addTitle")}
+      help="07-data#списки"
       size="xs"
       dirty={value.trim() !== ""}
       onEnter={() => {

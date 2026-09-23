@@ -114,7 +114,12 @@ export function RouteBody({
       ) : (
         <>
           {own}
-          <Section title={t("routeSettings.local")} hint={t("routeSettings.localHint")} flush>
+          <Section
+            title={t("routeSettings.local")}
+            hint={t("routeSettings.localHint")}
+            flush
+            help="05-protection#локальный-слой-списки-и-лимиты"
+          >
             <WafLocal
               t={t}
               scope={scope}
@@ -124,7 +129,12 @@ export function RouteBody({
               parent={wafParent}
             />
           </Section>
-          <Section title={t("routeSettings.protect")} hint={t("routeSettings.protectHint")} flush>
+          <Section
+            title={t("routeSettings.protect")}
+            hint={t("routeSettings.protectHint")}
+            flush
+            help="05-protection#включение-защиты-на-маршруте"
+          >
             <WafProtect
               t={t}
               scope={scope}
@@ -135,7 +145,12 @@ export function RouteBody({
               parent={wafParent}
             />
           </Section>
-          <Section title={t("config.group.capture")} hint={t("config.group.captureHint")} flush>
+          <Section
+            title={t("config.group.capture")}
+            hint={t("config.group.captureHint")}
+            flush
+            help="05-protection#копия-данных"
+          >
             <RouteCapture
               waf={waf}
               nginx={nginx}

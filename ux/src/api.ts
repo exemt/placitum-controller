@@ -52,6 +52,15 @@ export interface DatasetSetLink {
 
 export type DatasetMode = "active" | "internal";
 
+/** Where a list came from when it was downloaded from the license server. */
+export interface DatasetSource {
+  feed: string;
+  version: number;
+  sha256: string;
+  fetched_at: string;
+  server: string;
+}
+
 export interface Dataset {
   uuid: string;
   http_space_id: string;
@@ -74,8 +83,84 @@ export interface Dataset {
   linked_sets: DatasetSetLink[];
   /** Sign-in users of an auth source: never declared in the module, never copied. */
   auth_users?: boolean;
+  source?: DatasetSource | null;
   created_at: string;
   updated_at: string;
+}
+
+/* --- the license of the installation and the sets of the license server --- */
+
+export type LicenseState = "active" | "expired" | "pending" | "missing" | "invalid";
+
+export interface LicenseDoc {
+  id: string;
+  iss: string;
+  iat: number;
+  nbf?: number;
+  exp?: number;
+  licensee: { name: string; email?: string };
+  grants: { product: string }[];
+  installations?: number;
+  note?: string;
+}
+
+export interface LicenseView {
+  state: LicenseState;
+  error: string | null;
+  doc: LicenseDoc | null;
+  grants: string[];
+  applied_at: string | null;
+  server: string;
+}
+
+export function fetchLicense(): Promise<LicenseView> {
+  return getJson<LicenseView>("/api/license");
+}
+
+export function putLicense(key: string): Promise<LicenseView> {
+  return sendJson<LicenseView>("/api/license", "PUT", { key });
+}
+
+export function deleteLicense(): Promise<LicenseView> {
+  return sendJson<LicenseView>("/api/license", "DELETE");
+}
+
+export interface FeedView {
+  id: string;
+  type: DatasetType;
+  product: string;
+  title_en: string;
+  title_ru: string;
+  desc_en: string;
+  desc_ru: string;
+  version: number;
+  sha256: string;
+  count: number;
+  updated: number;
+  installed: { uuid: string; name: string; version: number; fetched_at: string } | null;
+  update: boolean;
+}
+
+export interface FeedsView {
+  license: LicenseState;
+  checked_at: string | null;
+  error: string | null;
+  updates: number;
+  feeds: FeedView[];
+}
+
+export function fetchFeeds(scope: string, force = false): Promise<FeedsView> {
+  return force
+    ? sendJson<FeedsView>(`/api/${scope}/feeds/check`, "POST")
+    : getJson<FeedsView>(`/api/${scope}/feeds`);
+}
+
+export function installFeed(scope: string, id: string): Promise<FeedsView> {
+  return sendJson<FeedsView>(`/api/${scope}/feeds/${encodeURIComponent(id)}/install`, "POST", {});
+}
+
+export function updateFeed(scope: string, id: string): Promise<FeedsView> {
+  return sendJson<FeedsView>(`/api/${scope}/feeds/${encodeURIComponent(id)}/update`, "POST", {});
 }
 
 export interface DatasetContent {
@@ -1822,6 +1907,7 @@ export type RouteLocation = {
   return_status: number | null;
   return_page: string | null;
   return_url: string | null;
+  static_file: string | null;
   nginx: Record<string, unknown>;
   waf: Record<string, unknown>;
   raw: boolean;
@@ -1851,6 +1937,7 @@ export type LocationInput = {
   return_status: number | null;
   return_page: string | null;
   return_url: string | null;
+  static_file: string | null;
   nginx: Record<string, unknown>;
   waf: Record<string, unknown>;
   raw: boolean;
@@ -2360,16 +2447,26 @@ export type HaproxyBalance = "roundrobin" | "leastconn" | "source";
 export interface HaproxyServerWire {
   name: string;
   host: string;
-  port?: number;
 }
 
-export interface HaproxyFrontendWire {
+// Where the balancer listens: addresses of the machine (none: every address) and the entry port
+// in front of a node port when they differ. Written by the installer.
+export interface HaproxyEntryWire {
+  addresses?: string[];
+  ports?: Record<string, number>;
+}
+
+// One entry point, derived by the controller from the ports of the space.
+export interface HaproxyEntryPointWire {
   name: string;
   port: number;
+  server_port: number;
   mode: "http" | "tcp";
-  server_port?: number;
-  send_proxy?: boolean;
-  addresses?: string[];
+  send_proxy: boolean;
+  ssl: boolean;
+  addresses: string[];
+  ports: string[];
+  taken: string | null;
 }
 
 export interface HaproxySettingsWire {
@@ -2384,10 +2481,7 @@ export interface HaproxySettingsWire {
     keepalive_ms?: number;
     tunnel_ms?: number;
   };
-  frontend?: {
-    port?: number;
-  };
-  frontends?: HaproxyFrontendWire[];
+  entry?: HaproxyEntryWire;
   backend?: {
     balance?: HaproxyBalance;
     check?: {
@@ -2406,6 +2500,7 @@ export interface HaproxySettingsWire {
 
 export interface HaproxySettingsDoc {
   settings: HaproxySettingsWire;
+  entries: HaproxyEntryPointWire[];
   updated_at: string | null;
   sha256: string;
 }
@@ -2546,6 +2641,7 @@ export type PreviewDraft = {
     return_status?: number | null;
     return_page?: string | null;
     return_url?: string | null;
+    static_file?: string | null;
     raw?: boolean;
     raw_nginx?: string;
   };

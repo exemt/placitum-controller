@@ -8,6 +8,7 @@ import type {
   Dataset,
   DatasetAddress,
   DatasetContent,
+  DatasetSource,
 } from "../../model/http-space.ts";
 import type { ThunkExtra, KeeperReply } from "../extra.ts";
 
@@ -85,6 +86,69 @@ function keeperReject(reply: KeeperReply): { status: number; error: string } {
       return { status: 502, error: reply.error ?? "keeper_error" };
   }
 }
+
+export const replaceAddresses = createAsyncThunk<
+  { dataset: Dataset; count: number },
+  { datasetId: string; addresses: string[] },
+  ThunkCfg
+>("datasets/replaceAddresses", async ({ datasetId, addresses }, { extra, rejectWithValue }) => {
+  try {
+    const before = await extra.datasets.get(datasetId);
+
+    if (before === null) {
+      return rejectWithValue({ status: 404, error: "not_found" });
+    }
+
+    if (before.active) {
+      return rejectWithValue({ status: 400, error: "active_list" });
+    }
+
+    const stored = before.hash === true ? addresses.map(md5Hex) : addresses;
+    const count = await extra.datasets.replaceAddresses(datasetId, stored);
+
+    if (count === "missing") {
+      return rejectWithValue({ status: 404, error: "not_found" });
+    }
+
+    if (count === "wrong_kind") {
+      return rejectWithValue({ status: 400, error: "wrong_kind" });
+    }
+
+    if (count === "full") {
+      return rejectWithValue({ status: 400, error: "addresses_over_max" });
+    }
+
+    const dataset = await extra.datasets.get(datasetId);
+
+    if (dataset === null) {
+      return rejectWithValue({ status: 404, error: "not_found" });
+    }
+
+    return { dataset, count };
+  } catch (err) {
+    const mapped = pgWriteReject(err, "dataset");
+    return mapped === undefined ? Promise.reject(err) : rejectWithValue(mapped);
+  }
+});
+
+export const setSource = createAsyncThunk<
+  Dataset,
+  { id: string; source: DatasetSource | null },
+  ThunkCfg
+>("datasets/setSource", async ({ id, source }, { extra, rejectWithValue }) => {
+  try {
+    const row = await extra.datasets.setSource(id, source);
+
+    if (row === null) {
+      return rejectWithValue({ status: 404, error: "not_found" });
+    }
+
+    return row;
+  } catch (err) {
+    const mapped = pgWriteReject(err, "dataset");
+    return mapped === undefined ? Promise.reject(err) : rejectWithValue(mapped);
+  }
+});
 
 export const addAddresses = createAsyncThunk<
   { dataset: Dataset; addresses: DatasetAddress[] },

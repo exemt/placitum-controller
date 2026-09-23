@@ -70,6 +70,7 @@ export interface DraftOverlay {
     return_status?: number | null;
     return_page?: string | null;
     return_url?: string | null;
+    static_file?: string | null;
     raw?: boolean;
     raw_nginx?: string;
   };
@@ -257,6 +258,7 @@ function withLocation(
       returnStatus: d.return_status ?? undefined,
       returnPage: d.return_page ?? undefined,
       returnUrl: d.return_url ?? undefined,
+      staticFile: d.static_file ?? undefined,
       nginx: parsed(d.nginx, {}, parseNginxLocation),
       waf: parsed(d.waf, {}, parseWaf),
       raw: d.raw ?? false,
@@ -284,6 +286,7 @@ function withLocation(
       d.return_status === undefined ? prev.returnStatus : (d.return_status ?? undefined),
     returnPage: d.return_page === undefined ? prev.returnPage : (d.return_page ?? undefined),
     returnUrl: d.return_url === undefined ? prev.returnUrl : (d.return_url ?? undefined),
+    staticFile: d.static_file === undefined ? prev.staticFile : (d.static_file ?? undefined),
     nginx: parsed(d.nginx, prev.nginx, parseNginxLocation),
     waf: parsed(d.waf, prev.waf, parseWaf),
     raw: pick(d.raw, prev.raw),

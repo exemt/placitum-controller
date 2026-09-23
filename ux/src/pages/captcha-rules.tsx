@@ -412,6 +412,7 @@ function RuleDialog({
       onClose={onClose}
       size="xs"
       title={rule === null ? t("captcha.addRule") : t("captcha.editRule")}
+      help="06-captcha#правила"
       actions={
         <>
           <Modal.Cancel />

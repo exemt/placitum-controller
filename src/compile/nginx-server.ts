@@ -33,6 +33,7 @@ export interface ServerCompileSource {
   store?: StoreRefs;
   graph?: Record<string, InspectorDecl>;
   nested?: NestedBlocks;
+  contentObjects?: { name: string; file: string }[];
 }
 
 export function compileServer(source: ServerCompileSource): NginxCompileResult {
@@ -99,6 +100,7 @@ export function compileServer(source: ServerCompileSource): NginxCompileResult {
         indent: inner,
         store,
         graph: source.graph,
+        contentObjects: source.contentObjects,
       });
       lines.push("");
       appendBlock(lines, compiled.text);

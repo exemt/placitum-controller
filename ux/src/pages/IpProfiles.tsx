@@ -370,6 +370,7 @@ function IpProfileForm({
         <Section
           title={t("ipProfiles.sectionProfile")}
           hint={t("ipProfiles.sectionProfileHint")}
+          help="06-ip#из-чего-складывается-настройка"
           flush
           defaultExpanded
         >
@@ -392,6 +393,7 @@ function IpProfileForm({
         <Section
           title={t("ipProfiles.sectionLists")}
           hint={t("ipProfiles.sectionListsHint")}
+          help="06-ip#набор-правил-белые-чёрные-иначе"
           flush
           defaultExpanded
         >
@@ -436,6 +438,7 @@ function IpProfileForm({
         <Section
           title={t("ipProfiles.sectionDatasets")}
           hint={t("ipProfiles.sectionDatasetsHint")}
+          help="06-ip#списки-для-условий"
           flush
           defaultExpanded
         >
@@ -466,6 +469,7 @@ function IpProfileForm({
         <Section
           title={t("ipProfiles.sectionChannel")}
           hint={t("ipProfiles.sectionChannelHint")}
+          help="06-ip#канал-действий"
           flush
           defaultExpanded
         >

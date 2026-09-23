@@ -268,7 +268,7 @@ function HintLabel({
     return body;
   }
   return (
-    <Tooltip arrow placement="top-start" enterDelay={200} title={<HintMarkup text={hint} />}>
+    <Tooltip leaveDelay={200} arrow placement="top-start" enterDelay={200} title={<HintMarkup text={hint} />}>
       {body}
     </Tooltip>
   );
@@ -548,6 +548,7 @@ export function CaptureTable({
                 >
                   <FilterCell width={OBJECT_W}>
                     <Tooltip
+                      leaveDelay={200}
                       arrow
                       placement="top-start"
                       enterDelay={200}
@@ -667,6 +668,7 @@ function FrameAuditPick({ audit }: { audit: FrameAudit }) {
 
   return (
     <Tooltip
+      leaveDelay={200}
       arrow
       placement="top"
       enterDelay={400}
@@ -927,7 +929,7 @@ function ObjectCell({
           </Tooltip>
         )}
         {keep !== undefined && (
-          <Tooltip arrow title={<HintMarkup text={keep.hint} />}>
+          <Tooltip leaveDelay={200} arrow title={<HintMarkup text={keep.hint} />}>
             <Typography component="span" sx={{ ...MARK_SX, color: "text.secondary" }}>
               {keep.text}
             </Typography>

@@ -20,6 +20,7 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
 import type { FilterOption } from "./data-table/index.ts";
 import { FieldTooltip, HintMarkup, valueChipSx } from "./fields.tsx";
+import { HelpMark, helpHref } from "../help/link.tsx";
 import { UnitSelect, type UnitOption } from "./settings-table.tsx";
 import { HeadHint } from "./table-block.tsx";
 import { useT } from "../i18n/index.ts";
@@ -630,6 +631,7 @@ function DialogHint({ text }: { text: string }) {
   const t = useT();
   return (
     <Tooltip
+      leaveDelay={200}
       arrow
       title={<HintMarkup text={text} />}
       placement="top-end"
@@ -774,6 +776,7 @@ export function DialogNote({
 export function DialogSection({
   title,
   hint,
+  help,
   summary,
   checked,
   onCheck,
@@ -784,6 +787,7 @@ export function DialogSection({
 }: {
   title: string;
   hint?: string;
+  help?: string;
   summary?: string;
   checked?: boolean;
   onCheck?: (next: boolean) => void;
@@ -863,6 +867,7 @@ export function DialogSection({
               </Typography>
             )}
           </Box>
+          {help !== undefined && <HelpMark to={help} />}
           <Box sx={{ flex: 1, minWidth: 8 }} />
           {summary !== undefined && summary !== "" && (
             <Typography
@@ -919,9 +924,9 @@ export function DialogAlert({
       <HintMarkup text={text} />
       {help !== undefined && (
         <Link
-          href={`/help/${help}`}
+          href={helpHref(help)}
           target="_blank"
-          rel="noopener"
+          rel="noreferrer noopener"
           sx={{ display: "inline-block", mt: 0.5, fontSize: "0.72rem" }}
         >
           {t("common.helpMore")}

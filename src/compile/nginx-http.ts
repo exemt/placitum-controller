@@ -334,6 +334,7 @@ export function compileHttp(source: HttpCompileSource): NginxCompileResult {
       indent: 1,
       store,
       graph,
+      contentObjects: source.contentObjects,
     });
     lines.push("");
     appendBlock(lines, compiled.text);

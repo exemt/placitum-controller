@@ -81,6 +81,7 @@ function jsonDataset(row: Dataset, links: DatasetSetLink[] = [], users = false) 
     linked: links.length > 0,
     linked_sets: links.map(jsonProfileLink),
     auth_users: users,
+    source: row.source ?? null,
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
   };

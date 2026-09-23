@@ -881,6 +881,7 @@ function AuthSourceForm({
         <Section
           title={t("auth.sectionSource")}
           hint={t("auth.sectionSourceHint")}
+          help="06-auth#источник-и-профиль"
           flush
           defaultExpanded
         >
@@ -902,6 +903,7 @@ function AuthSourceForm({
         <Section
           title={t("auth.sectionMode")}
           hint={t("auth.sectionModeHint")}
+          help="06-auth#откуда-берётся-сессия"
           flush
           defaultExpanded
         >
@@ -1135,6 +1137,7 @@ function AuthSourceForm({
             <Section
               title={t("auth.sectionToken")}
               hint={t("auth.sectionTokenHint")}
+              help="06-auth#чужой-jwt"
               flush
               defaultExpanded
             >
@@ -1194,6 +1197,7 @@ function AuthSourceForm({
             <Section
               title={t("auth.sectionVerify")}
               hint={t("auth.sectionVerifyHint")}
+              help="06-auth#чужой-jwt"
               flush
               defaultExpanded
             >
@@ -1270,6 +1274,7 @@ function AuthSourceForm({
             <Section
               title={t("auth.sectionClaims")}
               hint={t("auth.sectionClaimsHint")}
+              help="06-auth#чужой-jwt"
               flush
               defaultExpanded
             >
@@ -1312,6 +1317,7 @@ function AuthSourceForm({
             <Section
               title={t("auth.sectionAppCookie")}
               hint={t("auth.sectionAppCookieHint")}
+              help="06-auth#сессия-приложения"
               flush
               defaultExpanded
             >
@@ -1329,6 +1335,7 @@ function AuthSourceForm({
             <Section
               title={t("auth.sectionLearn")}
               hint={t("auth.sectionLearnHint")}
+              help="06-auth#сессия-приложения"
               flush
               defaultExpanded
             >
@@ -1435,6 +1442,7 @@ function AuthSourceForm({
             <Section
               title={t("auth.sectionAppLogout")}
               hint={t("auth.sectionAppLogoutHint")}
+              help="06-auth#сессия-приложения"
               flush
             >
               <SettingsTable aside={false}>
@@ -1473,6 +1481,7 @@ function AuthSourceForm({
           <Section
             title={t("auth.sectionSession")}
             hint={t("auth.sectionSessionHint")}
+            help="06-auth#сессия-кука-и-список"
             flush
           >
             <SettingsTable aside={false}>
@@ -1591,6 +1600,7 @@ function AuthSourceForm({
         <Section
           title={t("auth.sectionUpstream")}
           hint={t("auth.sectionUpstreamHint")}
+          help="06-auth#что-уходит-приложению"
           flush
         >
           <SettingsTable aside={false}>
@@ -1628,6 +1638,7 @@ function AuthSourceForm({
           <Section
             title={t("auth.sectionExtra")}
             hint={t("auth.sectionExtraHint")}
+            help="06-auth#вход-через-waf"
             flush
           >
             <SettingsTable aside={false}>
@@ -1823,6 +1834,7 @@ function AuthProfileForm({
         <Section
           title={t("auth.sectionProfile")}
           hint={t("auth.sectionProfileHint")}
+          help="06-auth#источник-и-профиль"
           flush
           defaultExpanded
         >
@@ -1889,6 +1901,7 @@ function AuthProfileForm({
         <Section
           title={t("auth.sectionAccess")}
           hint={t("auth.sectionAccessHint")}
+          help="06-auth#допуск-кого-пускать-после-входа"
           flush
           defaultExpanded
         >
@@ -1918,6 +1931,7 @@ function AuthProfileForm({
 
         <Section
           title={t("auth.sectionGate")}
+          help="06-auth#форма-входа-и-как-её-показывают"
           hint={
             externalSource ? t("auth.sectionGateExternalHint") : t("auth.sectionGateHint")
           }
@@ -1970,10 +1984,12 @@ function AuthProfileForm({
         <Section
           title={t("auth.sectionChannel")}
           hint={t("auth.sectionChannelHint")}
+          help="06-auth#что-проверка-входа-принимает"
           flush
           defaultExpanded
         >
           <SignalsBlock
+            help="06-auth#что-проверка-входа-принимает"
             hint={t("auth.priorHint")}
             rules={doc.trigger.prior.map((row) => ({
               from: row.from,
@@ -2029,6 +2045,7 @@ function AuthProfileForm({
         <Section
           title={t("auth.sectionRules")}
           hint={t("auth.rulesSectionHint")}
+          help="06-auth#что-проверка-входа-говорит-сама"
           flush
           defaultExpanded
         >

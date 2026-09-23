@@ -133,6 +133,7 @@ export function AuthUsersDialog() {
       <Modal
         id={FORM_AUTH_USERS}
         title={t("auth.users")}
+        help="06-auth#вход-через-waf"
         label={payload?.name}
         size="md"
         spacing={0}

@@ -4,12 +4,15 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 
 import { UnderlayTabs } from "../components/fields.tsx";
+import { HelpMark } from "../help/link.tsx";
 import { FlushSectionProvider } from "../components/settings-table.tsx";
 
 export interface LayerItem<T extends string> {
   id: T;
   label: string;
   hint?: string;
+  // раздел документации: значок «?» в шапке карточки
+  help?: string;
 }
 
 export function useLayerTab<T extends string>(
@@ -65,11 +68,13 @@ export function LayerTabs<T extends string>({
 export function LayerCard({
   title,
   hint,
+  help,
   flush,
   children,
 }: {
   title: string;
   hint?: string;
+  help?: string;
   flush?: boolean;
   children: ReactNode;
 }) {
@@ -94,18 +99,21 @@ export function LayerCard({
               : "rgba(19, 32, 44, 0.05)",
         }}
       >
-        <Typography
-          component="div"
-          sx={{
-            color: "secondary.main",
-            fontSize: "0.8rem",
-            fontWeight: 600,
-            letterSpacing: "0.02em",
-            lineHeight: 1.25,
-          }}
-        >
-          {title}
-        </Typography>
+        <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", minWidth: 0 }}>
+          <Typography
+            component="div"
+            sx={{
+              color: "secondary.main",
+              fontSize: "0.8rem",
+              fontWeight: 600,
+              letterSpacing: "0.02em",
+              lineHeight: 1.25,
+            }}
+          >
+            {title}
+          </Typography>
+          {help !== undefined && <HelpMark to={help} />}
+        </Stack>
         {hint !== undefined && hint !== "" && (
           <Typography
             component="div"

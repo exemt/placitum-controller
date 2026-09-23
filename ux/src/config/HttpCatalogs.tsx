@@ -469,6 +469,7 @@ function DenyAddDialog({
     <Modal
       onClose={onClose}
       title={t("httpCat.denyAddTitle")}
+      help="05-protection#страницы-блокировки"
       actions={
         <>
           <Modal.Cancel />
@@ -899,6 +900,7 @@ function StoreAddDialog({
     <Modal
       onClose={onClose}
       title={t("httpCat.storeAddTitle")}
+      help="05-protection#копия-данных"
       actions={
         <>
           <Modal.Cancel />
@@ -1133,6 +1135,7 @@ function FormatAddDialog({
     <Modal
       onClose={onClose}
       title={t("httpCat.formatAddTitle")}
+      help="09-logs#куда-пишет-nginx"
       dirty={name !== "" || body !== ""}
       notice={notice === null ? null : { severity: "warning", text: notice }}
       onEnter={create}
@@ -1183,7 +1186,7 @@ function Head({
     return cell;
   }
   return (
-    <Tooltip arrow placement="top" title={<HintMarkup text={hint} />}>
+    <Tooltip leaveDelay={200} arrow placement="top" title={<HintMarkup text={hint} />}>
       {cell}
     </Tooltip>
   );
@@ -1367,6 +1370,7 @@ function ListAddDialog({
     <Modal
       onClose={onClose}
       title={t("httpCat.listAddTitle")}
+      help="07-data#списки-в-модуле"
       hint={t("httpCat.listAddHint")}
       dirty={pick !== "" || name !== "" || limit !== "" || ttl !== "" || from !== ""}
       notice={notice === null ? null : { severity: "warning", text: notice }}

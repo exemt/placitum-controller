@@ -75,6 +75,15 @@ export interface ContentType {
   description: string;
 }
 
+/** Where a list came from when the license server published it: the set, its version as fetched. */
+export interface DatasetSource {
+  feed: string;
+  version: number;
+  sha256: string;
+  fetched_at: string;
+  server: string;
+}
+
 export interface Dataset {
   id: Uuid;
   httpSpaceId: Uuid;
@@ -94,6 +103,7 @@ export interface Dataset {
   builtin?: boolean;
   size: number;
   vars?: string[];
+  source?: DatasetSource;
   createdAt: Date;
   updatedAt: Date;
 }

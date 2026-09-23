@@ -21,6 +21,7 @@ import { BlockHead } from "./BlockHead.tsx";
 import { FocusScope } from "./FocusContext.tsx";
 import { FilterCell, HEAD_H } from "./data-table/index.ts";
 import { HintMarkup } from "./fields.tsx";
+import { HelpMark } from "../help/link.tsx";
 
 const SettingsDepth = createContext(false);
 
@@ -121,10 +122,12 @@ function useRequireTable(component: string) {
 export function SettingsGroup({
   title,
   hint,
+  help,
   children,
 }: {
   title: string;
   hint?: string;
+  help?: string;
   children: ReactNode;
 }) {
   useRequireTable("SettingsGroup");
@@ -143,7 +146,18 @@ export function SettingsGroup({
             "tr:first-of-type > &": { pt: 1.25 },
           }}
         >
-          <BlockHead title={title} label={hint} />
+          {help === undefined ? (
+            <BlockHead title={title} label={hint} />
+          ) : (
+            <Stack
+              direction="row"
+              spacing={0.75}
+              sx={{ alignItems: "center", minWidth: 0 }}
+            >
+              <BlockHead title={title} label={hint} />
+              <HelpMark to={help} />
+            </Stack>
+          )}
         </TableCell>
       </TableRow>
       {children}
@@ -262,6 +276,7 @@ export function SettingsName({ label, help }: { label: string; help?: string }) 
             title={<HintMarkup text={help} />}
             placement="top-start"
             enterDelay={200}
+            leaveDelay={200}
           >
             <Box
               component="span"

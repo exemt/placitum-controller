@@ -13,8 +13,11 @@ import {
   fetchContentTypes,
   fetchDatasetContent,
   fetchDatasets,
+  fetchFeeds,
+  installFeed,
   putDatasetContent,
   updateDataset,
+  updateFeed,
   type Address,
   type ContentType,
   type Dataset,
@@ -22,9 +25,14 @@ import {
   type DatasetKind,
   type DatasetMode,
   type DatasetType,
+  type FeedsView,
 } from "../../../api.ts";
 
 interface DatasetsState {
+  feeds: FeedsView | null;
+  feedsLoading: boolean;
+  feedsBusy: string | null;
+  feedsError: string | null;
   rows: Dataset[];
   contentTypes: ContentType[];
   addresses: Address[];
@@ -37,6 +45,10 @@ interface DatasetsState {
 }
 
 const initialState: DatasetsState = {
+  feeds: null,
+  feedsLoading: false,
+  feedsBusy: null,
+  feedsError: null,
   rows: [],
   contentTypes: [],
   addresses: [],
@@ -90,6 +102,41 @@ export function base64ToText(blob: string): string {
   }
   return new TextDecoder().decode(bytes);
 }
+
+export const loadFeeds = createAsyncThunk(
+  "pages/datasets/loadFeeds",
+  async (input: { scope: string; force?: boolean }, { rejectWithValue }) => {
+    try {
+      return await fetchFeeds(input.scope, input.force === true);
+    } catch (err: unknown) {
+      return rejectWithValue(String(err));
+    }
+  },
+);
+
+export const installFeedThunk = createAsyncThunk(
+  "pages/datasets/installFeed",
+  async (input: { scope: string; id: string }, { rejectWithValue }) => {
+    try {
+      const feeds = await installFeed(input.scope, input.id);
+      return { feeds, rows: await fetchDatasets(input.scope) };
+    } catch (err: unknown) {
+      return rejectWithValue(String(err));
+    }
+  },
+);
+
+export const updateFeedThunk = createAsyncThunk(
+  "pages/datasets/updateFeed",
+  async (input: { scope: string; id: string }, { rejectWithValue }) => {
+    try {
+      const feeds = await updateFeed(input.scope, input.id);
+      return { feeds, rows: await fetchDatasets(input.scope) };
+    } catch (err: unknown) {
+      return rejectWithValue(String(err));
+    }
+  },
+);
 
 export const loadDatasets = createAsyncThunk(
   "pages/datasets/load",
@@ -351,6 +398,44 @@ const datasetsSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
+    builder.addCase(loadFeeds.pending, (state) => {
+      state.feedsLoading = true;
+      state.feedsError = null;
+    });
+    builder.addCase(loadFeeds.fulfilled, (state, action) => {
+      state.feedsLoading = false;
+      state.feeds = action.payload;
+    });
+    builder.addCase(loadFeeds.rejected, (state, action) => {
+      state.feedsLoading = false;
+      state.feedsError = (action.payload as string | undefined) ?? action.error.message ?? "error";
+    });
+    builder.addCase(installFeedThunk.pending, (state, action) => {
+      state.feedsBusy = action.meta.arg.id;
+      state.feedsError = null;
+    });
+    builder.addCase(installFeedThunk.fulfilled, (state, action) => {
+      state.feedsBusy = null;
+      state.feeds = action.payload.feeds;
+      state.rows = action.payload.rows;
+    });
+    builder.addCase(installFeedThunk.rejected, (state, action) => {
+      state.feedsBusy = null;
+      state.feedsError = (action.payload as string | undefined) ?? action.error.message ?? "error";
+    });
+    builder.addCase(updateFeedThunk.pending, (state, action) => {
+      state.feedsBusy = action.meta.arg.id;
+      state.feedsError = null;
+    });
+    builder.addCase(updateFeedThunk.fulfilled, (state, action) => {
+      state.feedsBusy = null;
+      state.feeds = action.payload.feeds;
+      state.rows = action.payload.rows;
+    });
+    builder.addCase(updateFeedThunk.rejected, (state, action) => {
+      state.feedsBusy = null;
+      state.feedsError = (action.payload as string | undefined) ?? action.error.message ?? "error";
+    });
     builder.addCase(loadDatasets.pending, (state) => {
       state.loading = true;
     });

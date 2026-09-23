@@ -7,16 +7,35 @@ import {
 } from "./haproxy-settings-parse.ts";
 import {
   buildHaproxyConf,
+  haproxyEntries,
   hashHaproxyConf,
   jsonHaproxyConf,
+  jsonHaproxyEntry,
   renderHaproxyCfg,
 } from "./compile/haproxy.ts";
 import type { DesiredStore } from "./desired.ts";
 import { log } from "./log.ts";
+import type { HaproxySettings } from "./model/haproxy.ts";
+import type { Port } from "./model/listen.ts";
+import type { PortRepo } from "./ports.ts";
 import { scopeOf } from "./scope.ts";
+
+function jsonDoc(
+  settings: HaproxySettings,
+  ports: readonly Port[],
+  updatedAt: Date | null,
+): Record<string, unknown> {
+  return {
+    settings: jsonHaproxySettings(settings),
+    entries: haproxyEntries(settings, ports).map(jsonHaproxyEntry),
+    updated_at: updatedAt?.toISOString() ?? null,
+    sha256: hashHaproxyConf(settings, ports),
+  };
+}
 
 export function haproxyRouter(
   repo: HaproxySettingsRepo,
+  ports: PortRepo,
   desired: DesiredStore,
 ): Router {
   const router = Router({ mergeParams: true });
@@ -31,11 +50,7 @@ export function haproxyRouter(
       }
 
       const row = await repo.get(scope);
-      res.json({
-        settings: jsonHaproxySettings(row.settings),
-        updated_at: row.updatedAt?.toISOString() ?? null,
-        sha256: hashHaproxyConf(row.settings),
-      });
+      res.json(jsonDoc(row.settings, await ports.list(scope), row.updatedAt));
     } catch (err) {
       next(err);
     }
@@ -59,11 +74,7 @@ export function haproxyRouter(
 
       const row = await repo.save(scope, parsed.value);
       log("info", "haproxy settings saved", { scope });
-      res.json({
-        settings: jsonHaproxySettings(row.settings),
-        updated_at: row.updatedAt?.toISOString() ?? null,
-        sha256: hashHaproxyConf(row.settings),
-      });
+      res.json(jsonDoc(row.settings, await ports.list(scope), row.updatedAt));
     } catch (err) {
       next(err);
     }
@@ -79,7 +90,7 @@ export function haproxyRouter(
       }
 
       const row = await repo.get(scope);
-      res.type("text/plain").send(renderHaproxyCfg(row.settings));
+      res.type("text/plain").send(renderHaproxyCfg(row.settings, await ports.list(scope)));
     } catch (err) {
       next(err);
     }
@@ -95,7 +106,8 @@ export function haproxyRouter(
       }
 
       const row = await repo.get(scope);
-      const hash = hashHaproxyConf(row.settings);
+      const rows = await ports.list(scope);
+      const hash = hashHaproxyConf(row.settings, rows);
       const current = await desired.getHaproxyConf().catch(() => null);
 
       if (current !== null && current.sha256 === hash) {
@@ -104,7 +116,7 @@ export function haproxyRouter(
         return;
       }
 
-      const pointer = buildHaproxyConf(row.settings, (current?.rev ?? 0) + 1);
+      const pointer = buildHaproxyConf(row.settings, rows, (current?.rev ?? 0) + 1);
       await desired.putHaproxyConf(pointer);
 
       log("info", "haproxy conf sent", {

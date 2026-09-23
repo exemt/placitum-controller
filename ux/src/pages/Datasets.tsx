@@ -19,6 +19,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import AttachFileOutlinedIcon from "@mui/icons-material/AttachFileOutlined";
+import CloudOutlinedIcon from "@mui/icons-material/CloudOutlined";
 import DeleteIcon from "@mui/icons-material/Delete";
 import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 import FileUploadOutlinedIcon from "@mui/icons-material/FileUploadOutlined";
@@ -50,6 +51,7 @@ import {
 } from "./DatasetAddEntryForm.tsx";
 import { onFormClose, onFormOpen } from "../store/forms.ts";
 import { PagePreviewDialog } from "./PagePreview.tsx";
+import { FeedsDialog } from "./FeedsDialog.tsx";
 
 import {
   DATASET_TYPES,
@@ -70,6 +72,7 @@ import {
   bytesToBase64,
   closePanel,
   loadDatasets,
+  loadFeeds,
   openPanel,
   copyDatasetRowThunk,
   parseDraftLines,
@@ -297,9 +300,24 @@ export default function Datasets({ kind }: { kind: DatasetKind }) {
     pager.setPage(0);
   };
 
+  // The sets of the license server: the button lives while the license is
+  // active, and turns yellow when a downloaded set has a newer version.
+  const feeds = useAppSelector((s) => s.pages.datasets.feeds);
+  const [feedsOpen, setFeedsOpen] = useState(false);
+  const feedsOn = feeds !== null && feeds.license === "active";
+
+  useEffect(() => {
+    if (scope !== null) {
+      void dispatch(loadFeeds({ scope }));
+    }
+  }, [dispatch, scope]);
+
   usePageBar({
     flush: scope !== null,
     onCreate: () => dispatch(openPanel(null)),
+    onLoad: feedsOn ? () => setFeedsOpen(true) : undefined,
+    loadHighlight: feedsOn && feeds.updates > 0,
+    loadCount: feeds?.updates,
     onUpdate: () => {
       void dispatch(loadDatasets(scope));
     },
@@ -323,6 +341,7 @@ export default function Datasets({ kind }: { kind: DatasetKind }) {
 
   return (
     <>
+      {feedsOn && <FeedsDialog open={feedsOpen} scope={scope} onClose={() => setFeedsOpen(false)} />}
       {error !== null && rows.length > 0 && (
         <Alert severity="error" sx={{ borderRadius: 0 }}>
           {error}
@@ -388,6 +407,21 @@ export default function Datasets({ kind }: { kind: DatasetKind }) {
                     sx={{ alignItems: "center" }}
                   >
                     <span>{row.name}</span>
+                    {row.source != null &&
+                      (() => {
+                        const feed = feeds?.feeds.find((f) => f.id === row.source?.feed);
+                        const newer = feed !== undefined && feed.version > row.source.version;
+                        return (
+                          <CloudOutlinedIcon
+                            titleAccess={
+                              newer
+                                ? t("datasets.cloudUpdate", { feed: row.source.feed, have: row.source.version, version: feed.version })
+                                : t("datasets.cloudHint", { feed: row.source.feed, version: row.source.version })
+                            }
+                            sx={{ fontSize: 14, color: newer ? "warning.main" : "text.disabled" }}
+                          />
+                        );
+                      })()}
                     {row.builtin === true && (
                       <LockOutlinedIcon
                         titleAccess={t(
@@ -579,6 +613,8 @@ function DatasetForm({
   const searching = query.trim() !== "";
   const builtin = row?.builtin === true;
   const contentLocked = builtin && kind === "content";
+  // A list downloaded from the license server: its entries come from there, never from here.
+  const cloudLocked = row?.source != null;
   const lockedNameHint = t(
     kind === "content" ? "datasets.builtinNameHint" : "datasets.builtinListNameHint",
   );
@@ -903,11 +939,16 @@ function DatasetForm({
                             downloadTextFile(listExportName(name), text)
                           }
                         />
-                        <TableIconButton
-                          icon={<FileUploadOutlinedIcon />}
-                          tooltip={t("common.upload")}
-                          onClick={() => uploadRef.current?.click()}
-                        />
+                        {cloudLocked ? (
+                          <LockedNote hint={t("datasets.cloudLocked")} />
+                        ) : (
+                          <TableIconButton
+                            icon={<FileUploadOutlinedIcon />}
+                            tooltip={t("common.upload")}
+                            onClick={() => uploadRef.current?.click()}
+                          />
+                        )}
+                        {!cloudLocked && (
                         <TableIconButton
                           color="success"
                           icon={<AddIcon />}
@@ -920,6 +961,7 @@ function DatasetForm({
                             })
                           }
                         />
+                        )}
                       </Stack>
                     </TableCell>
                   </TableRow>
@@ -959,12 +1001,14 @@ function DatasetForm({
                         })()}
                       </TableCell>
                       <TableCell sx={{ py: 0 }}>
-                        <TableIconButton
-                          color="error"
-                          icon={<DeleteIcon />}
-                          tooltip={t("common.delete")}
-                          onClick={() => setText(removeDraftValue(text, line))}
-                        />
+                        {!cloudLocked && (
+                          <TableIconButton
+                            color="error"
+                            icon={<DeleteIcon />}
+                            tooltip={t("common.delete")}
+                            onClick={() => setText(removeDraftValue(text, line))}
+                          />
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1005,6 +1049,7 @@ function DatasetForm({
               onChange={(e) => setText(e.target.value)}
               multiline
               minRows={8}
+              slotProps={{ htmlInput: { readOnly: cloudLocked } }}
               placeholder={placeholderFor(t, type)}
               sx={{
                 flexGrow: 1,

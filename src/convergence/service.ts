@@ -22,7 +22,7 @@ const FEEDS: Record<ChannelId, readonly (keyof RootState)[]> = {
     "certificates",
   ],
   agent: [],
-  haproxy: [],
+  haproxy: ["ports"],
   rules: ["ruleFiles", "ruleSets"],
   ip: ["ipProfiles", "ipCountries", "datasets"],
   auth: [],

@@ -373,6 +373,7 @@ export async function exportNginx(pool: Pool, httpSpaceId: string): Promise<Ngin
         returnStatus: l.return_status ?? undefined,
         returnPage: l.return_page ?? undefined,
         returnUrl: l.return_url ?? undefined,
+        staticFile: l.static_file ?? undefined,
         nginx: l.nginx ?? {},
         waf: l.waf ?? {},
         raw: l.raw,

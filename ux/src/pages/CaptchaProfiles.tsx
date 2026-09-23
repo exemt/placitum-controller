@@ -512,6 +512,7 @@ function CaptchaProfileForm({
         <Section
           title={t("captcha.sectionProfile")}
           hint={t("captcha.sectionProfileHint")}
+          help="06-captcha#что-он-решает"
           flush
           defaultExpanded
         >
@@ -608,10 +609,12 @@ function CaptchaProfileForm({
         <Section
           title={t("captcha.sectionChannel")}
           hint={t("captcha.sectionChannelHint")}
+          help="06-captcha#канал-действий"
           flush
           defaultExpanded
         >
           <SignalsBlock
+            help="06-captcha#сигналы-ранних-волн"
             hint={t("captcha.priorHint")}
             rules={doc.trigger.prior.map((row) => ({
               from: row.from,
@@ -650,11 +653,21 @@ function CaptchaProfileForm({
           />
         </Section>
 
-        <Section title={t("captcha.sectionBuckets")} hint={t("captcha.bucketsHint")} flush>
+        <Section
+          title={t("captcha.sectionBuckets")}
+          hint={t("captcha.bucketsHint")}
+          flush
+          help="06-captcha#бакеты"
+        >
           <BucketsTable t={t} buckets={doc.buckets} onChange={(buckets) => patch({ buckets })} />
         </Section>
 
-        <Section title={t("captcha.sectionGate")} hint={t("captcha.sectionGateHint")} flush>
+        <Section
+          title={t("captcha.sectionGate")}
+          hint={t("captcha.sectionGateHint")}
+          flush
+          help="06-captcha#когда-требовать-проверку"
+        >
           <SettingsTable aside={false}>
             <Chips
               t={t}
@@ -691,12 +704,18 @@ function CaptchaProfileForm({
         <Section
           title={t("captcha.sectionProviders")}
           hint={t("captcha.providersHint")}
+          help="06-captcha#провайдеры"
           flush
         >
           <ProvidersTable t={t} scope={scope} doc={doc} onDoc={patch} />
         </Section>
 
-        <Section title={t("captcha.sectionClearance")} hint={t("captcha.sectionClearanceHint")} flush>
+        <Section
+          title={t("captcha.sectionClearance")}
+          hint={t("captcha.sectionClearanceHint")}
+          flush
+          help="06-captcha#пропуск-кука-и-список"
+        >
           <SettingsTable aside={false}>
             <Num
               label={t("captcha.clearanceTtl")}
@@ -756,7 +775,12 @@ function CaptchaProfileForm({
           </SettingsTable>
         </Section>
 
-        <Section title={t("captcha.sectionList")} hint={t("captcha.sectionListHint")} flush>
+        <Section
+          title={t("captcha.sectionList")}
+          hint={t("captcha.sectionListHint")}
+          flush
+          help="06-captcha#пропуск-кука-и-список"
+        >
           <SettingsTable aside={false}>
             <Pick
               select
@@ -782,7 +806,12 @@ function CaptchaProfileForm({
           </SettingsTable>
         </Section>
 
-        <Section title={t("captcha.sectionExtra")} hint={t("captcha.sectionExtraHint")} flush>
+        <Section
+          title={t("captcha.sectionExtra")}
+          hint={t("captcha.sectionExtraHint")}
+          flush
+          help="06-captcha#как-показывают-виджет"
+        >
           <SettingsTable aside={false}>
             <Text
               label={t("captcha.title")}
@@ -1037,6 +1066,7 @@ function ProviderDialog({
       onClose={onClose}
       spacing={0}
       title={t("captcha.providerDialog")}
+      help="06-captcha#провайдеры"
       label={`${slot === "primary" ? t("captcha.primary") : t("captcha.fallback")} · ${t(
         `captcha.provider.${kind}`,
       )}`}

@@ -569,6 +569,7 @@ function ProfileForm({
         <Section
           title={t("profiles.sectionProfile")}
           hint={t("profiles.sectionProfileHint")}
+          help="06-modsec#профиль-что-в-карточке"
           flush
           defaultExpanded
         >
@@ -591,6 +592,7 @@ function ProfileForm({
         <Section
           title={t("profiles.includeOrder")}
           hint={t("profiles.sectionIncludeHint")}
+          help="06-modsec#что-встроено"
           flush
           defaultExpanded
           end={editorChip}
@@ -608,6 +610,7 @@ function ProfileForm({
         <Section
           title={t("profiles.dataFiles")}
           hint={t("profiles.dataFilesHint")}
+          help="07-data#файлы-и-сертификаты"
           flush
         >
           <IncludeOrder
@@ -627,10 +630,12 @@ function ProfileForm({
           <Section
             title={t("profiles.sectionChannel")}
             hint={t("profiles.sectionChannelHint")}
+            help="06-modsec#сигналы-ранних-волн"
             flush
             defaultExpanded
           >
             <SignalsBlock
+              help="06-modsec#сигналы-ранних-волн"
               hint={t("prior.hint")}
               rules={policy.prior}
               codes={senderCodes}
@@ -648,6 +653,7 @@ function ProfileForm({
               onChange={(prior) => setPolicy((current) => ({ ...current, prior }))}
             />
             <OutcomesBlock
+              help="06-modsec#правила-что-инспектор-говорит-сам"
               hint={t("outcomes.hint.rules")}
               outcomes={policy.outcomes}
               datasets={datasets}

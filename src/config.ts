@@ -36,6 +36,9 @@ export interface Config {
   compileDir: string;
   redisUrl: string;
   redisInternalUrl: string;
+  /* The license server: the catalog of sets, and the keys that sign licenses. */
+  licenseUrl: string;
+  licenseKeys: string;
 }
 
 export function load(env: NodeJS.ProcessEnv = process.env): Config {
@@ -79,5 +82,7 @@ export function load(env: NodeJS.ProcessEnv = process.env): Config {
     redisUrl: env.CONTROLLER_REDIS_URL ?? "",
     redisInternalUrl:
       env.CONTROLLER_REDIS_INTERNAL_URL ?? env.CONTROLLER_REDIS_URL ?? "",
+    licenseUrl: (env.CONTROLLER_LICENSE_URL ?? "").trim() || "https://licenses.plcwaf.com",
+    licenseKeys: env.CONTROLLER_LICENSE_KEYS ?? "",
   };
 }

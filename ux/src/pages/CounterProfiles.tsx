@@ -666,6 +666,7 @@ function CounterDialog({
       onClose={onClose}
       spacing={0}
       title={name === null ? t("counter.newCounter") : t("counter.editCounter")}
+      help="06-counter#бакеты-и-оси"
       actions={
         <>
           {name !== null && (
@@ -779,6 +780,7 @@ function CounterDialog({
             <SettingsGroup
               title={t("counter.ownSubjects")}
               hint={t("counter.ownSubjectsHint")}
+              help="06-counter#бакеты-и-оси"
             >
               {axes.sess !== undefined && (
                 <Text
@@ -934,6 +936,7 @@ function SubjectsDialog({
       onClose={onClose}
       spacing={0}
       title={t("counter.subjects")}
+      help="06-counter#ось-пользователь"
       actions={
         <>
           <Modal.Cancel />
@@ -1109,7 +1112,13 @@ function CounterProfileForm({
         bannerActionLabel={t("common.restore")}
         onBannerAction={restore}
       >
-        <Section title={t("counter.sectionProfile")} hint={t("counter.sectionProfileHint")} flush defaultExpanded>
+        <Section
+          title={t("counter.sectionProfile")}
+          hint={t("counter.sectionProfileHint")}
+          flush
+          defaultExpanded
+          help="06-counter#счётчик-и-профиль"
+        >
           <SettingsTable aside={false}>
             <Text
               label={t("common.name")}
@@ -1122,8 +1131,14 @@ function CounterProfileForm({
           </SettingsTable>
         </Section>
 
-        <Section title={t("channel.signals")} hint={t("counter.priorHint")} flush>
+        <Section
+          title={t("channel.signals")}
+          hint={t("counter.priorHint")}
+          flush
+          help="06-counter#что-принимает"
+        >
           <SignalsBlock
+            help="06-counter#что-принимает"
             embedded
             hint={t("counter.priorHint")}
             rules={doc.trigger.prior.map((row) => ({ ...row, accept: [...row.accept] }))}
@@ -1176,7 +1191,13 @@ function CounterProfileForm({
           />
         </Section>
 
-        <Section title={t("counter.sectionPhases")} hint={t("counter.sectionPhasesHint")} flush defaultExpanded>
+        <Section
+          title={t("counter.sectionPhases")}
+          hint={t("counter.sectionPhasesHint")}
+          flush
+          defaultExpanded
+          help="06-counter#одна-таблица-на-все-фазы"
+        >
           <SettingsTable aside={false}>
             <Flag
               label={t("counter.phaseRequest")}
@@ -1215,7 +1236,13 @@ function CounterProfileForm({
           </SettingsTable>
         </Section>
 
-        <Section title={t("counter.sectionMeasure")} hint={t("counter.sectionMeasureHint")} flush defaultExpanded>
+        <Section
+          title={t("counter.sectionMeasure")}
+          hint={t("counter.sectionMeasureHint")}
+          flush
+          defaultExpanded
+          help="06-counter#учёт-как-ответ-превращается-в-начисление"
+        >
           <MeasureTable
             t={t}
             rows={[
@@ -1235,7 +1262,13 @@ function CounterProfileForm({
           />
         </Section>
 
-        <Section title={t("counter.sectionJudge")} hint={t("counter.sectionJudgeHint")} flush defaultExpanded>
+        <Section
+          title={t("counter.sectionJudge")}
+          hint={t("counter.sectionJudgeHint")}
+          flush
+          defaultExpanded
+          help="06-counter#оценка-уровни-против-порогов"
+        >
           <JudgeTable
             t={t}
             rows={[
@@ -1252,6 +1285,7 @@ function CounterProfileForm({
             }}
           />
           <OutcomesBlock
+            help="06-counter#что-говорит-сам"
             hint={t("counter.outcomesHint")}
             outcomes={[
               ...doc.request.outcomes.map((row) => ({ ...row, section: "request" })),
@@ -1603,6 +1637,7 @@ function JudgeDialog({
       onClose={onClose}
       spacing={0}
       title={fresh ? t("counter.judgeNewDialog") : t("counter.judgeDialog")}
+      help="06-counter#оценка-уровни-против-порогов"
       actions={
         <>
           <Modal.Cancel />
@@ -1805,6 +1840,7 @@ function LevelDialog({
       onClose={onClose}
       spacing={0}
       title={t("counter.levelNewDialog")}
+      help="06-counter#оценка-уровни-против-порогов"
       onEnter={submit}
       actions={
         <>
@@ -2097,6 +2133,7 @@ function MeasureDialog({
       spacing={0}
       size="md"
       title={fresh ? t("counter.measureNewDialog") : t("counter.measureDialog")}
+      help="06-counter#учёт-как-ответ-превращается-в-начисление"
       actions={
         <>
           <Modal.Cancel />

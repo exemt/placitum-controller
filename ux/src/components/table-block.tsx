@@ -10,6 +10,7 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { HEAD_H, type FilterOption } from "./data-table/index.ts";
 import { BlockHead } from "./BlockHead.tsx";
 import { HintMarkup } from "./fields.tsx";
+import { HelpMark } from "../help/link.tsx";
 import { SectionBleed, useFlushSection } from "./settings-table.tsx";
 
 export const CELL_PX = 1.25;
@@ -64,7 +65,7 @@ export const headCellSx = {
 
 export function HeadHint({ text }: { text: string }) {
   return (
-    <Tooltip arrow placement="top-start" enterDelay={200} title={<HintMarkup text={text} />}>
+    <Tooltip leaveDelay={200} arrow placement="top-start" enterDelay={200} title={<HintMarkup text={text} />}>
       <Box
         component="span"
         tabIndex={0}
@@ -141,6 +142,7 @@ export function HeadCell({
           text
         ) : (
           <Tooltip
+            leaveDelay={200}
             arrow
             placement="top-start"
             enterDelay={200}
@@ -211,6 +213,7 @@ export function BlockSelect<T extends string>({
 export function TableBlock<T extends string>({
   title,
   label,
+  help,
   kindLabel,
   kind,
   options,
@@ -222,6 +225,7 @@ export function TableBlock<T extends string>({
 }: {
   title?: string;
   label?: string;
+  help?: string;
   kindLabel?: string;
   kind?: T;
   options?: readonly FilterOption<T>[];
@@ -245,6 +249,7 @@ export function TableBlock<T extends string>({
           sx={{ alignItems: "center", px: flush ? BLEED : 0, py: 0.75 }}
         >
           <BlockHead title={title ?? ""} label={label} />
+          {help !== undefined && <HelpMark to={help} />}
           <Box sx={{ flex: 1 }} />
           {picker && (
             <BlockSelect

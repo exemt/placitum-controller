@@ -18,6 +18,7 @@ const PLAN: { no: number; sub?: number; slug: string; title: string }[] = [
   { no: 3, slug: "03-upgrade", title: "Обновление" },
   { no: 4, slug: "04-interface", title: "Вход и интерфейс" },
   { no: 5, slug: "05-protection", title: "Настройка защиты веб-приложений" },
+  { no: 5, sub: 1, slug: "05-config", title: "Конфигурация узла" },
   { no: 6, slug: "06-inspectors", title: "Инспекторы" },
   { no: 6, sub: 1, slug: "06-modsec", title: "Правила обработки трафика" },
   { no: 6, sub: 2, slug: "06-ip", title: "IP фильтр" },

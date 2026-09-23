@@ -1484,6 +1484,7 @@ function CallDialog({
     >
       <DialogSection
         title={t("routeSettings.condsBlock")}
+        help="05-protection#условия-вызова"
         summary={
           done.length === 0
             ? t("routeSettings.condsSummaryAny")
@@ -1575,6 +1576,7 @@ function AddInspectorDialog({
       open={open}
       onClose={onClose}
       title={t("routeSettings.addInspector")}
+      help="05-protection#включение-защиты-на-маршруте"
       hint={t("routeSettings.addDialogHint")}
       actions={
         <>

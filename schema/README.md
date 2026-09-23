@@ -5,7 +5,7 @@ English · [Русский](README.ru.md)
 | File | What it is |
 | --- | --- |
 | `01-schema.sql` | structure: tables, indexes, constraints |
-| `02-seed.sql` | shipped data: the `default` space, reference tables, deny and login pages, CRS, the inspector catalog, the node port, `default` profiles |
+| `02-seed.sql` | shipped data: the `default` space, reference tables, deny and login pages, CRS, the inspector catalog, the traffic ports of the node, `default` profiles |
 
 The controller applies `01-schema.sql` and `02-seed.sql` itself, in one transaction, on first
 start against an empty database (`src/migrate.ts`). If the database already has a schema, it is

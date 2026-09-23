@@ -64,6 +64,7 @@ export function emptyOutcome(): OutcomeRule {
 
 export function OutcomesBlock({
   hint,
+  help,
   outcomes,
   datasets,
   inspectors,
@@ -76,6 +77,7 @@ export function OutcomesBlock({
   phases,
 }: {
   hint: string;
+  help?: string;
   outcomes: OutcomeRule[];
   datasets: string[];
   inspectors: InspectorMeta[];
@@ -95,7 +97,7 @@ export function OutcomesBlock({
 
   return (
     <>
-      <TableBlock title={t("channel.rules")} label={hint} last>
+      <TableBlock title={t("channel.rules")} label={hint} help={help} last>
         <ActionRulesTable
           whereLabel={phases !== undefined ? t("outcomes.outcomeWhere") : undefined}
           rows={outcomes.map((outcome, i) => ({
@@ -116,6 +118,7 @@ export function OutcomesBlock({
       </TableBlock>
       {editing !== undefined && (
         <OutcomeDialog
+          help={help}
           phases={phases}
           outcome={editing === null ? null : (outcomes[editing] ?? null)}
           datasets={datasets}
@@ -276,6 +279,7 @@ function numberOk(raw: string, min: number, max: number): boolean {
 }
 
 function OutcomeDialog({
+  help,
   outcome,
   datasets,
   inspectors,
@@ -288,6 +292,7 @@ function OutcomeDialog({
   onSave,
   onClose,
 }: {
+  help?: string;
   outcome: OutcomeRule | null;
   datasets: string[];
   inspectors: InspectorMeta[];
@@ -453,6 +458,7 @@ function OutcomeDialog({
       title={
         outcome === null ? t("outcomes.addOutcome") : t("outcomes.editOutcome")
       }
+      help={help}
       actions={
         <>
           <Modal.Cancel />

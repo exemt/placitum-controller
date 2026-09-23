@@ -25,6 +25,7 @@ interface LocationRow {
   return_status: number | null;
   return_page: string | null;
   return_url: string | null;
+  static_file: string | null;
   nginx: NginxLocationSettings;
   waf: WafRouteSettings;
   raw: boolean;
@@ -78,6 +79,9 @@ function ofLocation(row: LocationRow): Location {
   if (row.return_url !== null) {
     loc.returnUrl = row.return_url;
   }
+  if (row.static_file !== null) {
+    loc.staticFile = row.static_file;
+  }
 
   return loc;
 }
@@ -92,7 +96,7 @@ function ofView(row: LocationRow): LocationView {
 
 const COLS = `l.id, l.server_id, l.match, l.path, l.position, l.enabled, l.handler, l.protocol,
               l.upstream_id, l.upstream_uri, l.return_status, l.return_page, l.return_url,
-              l.nginx, l.waf, l.raw, l.raw_nginx, l.builtin,
+              l.static_file, l.nginx, l.waf, l.raw, l.raw_nginx, l.builtin,
               s.http_space_id, s.name as server_name`;
 
 const FROM = `locations l join servers s on s.id = l.server_id`;
@@ -110,6 +114,7 @@ export interface LocationInsert {
   returnStatus?: number;
   returnPage?: string;
   returnUrl?: string;
+  staticFile?: string;
   nginx: NginxLocationSettings;
   waf: WafRouteSettings;
   raw: boolean;
@@ -128,6 +133,7 @@ export interface LocationPatch {
   returnStatus?: number | null;
   returnPage?: string | null;
   returnUrl?: string | null;
+  staticFile?: string | null;
   nginx?: NginxLocationSettings;
   waf?: WafRouteSettings;
   raw?: boolean;
@@ -182,14 +188,14 @@ export class LocationRepo {
       `insert into locations
          (server_id, match, path, position, enabled, handler,
           upstream_id, upstream_uri, return_status, return_page, return_url,
-          nginx, waf, raw, raw_nginx, protocol)
+          nginx, waf, raw, raw_nginx, protocol, static_file)
        values ($1, $2, $3,
                coalesce($4, (select coalesce(max(position), -1) + 1
                                from locations where server_id = $1)),
-               $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+               $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
        returning id, server_id, match, path, position, enabled, handler, protocol,
                  upstream_id, upstream_uri, return_status, return_page, return_url,
-                 nginx, waf, raw, raw_nginx, builtin`,
+                 static_file, nginx, waf, raw, raw_nginx, builtin`,
       [
         input.serverId,
         input.match,
@@ -207,6 +213,7 @@ export class LocationRepo {
         input.raw,
         input.rawNginx,
         input.protocol ?? "http",
+        input.staticFile ?? null,
       ],
     );
 
@@ -239,7 +246,8 @@ export class LocationRepo {
          waf           = coalesce($18, waf),
          raw           = coalesce($19, raw),
          raw_nginx     = coalesce($20, raw_nginx),
-         protocol      = coalesce($21, protocol)
+         protocol      = coalesce($21, protocol),
+         static_file   = case when $22 then $23 else static_file end
        where id = $1
        returning id`,
       [
@@ -264,6 +272,8 @@ export class LocationRepo {
         patch.raw ?? null,
         patch.rawNginx ?? null,
         patch.protocol ?? null,
+        patch.staticFile !== undefined,
+        patch.staticFile ?? null,
       ],
     );
 

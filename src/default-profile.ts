@@ -13,12 +13,12 @@ export function isDefaultRename(current: string, next: unknown): boolean {
 }
 
 export const DEFAULT_DOC_BASELINE = {
-  description: "Профиль по умолчанию",
+  description: "Default profile",
   doc: {},
 } as const;
 
 export const DEFAULT_IP_BASELINE = {
-  description: "Профиль по умолчанию: без правил, иначе allow",
+  description: "Default profile: no rules, allow otherwise",
   rules: [],
   datasets: [],
   outcomes: [],

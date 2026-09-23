@@ -73,6 +73,7 @@ import {
 } from "../components/card/index.ts";
 import { FlowBar } from "../components/FlowPanel.tsx";
 import { CpuBar, MemBar, MetricBar } from "../components/MetricBar.tsx";
+import { HelpMark } from "../help/link.tsx";
 import { useTheme } from "@mui/material/styles";
 import { useT, type Translate } from "../i18n/index.ts";
 import { usePageBar } from "../layout/PageBarHost.tsx";
@@ -172,6 +173,7 @@ export default function FleetPage() {
         <GroupLabel
           title={t("fleetPage.nodesSection")}
           meta={String(agents.length + orphanIds.length)}
+          help="10-monitoring#показатели-узла"
           drift={nodeDrift}
         />
       )}
@@ -188,6 +190,7 @@ export default function FleetPage() {
         <GroupLabel
           title={t("fleetPage.inspectorsSection")}
           meta={String(new Set(inspectors.map((row) => row.name)).size)}
+          help="10-monitoring#показатели-инспектора"
           drift={inspectorDrift}
         />
       )}
@@ -198,6 +201,7 @@ export default function FleetPage() {
         <GroupLabel
           title={t("fleetPage.storesSection")}
           meta={String(stores.length)}
+          help="01-about#из-чего-состоит"
         />
       )}
 
@@ -209,6 +213,7 @@ export default function FleetPage() {
         <GroupLabel
           title={t("fleetPage.servicesSection")}
           meta={String(serviceNames(services).length)}
+          help="02-deploy#что-разворачивается"
         />
       )}
 
@@ -222,10 +227,12 @@ export default function FleetPage() {
 function GroupLabel({
   title,
   meta: count,
+  help,
   drift = 0,
 }: {
   title: string;
   meta?: string;
+  help?: string;
   drift?: number;
 }) {
   const t = useT();
@@ -255,6 +262,7 @@ function GroupLabel({
           </Box>
         )}
       </Typography>
+      {help !== undefined && <HelpMark to={help} />}
       {drift > 0 && (
         <Typography
           component="span"

@@ -292,6 +292,7 @@ function VlaiProfileForm({
         <Section
           title={t("vlaiProfiles.sectionProfile")}
           hint={t("vlaiProfiles.sectionProfileHint")}
+          help="06-vlai#профиль"
           flush
           defaultExpanded
         >
@@ -323,8 +324,14 @@ function VlaiProfileForm({
           </SettingsTable>
         </Section>
 
-        <Section title={t("channel.signals")} hint={t("vlaiProfiles.priorHint")} flush>
+        <Section
+          title={t("channel.signals")}
+          hint={t("vlaiProfiles.priorHint")}
+          flush
+          help="06-vlai#что-принимает"
+        >
           <SignalsBlock
+            help="06-vlai#что-принимает"
             embedded
             hint={t("vlaiProfiles.priorHint")}
             rules={doc.trigger.prior.map((row) => ({ ...row, accept: [...row.accept] }))}
@@ -357,6 +364,7 @@ function VlaiProfileForm({
         <Section
           title={t("channel.rules")}
           hint={t("vlaiProfiles.outcomesHint")}
+          help="06-vlai#что-говорит-сам"
           flush
           defaultExpanded
         >
@@ -366,6 +374,7 @@ function VlaiProfileForm({
             </Alert>
           )}
           <OutcomesBlock
+            help="06-vlai#что-говорит-сам"
             hint={t("vlaiProfiles.outcomesHint")}
             outcomes={doc.outcomes}
             datasets={datasets}

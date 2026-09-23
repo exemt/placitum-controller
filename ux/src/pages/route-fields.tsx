@@ -163,6 +163,7 @@ function RouteParamsDialog({
       size="lg"
       spacing={0}
       title={t("config.section.nginxParams")}
+      help="05-protection#маршруты"
       actions={
         <>
           <Modal.Cancel />

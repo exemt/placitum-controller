@@ -60,6 +60,8 @@ import { startConvergenceService } from "./convergence/service.ts";
 import { AgentSettingsRepo } from "./agent-settings.ts";
 import { HaproxySettingsRepo } from "./haproxy-settings.ts";
 import { startFleetBus } from "./fleet-bus.ts";
+import { FeedsClient } from "./feeds.ts";
+import { BUILTIN_KEYS, LicenseService, LicenseStore, parseKeys } from "./license.ts";
 import { startFleetDemo } from "./state/fleet-demo.ts";
 import { StoreRepo } from "./store.ts";
 
@@ -94,6 +96,9 @@ const pool = createPool(cfg.databaseUrl);
 
 try {
   const schema = await migrate(pool, { schemaDir: cfg.schemaDir });
+  // A database from before the license: the table and the column of the lists come here, before
+  // the model reads the lists.
+  await new LicenseStore(pool).ensure();
   log("info", "schema ready", {
     dir: cfg.schemaDir,
     initialized: schema.initialized,
@@ -311,6 +316,7 @@ const convergence = startConvergenceService(
     rewrite: rewriteProfiles,
     agent: agentSettings,
     haproxy: haproxySettings,
+    ports,
     settings: inspectorSettings,
   }),
   model.dispatch,
@@ -319,6 +325,11 @@ const convergence = startConvergenceService(
 );
 
 desired.onPublished = (channel) => convergence.published(channel);
+
+const license = new LicenseService(new LicenseStore(pool), parseKeys(...BUILTIN_KEYS, cfg.licenseKeys), cfg.licenseUrl);
+await license.load();
+const feeds = new FeedsClient(cfg.licenseUrl, license);
+feeds.start();
 
 const app = createApp(cfg, {
   pool,
@@ -352,6 +363,8 @@ const app = createApp(cfg, {
   crypto,
   cryptoService,
   convergence,
+  license,
+  feeds,
 });
 const onListening = (): void => {
   log("info", "listening", {
@@ -398,6 +411,7 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
     healthSocket.close();
     stopUpgrades();
     stopFleetBus();
+    feeds.stop();
     dataBus.close();
     stopLogLevels();
     desired.close();

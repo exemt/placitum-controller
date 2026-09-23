@@ -1,5 +1,5 @@
-import { isHaproxyBalance, isHaproxyMode } from "./compile/haproxy.ts";
-import type { HaproxyFrontend, HaproxyServer, HaproxySettings } from "./model/haproxy.ts";
+import { isHaproxyBalance } from "./compile/haproxy.ts";
+import type { HaproxyEntry, HaproxyServer, HaproxySettings } from "./model/haproxy.ts";
 
 export type ParseOk<T> = { ok: true; value: T };
 export type ParseFail = { ok: false; error: string };
@@ -18,9 +18,8 @@ const HOST_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,253}$/;
 const PATH_RE = /^\/[^\s"']*$/;
 
 const MAX_SERVERS = 64;
-const MAX_FRONTENDS = 8;
 const MAX_ADDRESSES = 8;
-const FRONTEND_NAME_RE = /^[a-z][a-z0-9_]{0,31}$/;
+const MAX_ENTRY_PORTS = 16;
 const IPV4_RE = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
 
 function asInt(
@@ -59,67 +58,76 @@ function parseServer(raw: unknown, index: number): HaproxyServer | ParseFail {
     return { ok: false, error: `invalid_server_host_${index}` };
   }
 
-  const out: HaproxyServer = { name, host };
+  return { name, host };
+}
 
-  const port = asInt(raw.port, `server_port_${index}`, 1, 65535);
-  if (failed(port)) return port;
-  if (port !== undefined) out.port = port;
+function parseAddresses(raw: unknown): string[] | ParseFail {
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > MAX_ADDRESSES) {
+    return { ok: false, error: "invalid_entry_addresses" };
+  }
+
+  const addresses: string[] = [];
+
+  for (const address of raw) {
+    if (typeof address !== "string" || !IPV4_RE.test(address) || addresses.includes(address)) {
+      return { ok: false, error: "invalid_entry_addresses" };
+    }
+    addresses.push(address);
+  }
+
+  return addresses;
+}
+
+// entry.ports: node port -> entry port. A pair with equal sides says nothing and is dropped; two
+// node ports on one entry port would bind it twice.
+function parseEntryPorts(raw: unknown): Record<string, number> | ParseFail {
+  if (!isRecord(raw)) {
+    return { ok: false, error: "invalid_entry_ports" };
+  }
+
+  const pairs = Object.entries(raw);
+  if (pairs.length > MAX_ENTRY_PORTS) {
+    return { ok: false, error: "invalid_entry_ports" };
+  }
+
+  const out: Record<string, number> = {};
+  const taken = new Set<number>();
+
+  for (const [key, value] of pairs) {
+    const from = /^\d+$/.test(key) ? Number(key) : NaN;
+    const to = asInt(value, "entry_ports", 1, 65535);
+    if (!Number.isInteger(from) || from < 1 || from > 65535 || failed(to) || to === undefined) {
+      return { ok: false, error: "invalid_entry_ports" };
+    }
+    if (taken.has(to)) {
+      return { ok: false, error: "duplicate_entry_port" };
+    }
+    taken.add(to);
+    if (to !== from) {
+      out[String(from)] = to;
+    }
+  }
 
   return out;
 }
 
-function parseFrontend(raw: unknown, index: number): HaproxyFrontend | ParseFail {
+function parseEntry(raw: unknown): HaproxyEntry | ParseFail {
   if (!isRecord(raw)) {
-    return { ok: false, error: `invalid_frontend_${index}` };
+    return { ok: false, error: "invalid_entry" };
   }
 
-  const name = String(raw.name ?? "").trim();
-  if (!FRONTEND_NAME_RE.test(name)) {
-    return { ok: false, error: `invalid_frontend_name_${index}` };
-  }
-
-  const port = asInt(raw.port, `frontend_port_${index}`, 1, 65535);
-  if (failed(port)) return port;
-  if (port === undefined) {
-    return { ok: false, error: `invalid_frontend_port_${index}` };
-  }
-
-  const mode = absent(raw.mode) ? "http" : raw.mode;
-  if (!isHaproxyMode(mode)) {
-    return { ok: false, error: `invalid_frontend_mode_${index}` };
-  }
-
-  const out: HaproxyFrontend = { name, port, mode };
-
-  const serverPort = asInt(raw.server_port, `frontend_server_port_${index}`, 1, 65535);
-  if (failed(serverPort)) return serverPort;
-  if (serverPort !== undefined) out.serverPort = serverPort;
-
-  if (!absent(raw.send_proxy)) {
-    if (typeof raw.send_proxy !== "boolean") {
-      return { ok: false, error: `invalid_frontend_send_proxy_${index}` };
-    }
-    if (raw.send_proxy && mode !== "tcp") {
-      return { ok: false, error: `send_proxy_needs_tcp_${index}` };
-    }
-    if (raw.send_proxy) out.sendProxy = true;
-  }
+  const out: HaproxyEntry = {};
 
   if (!absent(raw.addresses)) {
-    if (!Array.isArray(raw.addresses) || raw.addresses.length === 0 || raw.addresses.length > MAX_ADDRESSES) {
-      return { ok: false, error: `invalid_frontend_addresses_${index}` };
-    }
-
-    const addresses: string[] = [];
-
-    for (const address of raw.addresses) {
-      if (typeof address !== "string" || !IPV4_RE.test(address) || addresses.includes(address)) {
-        return { ok: false, error: `invalid_frontend_addresses_${index}` };
-      }
-      addresses.push(address);
-    }
-
+    const addresses = parseAddresses(raw.addresses);
+    if (failed(addresses)) return addresses;
     out.addresses = addresses;
+  }
+
+  if (!absent(raw.ports)) {
+    const ports = parseEntryPorts(raw.ports);
+    if (failed(ports)) return ports;
+    if (Object.keys(ports).length > 0) out.ports = ports;
   }
 
   return out;
@@ -178,45 +186,11 @@ export function parseHaproxySettingsBody(
     }
   }
 
-  if (!absent(body.frontend)) {
-    if (!isRecord(body.frontend)) {
-      return { ok: false, error: "invalid_frontend" };
-    }
-    const port = asInt(body.frontend.port, "frontend_port", 1, 65535);
-    if (failed(port)) return port;
-    if (port !== undefined) {
-      out.frontend = { port };
-    }
-  }
-
-  if (!absent(body.frontends)) {
-    if (!Array.isArray(body.frontends)) {
-      return { ok: false, error: "invalid_frontends" };
-    }
-    if (body.frontends.length > MAX_FRONTENDS) {
-      return { ok: false, error: "too_many_frontends" };
-    }
-
-    const frontends: HaproxyFrontend[] = [];
-    const names = new Set<string>();
-    const ports = new Set<number>();
-
-    for (const [index, raw] of body.frontends.entries()) {
-      const row = parseFrontend(raw, index);
-      if ("ok" in row && row.ok === false) {
-        return row;
-      }
-      const frontend = row as HaproxyFrontend;
-      if (names.has(frontend.name) || ports.has(frontend.port)) {
-        return { ok: false, error: "duplicate_frontend" };
-      }
-      names.add(frontend.name);
-      ports.add(frontend.port);
-      frontends.push(frontend);
-    }
-
-    if (frontends.length > 0) {
-      out.frontends = frontends;
+  if (!absent(body.entry)) {
+    const entry = parseEntry(body.entry);
+    if (failed(entry)) return entry;
+    if (Object.keys(entry).length > 0) {
+      out.entry = entry;
     }
   }
 
@@ -357,18 +331,11 @@ export function jsonHaproxySettings(
     out.timeouts = timeouts;
   }
 
-  if (settings.frontend !== undefined) {
-    out.frontend = { ...settings.frontend };
-  }
-
-  if (settings.frontends !== undefined) {
-    out.frontends = settings.frontends.map((row) => {
-      const fe: Record<string, unknown> = { name: row.name, port: row.port, mode: row.mode };
-      if (row.serverPort !== undefined) fe.server_port = row.serverPort;
-      if (row.sendProxy !== undefined) fe.send_proxy = row.sendProxy;
-      if (row.addresses !== undefined) fe.addresses = [...row.addresses];
-      return fe;
-    });
+  if (settings.entry !== undefined) {
+    const entry: Record<string, unknown> = {};
+    if (settings.entry.addresses !== undefined) entry.addresses = [...settings.entry.addresses];
+    if (settings.entry.ports !== undefined) entry.ports = { ...settings.entry.ports };
+    out.entry = entry;
   }
 
   if (settings.backend !== undefined) {
@@ -390,7 +357,7 @@ export function jsonHaproxySettings(
       backend.check = check;
     }
     if (settings.backend.servers !== undefined) {
-      backend.servers = settings.backend.servers.map((row) => ({ ...row }));
+      backend.servers = settings.backend.servers.map((row) => ({ name: row.name, host: row.host }));
     }
     out.backend = backend;
   }

@@ -478,7 +478,13 @@ function JsonProfileForm({
         bannerActionLabel={t("common.restore")}
         onBannerAction={restore}
       >
-        <Section title={t("json.sectionProfile")} hint={t("json.sectionProfileHint")} flush defaultExpanded>
+        <Section
+          title={t("json.sectionProfile")}
+          hint={t("json.sectionProfileHint")}
+          flush
+          defaultExpanded
+          help="06-json#что-он-решает"
+        >
           <SettingsTable aside={false}>
             <Text
               label={t("common.name")}
@@ -495,7 +501,13 @@ function JsonProfileForm({
           </SettingsTable>
         </Section>
 
-        <Section title={t("json.sectionSchema")} hint={t("json.sectionSchemaHint")} flush defaultExpanded>
+        <Section
+          title={t("json.sectionSchema")}
+          hint={t("json.sectionSchemaHint")}
+          flush
+          defaultExpanded
+          help="06-json#чем-описан-контракт"
+        >
           <SettingsTable aside={false}>
             <Pick
               label={t("json.kind")}
@@ -529,8 +541,14 @@ function JsonProfileForm({
           </SettingsTable>
         </Section>
 
-        <Section title={t("channel.signals")} hint={t("json.priorHint")} flush>
+        <Section
+          title={t("channel.signals")}
+          hint={t("json.priorHint")}
+          flush
+          help="06-json#канал-действий"
+        >
           <SignalsBlock
+            help="06-json#канал-действий"
             embedded
             hint={t("json.priorHint")}
             rules={doc.trigger.prior.map((row) => ({ ...row, accept: [...row.accept] }))}
@@ -560,7 +578,13 @@ function JsonProfileForm({
           />
         </Section>
 
-        <Section title={t("json.sectionRequest")} hint={t("json.sectionRequestHint")} flush defaultExpanded>
+        <Section
+          title={t("json.sectionRequest")}
+          hint={t("json.sectionRequestHint")}
+          flush
+          defaultExpanded
+          help="06-json#политика-исходов"
+        >
           <SettingsTable aside={false}>
             <Flag
               label={t("json.phaseEnabled")}
@@ -623,6 +647,7 @@ function JsonProfileForm({
             }
           />
           <OutcomesBlock
+            help="06-json#канал-действий"
             hint={t("outcomes.hint.request")}
             outcomes={doc.request.outcomes}
             datasets={datasetNames}
@@ -633,7 +658,12 @@ function JsonProfileForm({
           />
         </Section>
 
-        <Section title={t("json.sectionResponse")} hint={t("json.sectionResponseHint")} flush>
+        <Section
+          title={t("json.sectionResponse")}
+          hint={t("json.sectionResponseHint")}
+          flush
+          help="06-json#политика-исходов"
+        >
           <SettingsTable aside={false}>
             <Flag
               label={t("json.phaseEnabled")}
@@ -695,6 +725,7 @@ function JsonProfileForm({
             }
           />
           <OutcomesBlock
+            help="06-json#канал-действий"
             hint={t("outcomes.hint.response")}
             outcomes={doc.response.outcomes}
             datasets={datasetNames}
@@ -705,7 +736,12 @@ function JsonProfileForm({
         </Section>
 
         {bindable && (
-          <Section title={t("json.sectionBindings")} hint={t("json.bindingsHint")} flush>
+          <Section
+            title={t("json.sectionBindings")}
+            hint={t("json.bindingsHint")}
+            flush
+            help="06-json#привязки-какую-схему-к-чему-применять"
+          >
             <BindingsTable
               t={t}
               rows={doc.bindings}
@@ -716,7 +752,12 @@ function JsonProfileForm({
         )}
 
         {bindable && (
-          <Section title={t("json.sectionFrame")} hint={t("json.sectionFrameHint")} flush>
+          <Section
+            title={t("json.sectionFrame")}
+            hint={t("json.sectionFrameHint")}
+            flush
+            help="06-json#кадры-websocket"
+          >
             <SettingsTable aside={false}>
               <Flag
                 label={t("json.frameEnabled")}
@@ -765,6 +806,7 @@ function JsonProfileForm({
                   onChange={(policy) => patchDirection(dir, { policy })}
                 />
                 <OutcomesBlock
+                  help="06-json#канал-действий"
                   hint={t(`json.frameOutcomesHint.${dir}`)}
                   outcomes={doc.frame[dir].outcomes}
                   datasets={datasetNames}
@@ -777,7 +819,12 @@ function JsonProfileForm({
           </Section>
         )}
 
-        <Section title={t("json.sectionLimits")} hint={t("json.sectionLimitsHint")} flush>
+        <Section
+          title={t("json.sectionLimits")}
+          hint={t("json.sectionLimitsHint")}
+          flush
+          help="06-json#пределы-и-аудит"
+        >
           <SettingsTable aside={false}>
             <Bytes
               label={t("json.maxBody")}
@@ -1232,6 +1279,7 @@ function BindingDialog({
       onClose={onClose}
       spacing={0}
       title={t("json.bindingNewDialog")}
+      help="06-json#привязки-какую-схему-к-чему-применять"
       onEnter={submit}
       actions={
         <>
@@ -1331,6 +1379,7 @@ function FrameBindingDialog({
       onClose={onClose}
       spacing={0}
       title={t("json.frameBindingNewDialog")}
+      help="06-json#кадры-websocket"
       onEnter={submit}
       actions={
         <>

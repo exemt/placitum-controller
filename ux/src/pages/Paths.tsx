@@ -66,7 +66,7 @@ import { useCatalogBundle, useInheritance } from "../config/usePreview.ts";
 
 const PANEL_WIDTH = 908;
 const MATCHES = ["prefix", "exact", "regex", "regex_i", "named"] as const;
-const HANDLERS = ["proxy", "static", "return", "named"] as const;
+const HANDLERS = ["proxy", "static", "return"] as const;
 const PROTOCOLS = ["http", "websocket"] as const;
 
 function isRedirect(status: number | undefined): boolean {
@@ -592,6 +592,7 @@ function LocationForm({
   const [returnStatus, setReturnStatus] = useState(asNumText(row?.return_status));
   const [returnPage, setReturnPage] = useState(row?.return_page ?? "");
   const [returnUrl, setReturnUrl] = useState(row?.return_url ?? "");
+  const [staticFile, setStaticFile] = useState(row?.static_file ?? "");
   const [nginx, setNginx] = useState<Doc>(row?.nginx ?? {});
   const [waf, setWaf] = useState<Doc>(row?.waf ?? {});
   const [raw, setRaw] = useState(row?.raw ?? false);
@@ -619,6 +620,7 @@ function LocationForm({
     setReturnStatus(asNumText(row.return_status));
     setReturnPage(row.return_page ?? "");
     setReturnUrl(row.return_url ?? "");
+    setStaticFile(row.static_file ?? "");
     setNginx(row.nginx);
     setWaf(row.waf);
     setRaw(row.raw);
@@ -635,6 +637,12 @@ function LocationForm({
         .sort((a, b) => denyRank(a) - denyRank(b) || a.path.localeCompare(b.path))
         .map((item) => `@${item.path.replace(/^@/, "")}`),
     [rows, serverId, id],
+  );
+
+  // The files of the space, as the server dialog offers them for its own deny pages.
+  const spaceFiles = useMemo(
+    () => (catalog?.response_pages ?? []).map((item) => item.name),
+    [catalog],
   );
 
   const pathOk = path.trim() !== "";
@@ -661,6 +669,7 @@ function LocationForm({
           return_status: status === undefined ? null : status,
           return_page: redirect || returnPage === "" ? null : returnPage,
           return_url: !redirect || returnUrl === "" ? null : returnUrl,
+          static_file: handler === "static" && staticFile !== "" ? staticFile : null,
           nginx: {
             ...nginx,
             addHeaders: sanitizeHeaders(nginx.addHeaders),
@@ -692,6 +701,7 @@ function LocationForm({
       return_status: previewStatus === undefined ? null : previewStatus,
       return_page: previewRedirect || returnPage === "" ? null : returnPage,
       return_url: !previewRedirect || returnUrl === "" ? null : returnUrl,
+      static_file: handler === "static" && staticFile !== "" ? staticFile : null,
       nginx: {
         ...nginx,
         addHeaders: sanitizeHeaders(nginx.addHeaders),
@@ -780,6 +790,7 @@ function LocationForm({
             <Section
               title={t("paths.handlerSection")}
               hint={t("paths.handlerSectionHint")}
+              help="05-protection#маршруты"
               defaultExpanded
             >
               <Choice
@@ -841,6 +852,33 @@ function LocationForm({
                     value={upstreamUri}
                     onChange={setUpstreamUri}
                   />
+                </>
+              )}
+              {handler === "static" && (
+                <>
+                  {spaceFiles.length === 0 && (
+                    <Alert severity="info">
+                      {t("paths.needFile")}{" "}
+                      <Link to="/datasets/files">{t("nav.files")}</Link>
+                    </Alert>
+                  )}
+                  <TextField
+                    select
+                    label={t("paths.staticFile")}
+                    value={staticFile}
+                    helperText={t("paths.staticFileHint")}
+                    onChange={(e) => setStaticFile(e.target.value)}
+                  >
+                    <MenuItem value="">{t("paths.staticFileNone")}</MenuItem>
+                    {spaceFiles.map((name) => (
+                      <MenuItem key={name} value={name}>
+                        {name}
+                      </MenuItem>
+                    ))}
+                    {staticFile !== "" && !spaceFiles.includes(staticFile) && (
+                      <MenuItem value={staticFile}>{staticFile}</MenuItem>
+                    )}
+                  </TextField>
                 </>
               )}
               {handler === "return" && (

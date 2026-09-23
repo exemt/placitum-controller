@@ -100,6 +100,7 @@ export const copyLocationThunk = createAsyncThunk(
         return_status: source.return_status,
         return_page: source.return_page,
         return_url: source.return_url,
+        static_file: source.static_file,
         nginx: source.nginx,
         waf: source.waf,
         raw: source.raw,

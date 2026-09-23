@@ -15,6 +15,7 @@ import type { CookieProfileRepo } from "../cookie-profiles.ts";
 import type { DatasetRepo } from "../datasets.ts";
 import type { AgentSettingsRepo } from "../agent-settings.ts";
 import type { HaproxySettingsRepo } from "../haproxy-settings.ts";
+import type { PortRepo } from "../ports.ts";
 import type { AuthProfileRepo } from "../auth-profiles.ts";
 import type { AuthSourceRepo } from "../auth-sources.ts";
 import type { CaptchaProfileRepo } from "../captcha-profiles.ts";
@@ -63,6 +64,7 @@ export interface PlannerDeps {
   rewrite: RewriteProfileRepo;
   agent: AgentSettingsRepo;
   haproxy: HaproxySettingsRepo;
+  ports: PortRepo;
   settings: InspectorSettingsSource;
 }
 
@@ -162,7 +164,8 @@ export function createPlanners(deps: PlannerDeps): Record<ChannelId, Planner> {
 
     haproxy: timed(async (scope) => {
       const row = await deps.haproxy.get(scope);
-      return ok(hashHaproxyConf(row.settings), row.settings);
+      const ports = await deps.ports.list(scope);
+      return ok(hashHaproxyConf(row.settings, ports), { settings: row.settings, ports });
     }),
 
     rules: timed(async (scope) => {

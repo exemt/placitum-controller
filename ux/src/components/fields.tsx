@@ -46,6 +46,7 @@ import {
   HEAD_H,
 } from "./data-table/index.ts";
 import { describe, type ParentChain } from "../config/inherit.ts";
+import { HelpMark, HelpLink } from "../help/link.tsx";
 import { useT, type Translate } from "../i18n/index.ts";
 import {
   FlushSectionProvider,
@@ -67,23 +68,35 @@ const mutedInputSx = {
   "& .MuiInputBase-input": { color: "text.disabled" },
 } as const;
 
-export function LockedNote({ hint }: { hint?: string }) {
+export function LockedNote({ hint, quiet }: { hint?: string; quiet?: boolean }) {
   const t = useT();
   const word = t("common.locked");
+  const mark = (
+    <Box
+      role="img"
+      aria-label={word}
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        flexShrink: 0,
+        color: "warning.main",
+      }}
+    >
+      <LockOutlinedIcon sx={{ fontSize: 15 }} />
+    </Box>
+  );
+  if (quiet === true) {
+    return mark;
+  }
   return (
-    <Tooltip title={hint !== undefined && hint !== "" ? hint : word} placement="top">
-      <Box
-        role="img"
-        aria-label={word}
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          flexShrink: 0,
-          color: "warning.main",
-        }}
-      >
-        <LockOutlinedIcon sx={{ fontSize: 15 }} />
-      </Box>
+    <Tooltip
+      title={
+        hint !== undefined && hint !== "" ? <HintMarkup text={hint} /> : word
+      }
+      placement="top"
+      leaveDelay={200}
+    >
+      {mark}
     </Tooltip>
   );
 }
@@ -129,7 +142,8 @@ const numberInputSx = {
       margin: 0,
     },
 } as const;
-const HINT_TOKEN = /(\*\*[^*]+\*\*|`[^`]+`)/g;
+const HINT_TOKEN = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^\s)]+\))/g;
+const HINT_LINK = /^\[([^\]]+)\]\(([^\s)]+)\)$/;
 
 function HintInline({ text }: { text: string }) {
   const parts = text.split(HINT_TOKEN);
@@ -156,6 +170,10 @@ function HintInline({ text }: { text: string }) {
           {part.slice(1, -1)}
         </Box>
       );
+    }
+    const link = HINT_LINK.exec(part);
+    if (link !== null) {
+      return <HelpLink key={index} to={link[2]} label={link[1]} />;
     }
     return <span key={index}>{part}</span>;
   });
@@ -324,6 +342,7 @@ export function FieldTooltip({
       title={<HintMarkup text={title} />}
       placement="top-start"
       enterDelay={200}
+      leaveDelay={200}
       open={open === true ? true : undefined}
     >
       <Box component="div" sx={{ width: "100%" }}>
@@ -478,6 +497,7 @@ function optionLabel(t: Translate, value: string): string {
 export function Section({
   title,
   hint,
+  help,
   defaultExpanded,
   nested,
   expanded,
@@ -488,6 +508,7 @@ export function Section({
 }: {
   title: string;
   hint: string;
+  help?: string;
   defaultExpanded?: boolean;
   nested?: boolean;
   expanded?: boolean;
@@ -497,7 +518,15 @@ export function Section({
   children: ReactNode;
 }) {
   const [uncontrolled, setUncontrolled] = useState(defaultExpanded === true);
-  const head = <BlockHead title={title} label={hint} />;
+  const head =
+    help === undefined ? (
+      <BlockHead title={title} label={hint} />
+    ) : (
+      <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", minWidth: 0 }}>
+        <BlockHead title={title} label={hint} />
+        <HelpMark to={help} />
+      </Stack>
+    );
   const open = expanded ?? uncontrolled;
 
   return (
@@ -619,11 +648,13 @@ export function UnderlayTabs<T extends string>({
 export function Group({
   title,
   hint,
+  help,
   layout = "grid",
   children,
 }: {
   title: string;
   hint?: string;
+  help?: string;
   layout?: FieldLayout;
   children: ReactNode;
 }) {
@@ -631,7 +662,7 @@ export function Group({
     return (
       <FieldLayoutContext.Provider value="table">
         <SettingsTable>
-          <SettingsGroup title={title} hint={hint}>
+          <SettingsGroup title={title} hint={hint} help={help}>
             {children}
           </SettingsGroup>
         </SettingsTable>
@@ -642,7 +673,10 @@ export function Group({
     <FieldLayoutContext.Provider value={layout}>
       <FocusScope>
         <Box>
-          <BlockHead title={title} label={hint} nowrap={false} />
+          <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", minWidth: 0 }}>
+            <BlockHead title={title} label={hint} nowrap={false} />
+            {help !== undefined && <HelpMark to={help} />}
+          </Stack>
           <Box
             sx={{
               display: "grid",
@@ -802,7 +836,14 @@ export function Text({
           input: {
             endAdornment: (
               <FieldAdornment
-                extra={readOnly === true ? <LockedNote hint={helper} /> : undefined}
+                extra={
+                  readOnly === true ? (
+                    <LockedNote
+                      hint={helper}
+                      quiet={!locked && helper !== undefined && helper !== ""}
+                    />
+                  ) : undefined
+                }
                 optional={optional}
                 overridden={overridden}
                 onOverridden={(on) =>
@@ -2141,6 +2182,7 @@ export function InlineFlag({
 
   return (
     <Tooltip
+      leaveDelay={200}
       arrow
       title={<HintMarkup text={help} />}
       placement="top-end"

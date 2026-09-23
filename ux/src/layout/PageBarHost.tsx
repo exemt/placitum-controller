@@ -12,10 +12,15 @@ import Typography from "@mui/material/Typography";
 
 import PageBar, { type PageBarStatus } from "../components/PageBar.tsx";
 import { useT } from "../i18n/index.ts";
-import { crumbsForPath } from "./pageCrumbs.ts";
+import { crumbsForPath, helpForPath } from "./pageCrumbs.ts";
 
 export type PageBarActions = {
   onCreate?: () => void;
+  /* "Load": the sets of the license server. Highlighted when newer versions wait. */
+  onLoad?: () => void;
+  loadDisabled?: boolean;
+  loadHighlight?: boolean;
+  loadCount?: number;
   onSetup?: () => void;
   onUpdate?: () => void;
   onSave?: () => void;
@@ -37,6 +42,10 @@ export type PageBarActions = {
 
 type HostState = {
   hasCreate: boolean;
+  hasLoad: boolean;
+  loadDisabled?: boolean;
+  loadHighlight?: boolean;
+  loadCount?: number;
   hasSetup: boolean;
   hasUpdate: boolean;
   hasSave: boolean;
@@ -58,6 +67,7 @@ type HostState = {
 
 const empty: HostState = {
   hasCreate: false,
+  hasLoad: false,
   hasSetup: false,
   hasUpdate: false,
   hasSave: false,
@@ -69,6 +79,7 @@ const empty: HostState = {
 
 const SetCtx = createContext<(state: HostState) => void>(() => {});
 const CreateRefCtx = createContext<{ current?: () => void }>({});
+const LoadRefCtx = createContext<{ current?: () => void }>({});
 const SetupRefCtx = createContext<{ current?: () => void }>({});
 const UpdateRefCtx = createContext<{ current?: () => void }>({});
 const SaveRefCtx = createContext<{ current?: () => void }>({});
@@ -80,6 +91,7 @@ const StateCtx = createContext<HostState>(empty);
 export function PageBarProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<HostState>(empty);
   const onCreateRef = useRef<(() => void) | undefined>(undefined);
+  const onLoadRef = useRef<(() => void) | undefined>(undefined);
   const onSetupRef = useRef<(() => void) | undefined>(undefined);
   const onUpdateRef = useRef<(() => void) | undefined>(undefined);
   const onSaveRef = useRef<(() => void) | undefined>(undefined);
@@ -89,6 +101,7 @@ export function PageBarProvider({ children }: { children: ReactNode }) {
 
   return (
     <SetCtx.Provider value={setState}>
+      <LoadRefCtx.Provider value={onLoadRef}>
       <CreateRefCtx.Provider value={onCreateRef}>
         <SetupRefCtx.Provider value={onSetupRef}>
           <UpdateRefCtx.Provider value={onUpdateRef}>
@@ -104,6 +117,7 @@ export function PageBarProvider({ children }: { children: ReactNode }) {
           </UpdateRefCtx.Provider>
         </SetupRefCtx.Provider>
       </CreateRefCtx.Provider>
+      </LoadRefCtx.Provider>
     </SetCtx.Provider>
   );
 }
@@ -111,6 +125,7 @@ export function PageBarProvider({ children }: { children: ReactNode }) {
 export function usePageBar(actions: PageBarActions = {}): void {
   const setState = useContext(SetCtx);
   const onCreateRef = useContext(CreateRefCtx);
+  const onLoadRef = useContext(LoadRefCtx);
   const onSetupRef = useContext(SetupRefCtx);
   const onUpdateRef = useContext(UpdateRefCtx);
   const onSaveRef = useContext(SaveRefCtx);
@@ -118,6 +133,7 @@ export function usePageBar(actions: PageBarActions = {}): void {
   const onResetRef = useContext(ResetRefCtx);
   const onUploadRef = useContext(UploadRefCtx);
   const hasCreate = actions.onCreate !== undefined;
+  const hasLoad = actions.onLoad !== undefined;
   const hasSetup = actions.onSetup !== undefined;
   const hasUpdate = actions.onUpdate !== undefined;
   const hasSave = actions.onSave !== undefined;
@@ -126,6 +142,7 @@ export function usePageBar(actions: PageBarActions = {}): void {
   const hasUpload = actions.onUpload !== undefined;
 
   onCreateRef.current = actions.onCreate;
+  onLoadRef.current = actions.onLoad;
   onSetupRef.current = actions.onSetup;
   onUpdateRef.current = actions.onUpdate;
   onSaveRef.current = actions.onSave;
@@ -138,6 +155,10 @@ export function usePageBar(actions: PageBarActions = {}): void {
   useLayoutEffect(() => {
     setState({
       hasCreate,
+      hasLoad,
+      loadDisabled: actions.loadDisabled,
+      loadHighlight: actions.loadHighlight,
+      loadCount: actions.loadCount,
       hasSetup,
       hasUpdate,
       hasSave,
@@ -168,6 +189,10 @@ export function usePageBar(actions: PageBarActions = {}): void {
     hasReset,
     hasUpload,
     actions.createDisabled,
+    hasLoad,
+    actions.loadDisabled,
+    actions.loadHighlight,
+    actions.loadCount,
     actions.setupDisabled,
     actions.updateDisabled,
     actions.saveDisabled,
@@ -191,6 +216,7 @@ export function ShellPageBar() {
   const t = useT();
   const state = useContext(StateCtx);
   const onCreateRef = useContext(CreateRefCtx);
+  const onLoadRef = useContext(LoadRefCtx);
   const onSetupRef = useContext(SetupRefCtx);
   const onUpdateRef = useContext(UpdateRefCtx);
   const onSaveRef = useContext(SaveRefCtx);
@@ -204,6 +230,7 @@ export function ShellPageBar() {
   return (
     <PageBar
       crumbs={crumbsForPath(location.pathname, t, extraCrumbs)}
+      help={helpForPath(location.pathname)}
       flush={state.flush === true}
       status={state.status}
       extra={
@@ -223,6 +250,9 @@ export function ShellPageBar() {
         )
       }
       createDisabled={state.createDisabled}
+      loadDisabled={state.loadDisabled}
+      loadHighlight={state.loadHighlight}
+      loadCount={state.loadCount}
       setupDisabled={state.setupDisabled}
       updateDisabled={state.updateDisabled}
       saveDisabled={state.saveDisabled}
@@ -233,6 +263,13 @@ export function ShellPageBar() {
         state.hasCreate
           ? () => {
               onCreateRef.current?.();
+            }
+          : undefined
+      }
+      onLoad={
+        state.hasLoad
+          ? () => {
+              onLoadRef.current?.();
             }
           : undefined
       }

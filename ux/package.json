@@ -16,7 +16,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "i18n": "npx tsx scripts/i18n-check.mjs"
+    "i18n": "npx tsx scripts/i18n-check.mjs",
+    "help": "node scripts/help-check.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

@@ -95,6 +95,7 @@ export function ServerAddCertificateForm({
     <Modal
       id={FORM_SERVER_ADD_CERT}
       title={t("servers.addCertTitle")}
+      help="05-protection#сертификаты-и-закрытые-ключи"
       size="xs"
       actions={
         <>

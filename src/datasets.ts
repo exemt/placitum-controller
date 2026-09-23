@@ -10,6 +10,7 @@ import {
   type DatasetAddress,
   type DatasetContent,
   type DatasetKind,
+  type DatasetSource,
   type DatasetType,
 } from "./model/http-space.ts";
 import { pageVars } from "./page-vars.ts";
@@ -30,6 +31,7 @@ interface DatasetRow {
   hash?: boolean;
   size?: string | number;
   page_body?: Buffer | null;
+  source?: DatasetSource | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -97,6 +99,7 @@ function ofDataset(row: DatasetRow): Dataset {
     ttl: row.ttl ?? undefined,
     hash: row.hash === true,
     size: Number(row.size ?? 0),
+    source: row.source ?? undefined,
     vars:
       row.page_body === undefined || row.page_body === null
         ? undefined
@@ -194,7 +197,7 @@ const META_COLS = `d.id, d.http_space_id, d.name, d.description, d.kind, d.type,
                    coalesce(d.builtin, false) as builtin,
                    coalesce(d.hash, false) as hash,
                    ${SIZE_EXPR} as size, ${PAGE_BODY_EXPR} as page_body,
-                   d.created_at, d.updated_at`;
+                   d.source, d.created_at, d.updated_at`;
 
 const ADDR_COLS = `id, dataset_id, address, ttl_s, expires_at, origin, reason`;
 
@@ -470,7 +473,7 @@ export class DatasetRepo {
        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        returning id, http_space_id, name, description, kind, type,
                  content_type_id, max_entries, active, ttl, in_nginx, hash,
-                 0 as size, created_at, updated_at`,
+                 0 as size, source, created_at, updated_at`,
       [
         input.httpSpaceId,
         input.name,
@@ -487,6 +490,67 @@ export class DatasetRepo {
     );
 
     return ofDataset(rows[0]);
+  }
+
+  /** Marks where a list came from, or forgets it; the row comes back with its size. */
+  async setSource(id: string, source: DatasetSource | null): Promise<Dataset | null> {
+    await this.pool.query(
+      `update datasets set source = $2::jsonb, updated_at = now() where id = $1`,
+      [id, source === null ? null : JSON.stringify(source)],
+    );
+
+    return this.get(id);
+  }
+
+  /*
+   * Replaces every entry of a static list in one transaction: what a set of
+   * the license server holds now. Expiry, origin and reason of the old rows
+   * go with them: a set has none.
+   */
+  async replaceAddresses(
+    datasetId: string,
+    addresses: string[],
+  ): Promise<number | "missing" | "wrong_kind" | "full"> {
+    const current = await this.get(datasetId);
+
+    if (current === null) {
+      return "missing";
+    }
+
+    if (current.kind !== "list") {
+      return "wrong_kind";
+    }
+
+    const unique = [...new Set(addresses)];
+
+    if (unique.length > current.maxEntries) {
+      return "full";
+    }
+
+    const client = await this.pool.connect();
+
+    try {
+      await client.query("begin");
+      await client.query(`delete from dataset_addresses where dataset_id = $1`, [datasetId]);
+
+      if (unique.length > 0) {
+        await client.query(
+          `insert into dataset_addresses (dataset_id, address)
+           select $1, x from unnest($2::text[]) as x`,
+          [datasetId, unique],
+        );
+      }
+
+      await client.query(`update datasets set updated_at = now() where id = $1`, [datasetId]);
+      await client.query("commit");
+    } catch (err) {
+      await client.query("rollback");
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    return unique.length;
   }
 
   async listContentTypes(): Promise<ContentType[]> {

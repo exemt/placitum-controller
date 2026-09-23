@@ -8,6 +8,8 @@ import {
   deleteDataset,
   putContent,
   removeAddress,
+  replaceAddresses,
+  setSource,
   updateDataset,
 } from "../thunks/datasets.ts";
 
@@ -41,6 +43,12 @@ const datasetsSlice = createSlice({
     });
     builder.addCase(putContent.fulfilled, (state, action) => {
       adapter.upsertOne(state, action.payload.dataset);
+    });
+    builder.addCase(replaceAddresses.fulfilled, (state, action) => {
+      adapter.upsertOne(state, action.payload.dataset);
+    });
+    builder.addCase(setSource.fulfilled, (state, action) => {
+      adapter.upsertOne(state, action.payload);
     });
   },
 });

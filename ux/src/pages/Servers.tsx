@@ -330,7 +330,9 @@ function ServerForm({
   const [enabled, setEnabled] = useState(row?.enabled ?? true);
   const [upstreamId, setUpstreamId] = useState(row?.upstream_id ?? "");
   const [nginx, setNginx] = useState<Doc>(row?.nginx ?? {});
-  const [waf, setWaf] = useState<Doc>(row?.waf ?? {});
+  // A new server comes with protection on: it has no inspectors yet, and until the first one
+  // is called the key costs nothing -- with no waves the module lets the request through.
+  const [waf, setWaf] = useState<Doc>(row?.waf ?? { enabled: true });
   const [raw, setRaw] = useState(row?.raw ?? false);
   const [rawNginx, setRawNginx] = useState(row?.raw_nginx ?? "");
   const [draftBinds, setDraftBinds] = useState<DraftBind[] | null>(null);
@@ -539,6 +541,7 @@ function ServerForm({
               <Section
                 title={t("servers.listens")}
                 hint={t("servers.listensHint")}
+                help="05-protection#виртуальные-серверы"
                 flush
                 defaultExpanded
               >
@@ -549,7 +552,12 @@ function ServerForm({
                   onDraft={editBinds}
                 />
               </Section>
-              <Section title={t("servers.certs")} hint={t("servers.certsHint")} flush>
+              <Section
+                title={t("servers.certs")}
+                hint={t("servers.certsHint")}
+                flush
+                help="05-protection#сертификаты-и-закрытые-ключи"
+              >
                 <CertBinds
                   scope={scope}
                   serverId={id}

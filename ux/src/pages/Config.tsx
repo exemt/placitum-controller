@@ -45,6 +45,12 @@ const WAF_TABS = ["inspectors", ...HTTP_CATALOG_IDS] as const;
 type WafTab = (typeof WAF_TABS)[number];
 
 const NGINX_TAB_KEY = "waf.config.nginxTab";
+const CATALOG_HELP: Record<string, string> = {
+  lists: "07-data#списки-в-модуле",
+  deny: "05-protection#страницы-блокировки",
+  advanced: "05-config#http-инспекторы-и-справочники",
+};
+
 const WAF_TAB_KEY = "waf.config.wafTab";
 
 function ownVarNames(wafHttp: Doc): string[] {
@@ -87,14 +93,18 @@ export default function Config() {
   const setNginx = (next: Doc) => setDraft({ ...draft, nginx: next });
   const setWaf = (next: Doc) => setDraft({ ...draft, waf: next });
 
-  const nginxTabs = nginxItems(t, "http");
+  const nginxTabs = nginxItems(t, "http").map((item) => ({
+    ...item,
+    help: "05-config#http-настройки-nginx",
+  }));
   const wafItems: LayerItem<WafTab>[] = [
     {
       id: "inspectors",
       label: t("config.section.inspectors"),
       hint: t("config.section.inspectorsHint"),
+      help: "06-inspectors#каталог-объявление-вызов",
     },
-    ...httpCatalogItems(t),
+    ...httpCatalogItems(t).map((item) => ({ ...item, help: CATALOG_HELP[item.id] })),
   ];
   const itemOf = <T extends string>(items: LayerItem<T>[], id: T) =>
     items.find((item) => item.id === id);
@@ -198,6 +208,7 @@ export default function Config() {
         <LayerCard
           flush
           title={nginxItem?.label ?? ""}
+          help={nginxItem?.help}
           hint={nginxItem?.hint}
         >
           <NginxSectionBody
@@ -209,7 +220,7 @@ export default function Config() {
           />
         </LayerCard>
       ) : (
-        <LayerCard title={wafItem?.label ?? ""} hint={wafItem?.hint}>
+        <LayerCard title={wafItem?.label ?? ""} hint={wafItem?.hint} help={wafItem?.help}>
           {wafTab === "inspectors" ? (
             <InspectorRegistry
               scope={scope}

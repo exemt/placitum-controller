@@ -19,6 +19,7 @@ import {
   proxyVersionFor,
   putProxyHeader,
   type StoreRefs,
+  WafCompileError,
 } from "./nginx-emit.ts";
 
 export interface LocationUpstream extends UpstreamWire {
@@ -35,6 +36,7 @@ export interface LocationCompileSource {
   indent?: number;
   store?: StoreRefs;
   graph?: Record<string, InspectorDecl>;
+  contentObjects?: { name: string; file: string }[];
 }
 
 export function compileLocation(source: LocationCompileSource): NginxCompileResult {
@@ -67,7 +69,7 @@ export function compileLocation(source: LocationCompileSource): NginxCompileResu
   } else {
     emitNginxLocation(lines, nginxFor(loc), loc.handler, indent + 1, pool);
     emitWafRoute(lines, wafFor(loc), inspectors, indent + 1, source.graph, "location");
-    emitLocationHandler(lines, loc, poolId, pool, indent + 1);
+    emitLocationHandler(lines, loc, poolId, pool, indent + 1, source.contentObjects);
   }
 
   lines.push(`${pad}}`);
@@ -222,6 +224,7 @@ function emitLocationHandler(
   poolId: string | undefined,
   pool: LocationUpstream | undefined,
   indent: number,
+  contentObjects?: { name: string; file: string }[],
 ): void {
   const p = "    ".repeat(indent);
   switch (loc.handler) {
@@ -245,6 +248,45 @@ function emitLocationHandler(
       }
       break;
     case "static":
+      emitStaticFile(lines, loc, contentObjects, p);
       break;
   }
+}
+
+// A file of the space as the answer of the path. The files of the space travel to the node with
+// its pages, so the location roots there and try_files names the one file: the panel sends the
+// dataset name, the pages directory holds it under its file name with the extension of its type.
+// root, alias, index and try_files of the path's own nginx settings would fight these two lines,
+// so they are refused rather than silently overridden.
+function emitStaticFile(
+  lines: string[],
+  loc: Location,
+  contentObjects: { name: string; file: string }[] | undefined,
+  p: string,
+): void {
+  const name = loc.staticFile;
+  if (name === undefined || name === "") return;
+  const where = `path "${loc.path}"`;
+  const own = loc.nginx ?? {};
+  if (own.root || own.alias || (own.index ?? []).length > 0 || (own.tryFiles ?? []).length > 0) {
+    throw new WafCompileError(
+      "static_file_own_root",
+      `${where}: a file of the space and root, alias, index or try_files of the path together: drop one of them`,
+    );
+  }
+  const file = (contentObjects ?? []).find((obj) => obj.name === name)?.file;
+  if (file === undefined) {
+    throw new WafCompileError(
+      "static_file_unknown",
+      `${where}: file "${name}" is not in the files of the space`,
+    );
+  }
+  if (/[\s"'\;{}$#]/.test(file)) {
+    throw new WafCompileError(
+      "static_file_name",
+      `${where}: file name "${file}" has characters nginx cannot take in try_files`,
+    );
+  }
+  lines.push(`${p}root pages:;`);
+  lines.push(`${p}try_files /${file} =404;`);
 }

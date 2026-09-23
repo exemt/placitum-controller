@@ -179,6 +179,7 @@ function FormClose({
 export type FormTitleProps = {
   title: ReactNode;
   label?: ReactNode;
+  help?: ReactNode;
   id?: string;
   onClose?: () => void;
   closeDisabled?: boolean;
@@ -190,6 +191,7 @@ export type FormTitleProps = {
 function FormTitle({
   title,
   label,
+  help,
   id,
   onClose,
   closeDisabled,
@@ -223,6 +225,7 @@ function FormTitle({
         ) : (
           label
         ))}
+      {help}
       <Box sx={{ flex: 1, minWidth: 8 }} />
       <Box
         id={formHeadPortalId(formId)}

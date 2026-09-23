@@ -78,6 +78,18 @@ type GeneralView = "waf" | "nginx" | "preview";
 const NGINX_TABS = ["mainModule", "mainEvents", "mainIncludes"] as const;
 const WAF_TABS = ["shm", "limits", "bus", "vars"] as const;
 
+const GENERAL_HELP = "05-config#общая-скелет-файла-память-и-шина";
+
+const HELP: Record<string, string> = {
+  mainModule: GENERAL_HELP,
+  mainEvents: GENERAL_HELP,
+  mainIncludes: GENERAL_HELP,
+  shm: "05-protection#локальный-слой-списки-и-лимиты",
+  limits: GENERAL_HELP,
+  bus: GENERAL_HELP,
+  vars: "12-reference#переменные",
+};
+
 type NginxTab = (typeof NGINX_TABS)[number];
 type WafTab = (typeof WAF_TABS)[number];
 
@@ -153,11 +165,13 @@ export default function ConfigGeneral() {
     id,
     label: group(id),
     hint: groupHint(id),
+    help: HELP[id],
   }));
   const wafItems: LayerItem<WafTab>[] = WAF_TABS.map((id) => ({
     id,
     label: group(id),
     hint: groupHint(id),
+    help: HELP[id],
   }));
   const tab: NginxTab | WafTab = view === "nginx" ? nginxTab : wafTab;
   const item = [...nginxItems, ...wafItems].find((row) => row.id === tab);
@@ -554,7 +568,7 @@ export default function ConfigGeneral() {
           enabled
         />
       ) : (
-        <LayerCard flush title={item?.label ?? ""} hint={item?.hint}>
+        <LayerCard flush title={item?.label ?? ""} hint={item?.hint} help={item?.help}>
           {tab === "vars" ? (
             <VarsCatalog
               rows={vars}

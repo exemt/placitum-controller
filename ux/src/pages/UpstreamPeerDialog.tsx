@@ -142,6 +142,7 @@ export function PeerDialog({
       spacing={0}
       dirty={dirty}
       title={peer === null ? t("upstreams.addPeer") : t("upstreams.editPeer")}
+      help="05-protection#защищаемые-серверы"
       onEnter={apply}
       actions={
         <>

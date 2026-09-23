@@ -377,6 +377,7 @@ function UpstreamForm({
           <Section
             title={t("upstreams.peers")}
             hint={t("upstreams.peersHint")}
+            help="05-protection#защищаемые-серверы"
             flush
             defaultExpanded
           >
@@ -385,6 +386,7 @@ function UpstreamForm({
           <Section
             title={t("upstreams.sectionWire")}
             hint={t("upstreams.sectionWireHint")}
+            help="05-protection#защищаемые-серверы"
             flush
             defaultExpanded
           >
@@ -420,6 +422,7 @@ function UpstreamForm({
           <Section
             title={t("upstreams.sectionBalance")}
             hint={t("upstreams.sectionBalanceHint")}
+            help="05-protection#защищаемые-серверы"
             flush
             defaultExpanded
           >
@@ -446,6 +449,7 @@ function UpstreamForm({
           <Section
             title={t("upstreams.sectionKeepalive")}
             hint={t("upstreams.sectionKeepaliveHint")}
+            help="05-protection#защищаемые-серверы"
             flush
           >
             <SettingsTable>

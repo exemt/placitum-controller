@@ -35,6 +35,7 @@ export function jsonLocation(row: LocationView) {
     return_status: row.returnStatus ?? null,
     return_page: row.returnPage ?? null,
     return_url: row.returnUrl ?? null,
+    static_file: row.staticFile ?? null,
     nginx: row.nginx,
     waf: row.waf,
     raw: row.raw,

@@ -125,6 +125,7 @@ export function PagePreviewDialog({
     <Modal
       onClose={onClose}
       title={t("datasets.previewTitle")}
+      help="05-protection#страницы-блокировки"
       label={name}
       hint={t("datasets.previewHint")}
       size="md"

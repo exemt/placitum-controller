@@ -438,6 +438,7 @@ function ActionProfileForm({
         <Section
           title={t("actionProfiles.sectionProfile")}
           hint={t("actionProfiles.sectionProfileHint")}
+          help="06-action#что-он-решает"
           flush
           defaultExpanded
         >
@@ -460,6 +461,7 @@ function ActionProfileForm({
         <Section
           title={t("actionProfiles.sectionConditions")}
           hint={t("actionProfiles.conditionsHint")}
+          help="06-action#условия"
           flush
           defaultExpanded
         >
@@ -480,6 +482,7 @@ function ActionProfileForm({
         <Section
           title={t("actionProfiles.sectionRules")}
           hint={t("actionProfiles.rulesHint")}
+          help="06-action#правила"
           flush
           defaultExpanded
         >
@@ -941,6 +944,7 @@ function AskDialog({
       title={
         ask === null ? t("actionProfiles.addRule") : t("actionProfiles.editRule")
       }
+      help="06-action#правила"
       actions={
         <>
           <Modal.Cancel />

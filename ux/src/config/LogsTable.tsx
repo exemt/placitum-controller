@@ -403,6 +403,7 @@ function AddDialog({
     <Modal
       onClose={onClose}
       title={t("logs.addTitle")}
+      help="09-logs#куда-пишет-nginx"
       hint={t("logs.addHint")}
       actions={
         <>

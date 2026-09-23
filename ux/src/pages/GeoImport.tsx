@@ -233,6 +233,7 @@ function GeoImportDialog({
     <Modal
       onClose={onClose}
       title={t("geoImport.title")}
+      help="06-ip#сырьё-списки-страны-автономные-системы"
       label={kind === "asn" ? t("geoImport.kindAsn") : t("geoImport.kindCountry")}
       hint={kind === "asn" ? t("geoImport.hintAsn") : t("geoImport.hintCountry")}
       busy={busy}

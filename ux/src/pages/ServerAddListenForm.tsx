@@ -72,6 +72,7 @@ export function ServerAddListenForm({
     <Modal
       id={FORM_SERVER_ADD_LISTEN}
       title={t("servers.addListenTitle")}
+      help="05-protection#адреса-для-прослушивания"
       size="xs"
       actions={
         <>
