@@ -3072,6 +3072,9 @@ export const en: DeepString<typeof ru> = {
       s3: "Storage",
       s3Hint:
         "Three buckets -- different sensitivity, different retention. A node rejects an endpoint with no bucket named.",
+      serverOff: "Virtual server «{name}»: {names} — switched off",
+      cert: "Certificate «{name}» — onto server «{server}»",
+      serverRedirect: "Virtual server «{name}» for the redirect",
       pool: "Pool",
       poolHint: "An empty field is the agent default.",
       batch: "Baskets",
@@ -3891,6 +3894,13 @@ export const en: DeepString<typeof ru> = {
     serverNameHint: "The label in the server list. The wizard takes it from the first hostname.",
     namesEmpty: "Add at least one hostname — nginx picks the server by it.",
     nameTaken: "Server «{name}» already exists — the new one will be «{next}».",
+    certificate: "Server certificate",
+    certHint: "From the certificate catalog. Without one a TLS server never reaches the configuration.",
+    certNone: "— none —",
+    certEmpty:
+      "No server certificates in the catalog. Upload one on the «Certificates» page — or the wizard creates the server switched off.",
+    certWarn:
+      "No certificate, so the wizard creates the servers switched off: an enabled TLS server without a certificate breaks the whole space (ssl_no_certificate). Bind a certificate and switch the server on.",
     upstreamAsk: "Where do the requests go?",
     peers: "Application nodes",
     peersHint: "Host and port. With several nodes nginx balances between them.",

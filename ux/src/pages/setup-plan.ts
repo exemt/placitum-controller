@@ -1,10 +1,12 @@
 import {
+  bindServerCertificate,
   bindServerPort,
   createPort,
   createServer,
   createUpstream,
   fetchLocations,
   updateLocation,
+  type Certificate,
   type ListenPort,
   type LocationInput,
   type PortInput,
@@ -40,6 +42,7 @@ export type SetupDraft = {
   method: UpstreamMethod;
   poolTls: boolean;
   hostHeader: string;
+  certificateId: string;
   defaultServer: boolean;
 };
 
@@ -47,9 +50,15 @@ export type SetupCatalog = {
   ports: ListenPort[];
   servers: RouteServer[];
   pools: UpstreamPool[];
+  certificates: Certificate[];
 };
 
-export const emptyCatalog: SetupCatalog = { ports: [], servers: [], pools: [] };
+export const emptyCatalog: SetupCatalog = {
+  ports: [],
+  servers: [],
+  pools: [],
+  certificates: [],
+};
 
 export function emptyDraft(): SetupDraft {
   return {
@@ -68,6 +77,7 @@ export function emptyDraft(): SetupDraft {
     method: "round_robin",
     poolTls: false,
     hostHeader: "",
+    certificateId: "",
     defaultServer: true,
   };
 }
@@ -173,6 +183,7 @@ export type PlanStepKind =
   | "portRedirect"
   | "pool"
   | "server"
+  | "cert"
   | "bind"
   | "root"
   | "serverRedirect"
@@ -192,6 +203,9 @@ export type SetupPlan = {
   pool: { existing: UpstreamPool | null; input: UpstreamInput };
   server: ServerInput;
   redirectServer: ServerInput | null;
+  certificate: Certificate | null;
+  /** TLS без сертификата: серверы заводим выключенными, иначе конфигурация не соберётся. */
+  serverOff: boolean;
   defaultMain: boolean;
   defaultRedirect: boolean;
   steps: PlanStep[];
@@ -267,6 +281,10 @@ export function buildPlan(draft: SetupDraft, cat: SetupCatalog): SetupPlan {
 
   const names = draft.names.map((name) => name.trim()).filter((name) => name !== "");
   const hostHeader = draft.hostHeader.trim();
+  const certificate = draft.ssl
+    ? (cat.certificates.find((row) => row.uuid === draft.certificateId) ?? null)
+    : null;
+  const serverOff = draft.ssl && certificate === null;
 
   const defaultMain =
     draft.defaultServer &&
@@ -327,9 +345,19 @@ export function buildPlan(draft: SetupDraft, cat: SetupCatalog): SetupPlan {
     {
       kind: "server",
       reuse: false,
-      label: "setup.task.server",
+      label: serverOff ? "setup.task.serverOff" : "setup.task.server",
       vars: { name: serverName, names: names.join(" ") },
     },
+    ...(certificate === null
+      ? []
+      : [
+          {
+            kind: "cert" as const,
+            reuse: false,
+            label: "setup.task.cert",
+            vars: { name: certificate.name, server: serverName },
+          },
+        ]),
     {
       kind: "bind",
       reuse: false,
@@ -413,7 +441,7 @@ export function buildPlan(draft: SetupDraft, cat: SetupCatalog): SetupPlan {
     server: {
       name: serverName,
       server_names: names,
-      enabled: true,
+      enabled: !serverOff,
       nginx: {},
       waf: {},
       raw: false,
@@ -423,13 +451,15 @@ export function buildPlan(draft: SetupDraft, cat: SetupCatalog): SetupPlan {
       ? {
           name: redirectServerName,
           server_names: names,
-          enabled: true,
+          enabled: !serverOff,
           nginx: {},
           waf: {},
           raw: false,
           raw_nginx: "",
         }
       : null,
+    certificate,
+    serverOff,
     defaultMain,
     defaultRedirect,
     steps,
@@ -450,6 +480,7 @@ export type RunState = "wait" | "run" | "done" | "fail";
 /** Что уже создано: повтор после ошибки не заводит те же объекты заново. */
 export type PlanProgress = {
   portId?: string;
+  certBound?: boolean;
   redirectPortId?: string;
   poolId?: string;
   serverId?: string;
@@ -559,6 +590,26 @@ export async function runPlan(
         progress.serverId = (await createServer(scope, plan.server)).uuid;
       },
     },
+    ...(plan.certificate === null
+      ? []
+      : [
+          {
+            kind: "cert" as const,
+            run: async () => {
+              if (progress.certBound === true || plan.certificate === null) {
+                return;
+              }
+              if (progress.serverId === undefined) {
+                throw new Error("server_missing");
+              }
+              await bindServerCertificate(scope, progress.serverId, {
+                certificate_id: plan.certificate.uuid,
+                kind: "server",
+              });
+              progress.certBound = true;
+            },
+          },
+        ]),
     {
       kind: "bind",
       run: async () => {

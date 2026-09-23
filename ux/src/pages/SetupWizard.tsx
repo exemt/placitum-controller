@@ -23,10 +23,12 @@ import ErrorOutlineIcon from "@mui/icons-material/ErrorOutlined";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
 
 import {
+  fetchCertificates,
   fetchPorts,
   fetchServers,
   fetchUpstreams,
   UPSTREAM_METHODS,
+  type Certificate,
   type UpstreamMethod,
 } from "../api.ts";
 import { Chips } from "../components/fields.tsx";
@@ -231,11 +233,13 @@ function ServerStep({
   draft,
   patch,
   planned,
+  certificates,
 }: {
   t: Translate;
   draft: SetupDraft;
   patch: (next: Partial<SetupDraft>) => void;
   planned: string;
+  certificates: readonly Certificate[];
 }) {
   const typed = draft.serverName.trim();
   const renamed = typed !== "" && typed !== planned;
@@ -260,6 +264,27 @@ function ServerStep({
         value={draft.serverName}
         onChange={(e) => patch({ serverName: e.target.value })}
       />
+      {draft.ssl && certificates.length > 0 && (
+        <TextField
+          select
+          size="small"
+          label={t("setup.certificate")}
+          helperText={t("setup.certHint")}
+          value={draft.certificateId}
+          onChange={(e) => patch({ certificateId: e.target.value })}
+        >
+          <MenuItem value="">{t("setup.certNone")}</MenuItem>
+          {certificates.map((row) => (
+            <MenuItem key={row.uuid} value={row.uuid}>
+              {row.name}
+              {row.sans.length > 0 ? ` · ${row.sans.join(" ")}` : ""}
+            </MenuItem>
+          ))}
+        </TextField>
+      )}
+      {draft.ssl && certificates.length === 0 && (
+        <Alert severity="warning">{t("setup.certEmpty")}</Alert>
+      )}
       {draft.names.length === 0 && (
         <Alert severity="warning">{t("setup.namesEmpty")}</Alert>
       )}
@@ -424,12 +449,22 @@ export function SetupWizard({
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    Promise.all([fetchPorts(scope), fetchServers(scope), fetchUpstreams(scope)])
-      .then(([ports, servers, pools]) => {
+    Promise.all([
+      fetchPorts(scope),
+      fetchServers(scope),
+      fetchUpstreams(scope),
+      fetchCertificates(scope),
+    ])
+      .then(([ports, servers, pools, certificates]) => {
         if (!alive) {
           return;
         }
-        setCat({ ports, servers, pools });
+        setCat({
+          ports,
+          servers,
+          pools,
+          certificates: certificates.filter((row) => row.type === "server"),
+        });
         setLoading(false);
       })
       .catch((err: unknown) => {
@@ -538,7 +573,13 @@ export function SetupWizard({
             />
           )}
           {step === 1 && (
-            <ServerStep t={t} draft={draft} patch={patch} planned={plan.server.name} />
+            <ServerStep
+              t={t}
+              draft={draft}
+              patch={patch}
+              planned={plan.server.name}
+              certificates={cat.certificates}
+            />
           )}
           {step === 2 && (
             <UpstreamStep
@@ -597,6 +638,9 @@ export function SetupWizard({
                   ))}
                 </Stack>
               </Box>
+              {plan.serverOff && (
+                <Alert severity="warning">{t("setup.certWarn")}</Alert>
+              )}
               {running && (
                 <Typography variant="caption" sx={{ color: "text.secondary" }}>
                   {t("setup.running")}
