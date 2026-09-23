@@ -16,12 +16,14 @@ import { crumbsForPath } from "./pageCrumbs.ts";
 
 export type PageBarActions = {
   onCreate?: () => void;
+  onSetup?: () => void;
   onUpdate?: () => void;
   onSave?: () => void;
   onSend?: () => void;
   onReset?: () => void;
   onUpload?: () => void;
   createDisabled?: boolean;
+  setupDisabled?: boolean;
   updateDisabled?: boolean;
   saveDisabled?: boolean;
   sendDisabled?: boolean;
@@ -35,12 +37,14 @@ export type PageBarActions = {
 
 type HostState = {
   hasCreate: boolean;
+  hasSetup: boolean;
   hasUpdate: boolean;
   hasSave: boolean;
   hasSend: boolean;
   hasReset: boolean;
   hasUpload: boolean;
   createDisabled?: boolean;
+  setupDisabled?: boolean;
   updateDisabled?: boolean;
   saveDisabled?: boolean;
   sendDisabled?: boolean;
@@ -54,6 +58,7 @@ type HostState = {
 
 const empty: HostState = {
   hasCreate: false,
+  hasSetup: false,
   hasUpdate: false,
   hasSave: false,
   hasSend: false,
@@ -64,6 +69,7 @@ const empty: HostState = {
 
 const SetCtx = createContext<(state: HostState) => void>(() => {});
 const CreateRefCtx = createContext<{ current?: () => void }>({});
+const SetupRefCtx = createContext<{ current?: () => void }>({});
 const UpdateRefCtx = createContext<{ current?: () => void }>({});
 const SaveRefCtx = createContext<{ current?: () => void }>({});
 const SendRefCtx = createContext<{ current?: () => void }>({});
@@ -74,6 +80,7 @@ const StateCtx = createContext<HostState>(empty);
 export function PageBarProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<HostState>(empty);
   const onCreateRef = useRef<(() => void) | undefined>(undefined);
+  const onSetupRef = useRef<(() => void) | undefined>(undefined);
   const onUpdateRef = useRef<(() => void) | undefined>(undefined);
   const onSaveRef = useRef<(() => void) | undefined>(undefined);
   const onSendRef = useRef<(() => void) | undefined>(undefined);
@@ -83,17 +90,19 @@ export function PageBarProvider({ children }: { children: ReactNode }) {
   return (
     <SetCtx.Provider value={setState}>
       <CreateRefCtx.Provider value={onCreateRef}>
-        <UpdateRefCtx.Provider value={onUpdateRef}>
-          <SaveRefCtx.Provider value={onSaveRef}>
-            <SendRefCtx.Provider value={onSendRef}>
-              <ResetRefCtx.Provider value={onResetRef}>
-                <UploadRefCtx.Provider value={onUploadRef}>
-                  <StateCtx.Provider value={state}>{children}</StateCtx.Provider>
-                </UploadRefCtx.Provider>
-              </ResetRefCtx.Provider>
-            </SendRefCtx.Provider>
-          </SaveRefCtx.Provider>
-        </UpdateRefCtx.Provider>
+        <SetupRefCtx.Provider value={onSetupRef}>
+          <UpdateRefCtx.Provider value={onUpdateRef}>
+            <SaveRefCtx.Provider value={onSaveRef}>
+              <SendRefCtx.Provider value={onSendRef}>
+                <ResetRefCtx.Provider value={onResetRef}>
+                  <UploadRefCtx.Provider value={onUploadRef}>
+                    <StateCtx.Provider value={state}>{children}</StateCtx.Provider>
+                  </UploadRefCtx.Provider>
+                </ResetRefCtx.Provider>
+              </SendRefCtx.Provider>
+            </SaveRefCtx.Provider>
+          </UpdateRefCtx.Provider>
+        </SetupRefCtx.Provider>
       </CreateRefCtx.Provider>
     </SetCtx.Provider>
   );
@@ -102,12 +111,14 @@ export function PageBarProvider({ children }: { children: ReactNode }) {
 export function usePageBar(actions: PageBarActions = {}): void {
   const setState = useContext(SetCtx);
   const onCreateRef = useContext(CreateRefCtx);
+  const onSetupRef = useContext(SetupRefCtx);
   const onUpdateRef = useContext(UpdateRefCtx);
   const onSaveRef = useContext(SaveRefCtx);
   const onSendRef = useContext(SendRefCtx);
   const onResetRef = useContext(ResetRefCtx);
   const onUploadRef = useContext(UploadRefCtx);
   const hasCreate = actions.onCreate !== undefined;
+  const hasSetup = actions.onSetup !== undefined;
   const hasUpdate = actions.onUpdate !== undefined;
   const hasSave = actions.onSave !== undefined;
   const hasSend = actions.onSend !== undefined;
@@ -115,6 +126,7 @@ export function usePageBar(actions: PageBarActions = {}): void {
   const hasUpload = actions.onUpload !== undefined;
 
   onCreateRef.current = actions.onCreate;
+  onSetupRef.current = actions.onSetup;
   onUpdateRef.current = actions.onUpdate;
   onSaveRef.current = actions.onSave;
   onSendRef.current = actions.onSend;
@@ -126,12 +138,14 @@ export function usePageBar(actions: PageBarActions = {}): void {
   useLayoutEffect(() => {
     setState({
       hasCreate,
+      hasSetup,
       hasUpdate,
       hasSave,
       hasSend,
       hasReset,
       hasUpload,
       createDisabled: actions.createDisabled,
+      setupDisabled: actions.setupDisabled,
       updateDisabled: actions.updateDisabled,
       saveDisabled: actions.saveDisabled,
       sendDisabled: actions.sendDisabled,
@@ -147,12 +161,14 @@ export function usePageBar(actions: PageBarActions = {}): void {
   }, [
     setState,
     hasCreate,
+    hasSetup,
     hasUpdate,
     hasSave,
     hasSend,
     hasReset,
     hasUpload,
     actions.createDisabled,
+    actions.setupDisabled,
     actions.updateDisabled,
     actions.saveDisabled,
     actions.sendDisabled,
@@ -175,6 +191,7 @@ export function ShellPageBar() {
   const t = useT();
   const state = useContext(StateCtx);
   const onCreateRef = useContext(CreateRefCtx);
+  const onSetupRef = useContext(SetupRefCtx);
   const onUpdateRef = useContext(UpdateRefCtx);
   const onSaveRef = useContext(SaveRefCtx);
   const onSendRef = useContext(SendRefCtx);
@@ -206,6 +223,7 @@ export function ShellPageBar() {
         )
       }
       createDisabled={state.createDisabled}
+      setupDisabled={state.setupDisabled}
       updateDisabled={state.updateDisabled}
       saveDisabled={state.saveDisabled}
       sendDisabled={state.sendDisabled}
@@ -215,6 +233,13 @@ export function ShellPageBar() {
         state.hasCreate
           ? () => {
               onCreateRef.current?.();
+            }
+          : undefined
+      }
+      onSetup={
+        state.hasSetup
+          ? () => {
+              onSetupRef.current?.();
             }
           : undefined
       }

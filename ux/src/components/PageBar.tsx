@@ -127,12 +127,14 @@ export default function PageBar({
   flush = false,
   status,
   onCreate,
+  onSetup,
   onUpdate,
   onSave,
   onSend,
   onReset,
   onUpload,
   createDisabled,
+  setupDisabled,
   updateDisabled,
   saveDisabled,
   sendDisabled,
@@ -144,12 +146,14 @@ export default function PageBar({
   flush?: boolean;
   status?: PageBarStatus[];
   onCreate?: () => void;
+  onSetup?: () => void;
   onUpdate?: () => void;
   onSave?: () => void;
   onSend?: () => void;
   onReset?: () => void;
   onUpload?: () => void;
   createDisabled?: boolean;
+  setupDisabled?: boolean;
   updateDisabled?: boolean;
   saveDisabled?: boolean;
   sendDisabled?: boolean;
@@ -266,6 +270,17 @@ export default function PageBar({
           sx={pageBarBtnSx}
         >
           {t("common.send")}
+        </Button>
+      )}
+      {onSetup !== undefined && (
+        <Button
+          size="small"
+          variant="outlined"
+          disabled={setupDisabled}
+          onClick={onSetup}
+          sx={pageBarBtnSx}
+        >
+          {t("setup.open")}
         </Button>
       )}
       {onCreate !== undefined && (

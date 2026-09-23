@@ -67,6 +67,7 @@ import {
   formatCertDate,
   shortFingerprint,
 } from "./ServerAddCertificateForm.tsx";
+import { SetupWizard } from "./SetupWizard.tsx";
 import {
   FORM_SERVER_ADD_LISTEN,
   ServerAddListenForm,
@@ -159,16 +160,19 @@ export default function Servers() {
   });
   const traffic = useServerTraffic();
   const live = useTrafficLive();
+  const [wizard, setWizard] = useState(false);
 
   usePageBar({
     flush: scope !== null,
     onCreate: () => {
       dispatch(openPanel(null));
     },
+    onSetup: () => setWizard(true),
     onUpdate: () => {
       void dispatch(loadServers(scope));
     },
     createDisabled: scope === null,
+    setupDisabled: scope === null,
     updateDisabled: scope === null,
   });
 
@@ -269,6 +273,15 @@ export default function Servers() {
         <DataTable.Pager pager={pager} />
       </DataTable>
       {ops.modals}
+      {wizard && (
+        <SetupWizard
+          scope={scope}
+          onClose={() => setWizard(false)}
+          onCreated={() => {
+            void dispatch(loadServers(scope));
+          }}
+        />
+      )}
       <Drawer
         anchor="right"
         open={panelId !== undefined}
