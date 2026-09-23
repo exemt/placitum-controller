@@ -38,6 +38,7 @@ export function previewBlock(source: NginxExport, node: PreviewNode | undefined)
       locations: srv.locations,
       inspectors: source.inspectors,
       upstreams: source.upstreams,
+      denyResponses: source.denyResponses,
       indent: 0,
       graph,
       nested: "include",

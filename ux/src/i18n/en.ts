@@ -3328,6 +3328,9 @@ export const en: DeepString<typeof ru> = {
       files: "Files and output",
       filesHint:
         "Root, index, and what the block serves itself: alias, try_files, path role.",
+      denyPages: "Deny pages",
+      denyPagesHint:
+        "The blocked client gets the record’s page from Data → Files, not a bare nginx code.",
       access: "Access",
       accessHint: "nginx allow/deny — a coarse address filter before any inspection.",
       proxy: "Proxy",
@@ -3402,6 +3405,9 @@ export const en: DeepString<typeof ru> = {
       cookieHint: "Attributes are forced on top of whatever the inspector sent.",
       tcp: "TCP",
       keepalive: "Keep-alive",
+      denyPageFiles: "This server’s own pages",
+      denyPageFilesHint:
+        "A file from Data → Files per record; empty is standard.",
       lingering: "Connection close",
       lingeringHint: "Slowloris and half-closed clients are an edge concern, not a cache one.",
       clientBody: "Body and buffers",
@@ -3634,6 +3640,8 @@ export const en: DeepString<typeof ru> = {
       root: "root",
       charset: "charset",
       httpsRedirect: "https_redirect",
+      denyPages: "deny_pages",
+      denyPageStandard: "standard",
       sslVerifyClient: "ssl_verify_client",
       sslVerifyDepth: "ssl_verify_depth",
       alias: "alias",
@@ -3759,7 +3767,8 @@ export const en: DeepString<typeof ru> = {
         " wins. No `=` is a nginx -t error. `/` caps one pair (body has none)." +
         " A named preview is a demand to extract the object, which is why every" +
         " object defaults to `off`.",
-      scoreDeny: "Score threshold that closes the phase with a deny. 0 is off.",
+      scoreDeny:
+        "Score threshold that closes the phase with a deny. 0 is off. nginx serves the record’s page to the client: Advanced settings → nginx → Deny pages.",
       scoreDenyResponse: "Deny response name when the threshold fires. Must exist in the catalog.",
       responseScoreDeny:
         "Score threshold for the response phase. Empty means the request threshold.",
@@ -3836,6 +3845,10 @@ export const en: DeepString<typeof ru> = {
       root: "File root for this server. Locations may replace it with alias.",
       charset: "Response charset. Empty inherits from http {}.",
       httpsRedirect: "HTTPS redirect only — not a full WAF server on :80.",
+      denyPages:
+        "error_page for the codes of the “Deny responses” catalog (4xx and 503) leads into the internal path /waf/deny/: nginx serves the page of the record from Data → Files, or the shipped page of the code without one (blocked, malformed, too_many, auth_required, error). Off — the blocked client gets the bare code with the default nginx page, no Event ID. 502 and 504 are not intercepted: nginx answers them itself when the application does not respond.",
+      denyPageFile:
+        "A record of the Deny responses catalog with its code. The file is html or json from Data → Files, shared by the space; each server picks its own. Empty — the page named after the record, or the shipped page of the code. Copy a shipped page in Files and edit the text.",
       sslVerifyClient: "mTLS: on, off, or optional. The CA certificate lives on the server.",
       sslVerifyDepth:
         "Chain length from the client certificate to the root. nginx defaults to 1, which only covers clients signed by the root itself; an intermediate CA needs 2.",

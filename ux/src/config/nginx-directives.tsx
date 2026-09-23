@@ -7,11 +7,13 @@ import {
   Duration,
   InheritModeProvider,
   Num,
+  Optional,
   Text,
   Tri,
 } from "../components/fields.tsx";
 import {
   SettingsGroup,
+  SettingsRow,
   SettingsTable,
   UnitLabel,
 } from "../components/settings-table.tsx";
@@ -32,7 +34,9 @@ import {
   SIZE_HINTS,
   type Doc,
 } from "../pages/config-fields.tsx";
+import { useCatalog } from "./editors.tsx";
 import { asPairs, EditorRow, PairRows } from "./http-draft.tsx";
+import { Picker } from "./Picker.tsx";
 import { PairsTable } from "./PairsTable.tsx";
 import type { ParentChain } from "./inherit.ts";
 import type { LayerItem } from "./layer-tabs.tsx";
@@ -210,6 +214,11 @@ export const NGINX_SECTIONS: readonly NginxSection[] = [
       ],
     },
     Fields: FilesFields,
+  },
+  {
+    id: "denyPages",
+    keys: { server: ["denyPages"] },
+    Fields: DenyPagesFields,
   },
   {
     id: "access",
@@ -829,6 +838,71 @@ function FilesFields({ t, level, value, onChange }: SectionProps) {
           options={ROLES}
           onChange={(v) => set("role", v)}
         />
+      )}
+    </>
+  );
+}
+
+// The codes the deny pages of a server intercept, as in denyPageCodes of the compiler.
+function denyPageStatus(status: number | undefined): boolean {
+  const code = status ?? 403;
+  return (code >= 400 && code < 500) || code === 503;
+}
+
+function DenyPagesFields({ t, value, onChange }: SectionProps) {
+  const set = (key: string, next: unknown) => onChange(setKey(value, key, next));
+  const catalog = useCatalog();
+  const files = asRecord(value.denyPageFiles);
+  const records = (catalog?.deny_responses ?? [])
+    .filter((row) => row.type === "http" && denyPageStatus(row.status))
+    .sort((a, b) => (a.status ?? 403) - (b.status ?? 403) || a.name.localeCompare(b.name));
+  const pages = (catalog?.response_pages ?? []).map((row) => ({ value: row.name }));
+  const setFile = (name: string, file: string) => {
+    const next = { ...files };
+    if (file === "") {
+      delete next[name];
+    } else {
+      next[name] = file;
+    }
+    set("denyPageFiles", Object.keys(next).length === 0 ? undefined : next);
+  };
+  return (
+    <>
+      <Tri
+        name="denyPages"
+        fallback="on"
+        t={t}
+        label={field(t, "denyPages")}
+        helper={help(t, "denyPages")}
+        value={asOptBool(value.denyPages)}
+        onChange={(v) => set("denyPages", v)}
+      />
+      {records.length > 0 && (
+        <SettingsGroup title={group(t, "denyPageFiles")} hint={groupHint(t, "denyPageFiles")}>
+          {records.map((row) => (
+            <SettingsRow
+              key={row.name}
+              label={`${row.name} · ${row.status ?? 403}`}
+              help={help(t, "denyPageFile")}
+              check={
+                pages.length > 0 ? (
+                  <Optional
+                    overridden={asString(files[row.name]) !== ""}
+                    onOverridden={(on) => setFile(row.name, on ? pages[0]!.value : "")}
+                  />
+                ) : undefined
+              }
+            >
+              <Picker
+                plain
+                value={asString(files[row.name])}
+                onChange={(next) => setFile(row.name, next)}
+                options={pages}
+                placeholder={field(t, "denyPageStandard")}
+              />
+            </SettingsRow>
+          ))}
+        </SettingsGroup>
       )}
     </>
   );

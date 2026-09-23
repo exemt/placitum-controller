@@ -1,4 +1,4 @@
-import type { Inspector } from "../model/http-space.ts";
+import type { DenyResponse, Inspector } from "../model/http-space.ts";
 import type { InspectorDecl } from "../model/waf-route.ts";
 import type { Certificate, Port, ServerCertificate, ServerPort } from "../model/listen.ts";
 import type { Location } from "../model/location.ts";
@@ -17,6 +17,7 @@ import {
   type NestedBlocks,
   type NginxCompileResult,
   type StoreRefs,
+  WafCompileError,
 } from "./nginx-emit.ts";
 import { compileLocation, locationHeader, type LocationUpstream } from "./nginx-location.ts";
 
@@ -27,6 +28,7 @@ export interface ServerCompileSource {
   locations?: Location[];
   inspectors?: Inspector[];
   upstreams?: LocationUpstream[];
+  denyResponses?: DenyResponse[];
   indent?: number;
   store?: StoreRefs;
   graph?: Record<string, InspectorDecl>;
@@ -69,7 +71,13 @@ export function compileServer(source: ServerCompileSource): NginxCompileResult {
     lines.push(indentBlock(s.rawNginx, inner));
     store.scan(s.rawNginx);
   } else {
+    const denyCodes =
+      s.nginx?.denyPages === false ? [] : denyPageCodes(source.denyResponses ?? []);
+    if (denyCodes.length > 0) {
+      checkDenyPagesPath(source.locations ?? []);
+    }
     emitNginxServer(lines, s.nginx, inner);
+    emitDenyPageErrors(lines, denyCodes, inner);
     emitWafRoute(lines, s.waf, inspectors, inner, source.graph, "server");
 
     let stubs = 0;
@@ -94,10 +102,85 @@ export function compileServer(source: ServerCompileSource): NginxCompileResult {
       lines.push("");
       appendBlock(lines, compiled.text);
     }
+
+    if (denyCodes.length > 0) {
+      lines.push("");
+      const own = Object.keys(denyPageFilesOf(s)).length > 0 ? denyPagesVar(s.id) : undefined;
+      emitDenyPagesLocation(lines, inner, own);
+    }
   }
 
   lines.push(`${pad}}`);
   return { text: alignColumns(lines).join("\n") + "\n", storeRefs };
+}
+
+// Deny pages of the server: the codes of the catalog's http records go through error_page into the
+// internal path /waf/deny/, where nginx serves the page of the record from the pages directory of
+// the node, or the shipped page of the code when the record has none ($waf_deny_fallback comes with
+// the catalog in http {}). On unless the server says otherwise; nothing without a catalog. The URI
+// form rather than a named location: on the way nginx turns the method into GET, while in a named
+// location a static file answers POST with 405.
+export const DENY_PAGES_PATH = "/waf/deny/";
+
+export function denyPageCodes(responses: readonly DenyResponse[]): number[] {
+  const codes = new Set<number>();
+  for (const dr of responses) {
+    if (dr.type !== "http") continue;
+    const status = dr.spec.status ?? 403;
+    // 5xx besides 503 nginx answers itself when the application is down: a deny page there would lie.
+    if ((status >= 400 && status < 500) || status === 503) codes.add(status);
+  }
+  return [...codes].sort((a, b) => a - b);
+}
+
+function checkDenyPagesPath(locations: readonly Location[]): void {
+  const taken = locations.find(
+    (loc) => loc.enabled && loc.match !== "named" && loc.path === DENY_PAGES_PATH,
+  );
+  if (taken !== undefined) {
+    throw new WafCompileError(
+      "deny_pages_path_taken",
+      `location ${DENY_PAGES_PATH} belongs to the deny pages of the server: move the path or turn deny_pages off`,
+    );
+  }
+}
+
+function emitDenyPageErrors(lines: string[], codes: readonly number[], indent: number): void {
+  const p = "    ".repeat(indent);
+  for (const code of codes) {
+    lines.push(`${p}error_page ${code} =${code} ${DENY_PAGES_PATH};`);
+  }
+}
+
+// Own pages of a server: catalog record -> content dataset of the space. The map by $waf_deny_name
+// is printed in http {} under a name of the server's own, and the location looks there first.
+export function denyPageFilesOf(server: Pick<Server, "nginx">): Record<string, string> {
+  if (server.nginx?.denyPages === false) return {};
+  const files: Record<string, string> = {};
+  for (const [name, file] of Object.entries(server.nginx?.denyPageFiles ?? {})) {
+    if (typeof file === "string" && file !== "") files[name] = file;
+  }
+  return files;
+}
+
+export function denyPagesVar(serverId: string): string {
+  return `$waf_deny_page_${serverId.replace(/-/g, "").slice(0, 12)}`;
+}
+
+function emitDenyPagesLocation(lines: string[], indent: number, own?: string): void {
+  const p = "    ".repeat(indent);
+  const q = "    ".repeat(indent + 1);
+  const first = own === undefined ? "" : `/${own}.html /${own}.json `;
+  lines.push(
+    `${p}location = ${DENY_PAGES_PATH} {`,
+    `${q}internal;`,
+    `${q}waf off;`,
+    `${q}ssi on;`,
+    `${q}ssi_types *;`,
+    `${q}root pages:;`,
+    `${q}try_files ${first}/$waf_deny_name.html /$waf_deny_name.json /$waf_deny_fallback.html =404;`,
+    `${p}}`,
+  );
 }
 
 function emitServerCertificate(

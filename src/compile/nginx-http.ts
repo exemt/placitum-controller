@@ -36,7 +36,7 @@ import {
   type NginxCompileResult,
   type StoreRefs,
 } from "./nginx-emit.ts";
-import { compileServer } from "./nginx-server.ts";
+import { compileServer, denyPageFilesOf, denyPagesVar } from "./nginx-server.ts";
 import type { InfraUrls, ServerExport, Upstream } from "./nginx-source.ts";
 import { validateWafCompile } from "./waf-validate.ts";
 
@@ -51,6 +51,7 @@ export interface HttpCompileSource {
   logFormats?: LogFormat[];
   upstreams?: Upstream[];
   servers?: ServerExport[];
+  contentObjects?: { name: string; file: string }[];
   store?: StoreRefs;
   infra?: InfraUrls;
   nested?: NestedBlocks;
@@ -297,6 +298,7 @@ export function compileHttp(source: HttpCompileSource): NginxCompileResult {
     knownVarNames(source.wafHttp ?? {}),
   );
   emitDenyResponses(lines, source.denyResponses ?? []);
+  emitDenyPageMaps(lines, source);
   emitWafRoute(lines, source.waf ?? {}, inspectors, 1, graph);
   emitDatasets(lines, source.datasets ?? []);
   emitBodyStores(lines, source.bodyStores ?? [], source.infra ?? {});
@@ -328,6 +330,7 @@ export function compileHttp(source: HttpCompileSource): NginxCompileResult {
       locations: srv.locations,
       inspectors,
       upstreams,
+      denyResponses: source.denyResponses,
       indent: 1,
       store,
       graph,
@@ -698,6 +701,15 @@ function denyOption(name: string, value: string): string {
   return `"${pair.replace(/(["\\])/g, "\\$1")}"`;
 }
 
+// The shipped page of a status for a record without a page of its own, and for the errors nginx
+// makes itself on the codes the deny pages of a server intercept; blocked answers the rest.
+const DENY_FALLBACK_PAGES: readonly [number, string][] = [
+  [400, "malformed"],
+  [401, "auth_required"],
+  [429, "too_many"],
+  [503, "error"],
+];
+
 function emitDenyResponses(lines: string[], responses: DenyResponse[]): void {
   if (responses.length === 0) {
     return;
@@ -708,6 +720,73 @@ function emitDenyResponses(lines: string[], responses: DenyResponse[]): void {
   ind(lines, '"~*application/json" ".json";', 2);
   ind(lines, "}");
 
+  ind(lines, "map $status $waf_deny_fallback {");
+  ind(lines, "default blocked;", 2);
+  for (const [status, page] of DENY_FALLBACK_PAGES) {
+    ind(lines, `${status} ${page};`, 2);
+  }
+  ind(lines, "}");
+  emitDenyResponseLines(lines, responses);
+}
+
+// Own deny pages of the servers: one map per server, catalog record -> file of the space without
+// its extension (the location tries .html and .json). The record must be an http one of the catalog
+// and the file an html or json page: a name nginx would choke on in a map fails here, not nginx -t.
+function emitDenyPageMaps(lines: string[], source: HttpCompileSource): void {
+  if ((source.denyResponses ?? []).length === 0) {
+    return;
+  }
+  const records = new Set(
+    (source.denyResponses ?? []).filter((dr) => dr.type === "http").map((dr) => dr.name),
+  );
+  const files = new Map((source.contentObjects ?? []).map((obj) => [obj.name, obj.file]));
+
+  for (const srv of source.servers ?? []) {
+    if (!srv.server.enabled || srv.server.raw) continue;
+    const own = denyPageFilesOf(srv.server);
+    const names = Object.keys(own).sort();
+    if (names.length === 0) continue;
+
+    for (const name of names) {
+      const file = own[name]!;
+      const where = `server "${srv.server.name}", deny page for "${name}"`;
+      if (!records.has(name)) {
+        throw new WafCompileError(
+          "deny_page_record_unknown",
+          `${where}: "${name}" is not an http record of the deny response catalog`,
+        );
+      }
+      const found = files.get(file);
+      if (found === undefined) {
+        throw new WafCompileError(
+          "deny_page_file_unknown",
+          `${where}: file "${file}" is not in the files of the space`,
+        );
+      }
+      if (!/\.(html|json)$/.test(found)) {
+        throw new WafCompileError(
+          "deny_page_file_type",
+          `${where}: "${found}" is neither html nor json, and only those are served as pages`,
+        );
+      }
+      if (/[\s"'\\;{}$#]/.test(file)) {
+        throw new WafCompileError(
+          "deny_page_file_name",
+          `${where}: file name "${file}" has characters nginx cannot take in a map`,
+        );
+      }
+    }
+
+    ind(lines, `map $waf_deny_name ${denyPagesVar(srv.server.id)} {`);
+    ind(lines, 'default "";', 2);
+    for (const name of names) {
+      ind(lines, `${name} ${own[name]};`, 2);
+    }
+    ind(lines, "}");
+  }
+}
+
+function emitDenyResponseLines(lines: string[], responses: DenyResponse[]): void {
   for (const dr of responses) {
     const parts: string[] = [];
     if (dr.type !== "http") parts.push(`type=${dr.type}`);

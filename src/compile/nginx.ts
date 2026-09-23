@@ -30,6 +30,7 @@ export function httpSourceOf(
     inspectors: source.inspectors,
     datasets: source.datasets,
     denyResponses: source.denyResponses,
+    contentObjects: source.contentObjects,
     bodyStores: source.bodyStores,
     logFormats: source.logFormats,
     upstreams: source.upstreams,

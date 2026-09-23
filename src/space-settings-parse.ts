@@ -15,6 +15,7 @@ import {
   type ProxyHeaderPreset,
   type WafHttpSettings,
 } from "./model/settings.ts";
+import { CATALOG_NAME_RE } from "./catalogs.ts";
 import { NGINX_SHM_MIN_SIZE, parseNginxSize } from "./model/shm-fit.ts";
 import type {
   BodyLimitPolicy,
@@ -1252,8 +1253,34 @@ export function parseNginxServer(
     put(row, "accessLog", parseAccessLog(value.accessLog)) ??
     put(row, "errorLog", parseErrorLog(value.errorLog)) ??
     put(row, "addHeaders", parseAddHeaders(value.addHeaders)) ??
-    put(row, "errorPages", parseErrorPages(value.errorPages));
+    put(row, "errorPages", parseErrorPages(value.errorPages)) ??
+    put(row, "denyPages", asBool(value.denyPages, "deny_pages")) ??
+    put(row, "denyPageFiles", parseDenyPageFiles(value.denyPageFiles));
   return err ?? ok(row);
+}
+
+// Deny page files of a server: catalog record -> content dataset. An empty choice is the standard
+// page, so it is not kept; an empty map is no map at all.
+function parseDenyPageFiles(
+  value: unknown,
+): NginxServerSettings["denyPageFiles"] | undefined | ParseFail {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  if (!isRecord(value)) {
+    return fail("invalid_deny_page_files");
+  }
+  const files: Record<string, string> = {};
+  for (const [name, file] of Object.entries(value)) {
+    if (!CATALOG_NAME_RE.test(name) || typeof file !== "string") {
+      return fail("invalid_deny_page_files");
+    }
+    const chosen = file.trim();
+    if (chosen !== "") {
+      files[name] = chosen;
+    }
+  }
+  return Object.keys(files).length === 0 ? undefined : files;
 }
 
 export function parseNginxLocation(

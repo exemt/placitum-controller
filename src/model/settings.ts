@@ -140,6 +140,8 @@ export interface NginxServerSettings {
   errorLog?: ErrorLog;
   addHeaders?: { name: string; value: string; always?: boolean }[];
   errorPages?: { codes: number[]; status?: number; target: string }[];
+  denyPages?: boolean;
+  denyPageFiles?: Record<string, string>;
 }
 
 export interface NginxLocationSettings {
