@@ -346,7 +346,7 @@ export function buildPlan(draft: SetupDraft, cat: SetupCatalog): SetupPlan {
       kind: "server",
       reuse: false,
       label: serverOff ? "setup.task.serverOff" : "setup.task.server",
-      vars: { name: serverName, names: names.join(" ") },
+      vars: { name: serverName, names: names.join(" "), pool: existingPool?.name ?? poolName },
     },
     ...(certificate === null
       ? []
@@ -587,7 +587,13 @@ export async function runPlan(
         if (progress.serverId !== undefined) {
           return;
         }
-        progress.serverId = (await createServer(scope, plan.server)).uuid;
+        if (progress.poolId === undefined) {
+          throw new Error("pool_missing");
+        }
+        // The pool becomes the server default: the root inherits it and follows when it changes.
+        progress.serverId = (
+          await createServer(scope, { ...plan.server, upstream_id: progress.poolId })
+        ).uuid;
       },
     },
     ...(plan.certificate === null
@@ -632,14 +638,10 @@ export async function runPlan(
         if (progress.root === true) {
           return;
         }
-        if (progress.serverId === undefined || progress.poolId === undefined) {
+        if (progress.serverId === undefined) {
           throw new Error("server_missing");
         }
-        await rootTo(scope, progress.serverId, {
-          handler: "proxy",
-          protocol: "http",
-          upstream_id: progress.poolId,
-        });
+        await rootTo(scope, progress.serverId, { handler: "proxy", protocol: "http" });
         progress.root = true;
       },
     },

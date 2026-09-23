@@ -1796,6 +1796,7 @@ export type RouteServer = {
   name: string;
   server_names: string[];
   enabled: boolean;
+  upstream_id: string | null;
   nginx: Record<string, unknown>;
   waf: Record<string, unknown>;
   raw: boolean;
@@ -1832,6 +1833,7 @@ export type ServerInput = {
   name: string;
   server_names: string[];
   enabled: boolean;
+  upstream_id?: string | null;
   nginx: Record<string, unknown>;
   waf: Record<string, unknown>;
   raw: boolean;
@@ -2521,6 +2523,7 @@ export type PreviewDraft = {
     waf?: Record<string, unknown>;
     server_names?: string[];
     enabled?: boolean;
+    upstream_id?: string | null;
     raw?: boolean;
     raw_nginx?: string;
     listens?: { port_id: string; default_server?: boolean }[];

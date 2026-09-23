@@ -3935,11 +3935,11 @@ export const en: DeepString<typeof ru> = {
     task: {
       port: "Address {listen} — port «{name}»",
       portRedirect: "Address {listen} for the redirect — port «{name}»",
-      server: "Virtual server «{name}»: {names}",
+      server: "Virtual server «{name}»: {names}, default pool «{pool}»",
       serverRedirect: "Virtual server «{name}» for the redirect",
       pool: "Pool «{name}»: {peers}",
       bind: "Port «{port}» — onto server «{server}»",
-      root: "Root «/» of server «{server}» — into pool «{pool}»",
+      root: "Root «/» of server «{server}» — proxy into the server pool",
       rootRedirect: "Root «/» of server «{server}» — 301 to https://",
     },
     running: "Creating…",
@@ -3984,7 +3984,7 @@ export const en: DeepString<typeof ru> = {
     sectionSocketHint: "Tail of the listen line. Shared by every server_name on this address.",
   },
   upstreams: {
-    boundDelete: "The pool is used by routes: detach it from them first.",
+    boundDelete: "The pool is used by routes or servers: detach it from them first.",
     title: "Protected servers",
     blurb:
       "Protected-server pools (`upstream {}`) of this space. They do not belong to a server: a path points at a pool, and one pool can serve several virtual hosts.",
@@ -4018,7 +4018,7 @@ export const en: DeepString<typeof ru> = {
     deletePeerAria: "delete pool server",
     deleteTitle: "Delete server pool",
     deleteConfirm: "Delete “{name}”? Unbind it from paths first.",
-    boundNote: "{count} server paths point at this pool.",
+    boundNote: "{count} paths or servers point at this pool.",
     sectionWire: "Scheme and name",
     sectionWireHint:
       "How a path talks to the pool servers: over http or https, and under which name. The port alone decides nothing — 443 without TLS is still plain HTTP.",
@@ -4163,6 +4163,10 @@ export const en: DeepString<typeof ru> = {
       "server {} blocks of this space. Hostname is server_name. Paths live inside a server. Ports are a catalog you bind here.",
     names: "hostname",
     namesHint: "server_name hosts. Enter adds a name. The first one is the label.",
+    upstream: "Default pool",
+    upstreamHint:
+      "Paths with the proxy handler and no pool of their own go here. Empty: each path picks its own pool.",
+    upstreamNone: "none",
     listens: "listen",
     listensHint: "Catalog ports this server stands on",
     listenColHint:
@@ -4250,8 +4254,9 @@ export const en: DeepString<typeof ru> = {
       "The location {} block is not printed: the request goes to the next matching path or to the server root. Edits below are saved, but apply only once it is on again.",
     upstreamId: "Server pool",
     upstreamHint:
-      "A pool in this space. Empty skips the named proxy_pass. Catalog is under Protected servers.",
+      "A pool in this space. Empty inherits the server default pool; without one, proxy_pass is not printed. Catalog is under Protected servers.",
     upstreamNone: "none",
+    upstreamInherit: "server default — {name}",
     needUpstream: "Create a pool under Protected servers first.",
     upstreamUri: "URI suffix",
     upstreamUriHint: "proxy_pass tail, e.g. /. Empty forwards the URI as-is.",

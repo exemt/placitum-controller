@@ -549,7 +549,8 @@ CREATE TABLE public.servers (
     nginx jsonb DEFAULT '{}'::jsonb NOT NULL,
     waf jsonb DEFAULT '{}'::jsonb NOT NULL,
     raw boolean DEFAULT false NOT NULL,
-    raw_nginx text DEFAULT ''::text NOT NULL
+    raw_nginx text DEFAULT ''::text NOT NULL,
+    upstream_id uuid
 );
 
 CREATE TABLE public.store_objects (
@@ -918,6 +919,8 @@ CREATE INDEX server_ports_server ON public.server_ports USING btree (server_id);
 
 CREATE INDEX servers_space ON public.servers USING btree (http_space_id);
 
+CREATE INDEX servers_upstream ON public.servers USING btree (upstream_id);
+
 CREATE INDEX store_objects_type ON public.store_objects USING btree (type);
 
 CREATE INDEX upstream_peers_upstream ON public.upstream_peers USING btree (upstream_id);
@@ -1084,6 +1087,9 @@ ALTER TABLE ONLY public.server_ports
 
 ALTER TABLE ONLY public.servers
     ADD CONSTRAINT servers_http_space_id_fkey FOREIGN KEY (http_space_id) REFERENCES public.http_spaces(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.servers
+    ADD CONSTRAINT servers_upstream_id_fkey FOREIGN KEY (upstream_id) REFERENCES public.upstreams(id) ON DELETE RESTRICT;
 
 ALTER TABLE ONLY public.upstream_peers
     ADD CONSTRAINT upstream_peers_upstream_id_fkey FOREIGN KEY (upstream_id) REFERENCES public.upstreams(id) ON DELETE CASCADE;

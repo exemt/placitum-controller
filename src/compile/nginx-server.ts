@@ -95,6 +95,7 @@ export function compileServer(source: ServerCompileSource): NginxCompileResult {
         location: loc,
         inspectors,
         upstreams,
+        serverUpstreamId: s.upstreamId,
         indent: inner,
         store,
         graph: source.graph,

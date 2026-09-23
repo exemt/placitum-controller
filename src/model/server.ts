@@ -10,6 +10,8 @@ export interface Server {
   name: string;
   serverNames: string[];
   enabled: boolean;
+  /** Pool the proxy paths of the server go to when they name none of their own. */
+  upstreamId?: Uuid;
   nginx: NginxServerSettings;
   waf: WafRouteSettings;
   raw: boolean;

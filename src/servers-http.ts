@@ -38,6 +38,7 @@ export function jsonServer(
     name: row.name,
     server_names: row.serverNames,
     enabled: row.enabled,
+    upstream_id: row.upstreamId ?? null,
     nginx: row.nginx,
     waf: row.waf,
     raw: row.raw,
@@ -96,6 +97,13 @@ export function serversRouter(
       const parsed = parseServerCreate(req.body, spaceId);
       if (!parsed.ok) {
         res.status(400).json({ error: parsed.error });
+        return;
+      }
+      if (
+        parsed.value.upstreamId !== undefined &&
+        upstreamInScope(getState, parsed.value.upstreamId, spaceId) === undefined
+      ) {
+        res.status(400).json({ error: "unknown_upstream" });
         return;
       }
 
@@ -271,6 +279,13 @@ export function serversRouter(
       const parsed = parseServerPatch(req.body);
       if (!parsed.ok) {
         res.status(400).json({ error: parsed.error });
+        return;
+      }
+      if (
+        typeof parsed.value.upstreamId === "string" &&
+        upstreamInScope(getState, parsed.value.upstreamId, scope) === undefined
+      ) {
+        res.status(400).json({ error: "unknown_upstream" });
         return;
       }
 

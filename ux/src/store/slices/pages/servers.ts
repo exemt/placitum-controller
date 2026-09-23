@@ -10,6 +10,7 @@ import {
   fetchServerCertificates,
   fetchServerListens,
   fetchServers,
+  fetchUpstreams,
   unbindServerCertificate,
   unbindServerPort,
   updateServer,
@@ -21,11 +22,13 @@ import {
   type ServerCertificateBind,
   type ServerInput,
   type ServerListen,
+  type UpstreamPool,
 } from "../../../api.ts";
 
 interface ServersState {
   rows: RouteServer[];
   ports: ListenPort[];
+  upstreams: UpstreamPool[];
   listens: ServerListen[];
   certificates: Certificate[];
   certBinds: ServerCertificateBind[];
@@ -37,6 +40,7 @@ interface ServersState {
 const initialState: ServersState = {
   rows: [],
   ports: [],
+  upstreams: [],
   listens: [],
   certificates: [],
   certBinds: [],
@@ -52,16 +56,18 @@ export const loadServers = createAsyncThunk(
       return {
         rows: [] as RouteServer[],
         ports: [] as ListenPort[],
+        upstreams: [] as UpstreamPool[],
         certificates: [] as Certificate[],
       };
     }
     try {
-      const [rows, ports, certificates] = await Promise.all([
+      const [rows, ports, upstreams, certificates] = await Promise.all([
         fetchServers(scope),
         fetchPorts(scope),
+        fetchUpstreams(scope),
         fetchCertificates(scope),
       ]);
-      return { rows, ports, certificates };
+      return { rows, ports, upstreams, certificates };
     } catch (err: unknown) {
       return rejectWithValue(String(err));
     }
@@ -318,6 +324,7 @@ const serversPageSlice = createSlice({
     builder.addCase(loadServers.fulfilled, (state, action) => {
       state.rows = action.payload.rows;
       state.ports = action.payload.ports;
+      state.upstreams = action.payload.upstreams;
       state.certificates = action.payload.certificates;
       state.loading = false;
       state.error = null;
@@ -325,6 +332,7 @@ const serversPageSlice = createSlice({
     builder.addCase(loadServers.rejected, (state, action) => {
       state.rows = [];
       state.ports = [];
+      state.upstreams = [];
       state.certificates = [];
       state.loading = false;
       state.error =

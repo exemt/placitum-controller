@@ -387,6 +387,7 @@ export async function exportNginx(pool: Pool, httpSpaceId: string): Promise<Ngin
         name: sr.name,
         serverNames: sr.server_names ?? [],
         enabled: sr.enabled,
+        upstreamId: sr.upstream_id ?? undefined,
         nginx: sr.nginx ?? {},
         waf: sr.waf ?? {},
         raw: sr.raw,

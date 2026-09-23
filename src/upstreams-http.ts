@@ -7,6 +7,7 @@ import { asUuid } from "./model/id.ts";
 import type { UpstreamPeer, UpstreamTree } from "./model/upstream.ts";
 import { scopeOf } from "./scope.ts";
 import { selectLocationsInSpace } from "./state/slices/locations.ts";
+import { selectServersInSpace } from "./state/slices/servers.ts";
 import {
   selectUpstreamsInSpace,
   upstreamSelectors,
@@ -53,14 +54,19 @@ export function jsonUpstream(row: UpstreamTree, bindCount = 0) {
   };
 }
 
+/** Paths naming the pool plus servers holding it as their default. */
 export function bindCountOf(
   getState: () => RootState,
   upstreamId: string,
   scope: string,
 ): number {
-  return selectLocationsInSpace(getState(), scope).filter(
+  const paths = selectLocationsInSpace(getState(), scope).filter(
     (row) => row.upstreamId === upstreamId,
   ).length;
+  const servers = selectServersInSpace(getState(), scope).filter(
+    (row) => row.upstreamId === upstreamId,
+  ).length;
+  return paths + servers;
 }
 
 export function upstreamInScope(

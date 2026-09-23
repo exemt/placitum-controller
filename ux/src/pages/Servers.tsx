@@ -6,12 +6,14 @@ import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import Drawer from "@mui/material/Drawer";
+import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
@@ -326,6 +328,7 @@ function ServerForm({
   );
   const [names, setNames] = useState<string[]>(row?.server_names ?? []);
   const [enabled, setEnabled] = useState(row?.enabled ?? true);
+  const [upstreamId, setUpstreamId] = useState(row?.upstream_id ?? "");
   const [nginx, setNginx] = useState<Doc>(row?.nginx ?? {});
   const [waf, setWaf] = useState<Doc>(row?.waf ?? {});
   const [raw, setRaw] = useState(row?.raw ?? false);
@@ -335,6 +338,7 @@ function ServerForm({
   const parents = useInheritance(scope, { level: "server" });
   const catalog = useCatalogBundle(scope);
   const ports = useAppSelector((s) => s.pages.servers.ports);
+  const upstreams = useAppSelector((s) => s.pages.servers.upstreams);
   const listens = useAppSelector((s) => s.pages.servers.listens);
   const certBinds = useAppSelector((s) => s.pages.servers.certBinds);
   const binds = draftBinds ?? [];
@@ -410,6 +414,7 @@ function ServerForm({
     }
     setNames(row.server_names);
     setEnabled(row.enabled);
+    setUpstreamId(row.upstream_id ?? "");
     setNginx(row.nginx);
     setWaf(row.waf);
     setRaw(row.raw);
@@ -428,6 +433,7 @@ function ServerForm({
           name: names[0],
           server_names: names,
           enabled,
+          upstream_id: upstreamId === "" ? null : upstreamId,
           nginx,
           waf: sanitizeWaf(waf),
           raw,
@@ -483,6 +489,7 @@ function ServerForm({
                 uuid: id ?? "",
                 server_names: names,
                 enabled,
+                upstream_id: upstreamId === "" ? null : upstreamId,
                 nginx,
                 waf: sanitizeWaf(waf),
                 raw,
@@ -500,13 +507,32 @@ function ServerForm({
             node: { kind: "server", uuid: id ?? "" },
           }}
           outside={
-            <Chips
-              t={t}
-              label={t("servers.names")}
-              helper={t("servers.namesHint")}
-              value={names}
-              onChange={(v) => setNames(v ?? [])}
-            />
+            <>
+              <Chips
+                t={t}
+                label={t("servers.names")}
+                helper={t("servers.namesHint")}
+                value={names}
+                onChange={(v) => setNames(v ?? [])}
+              />
+              <TextField
+                select
+                label={t("servers.upstream")}
+                value={upstreamId}
+                helperText={t("servers.upstreamHint")}
+                onChange={(e) => setUpstreamId(e.target.value)}
+              >
+                <MenuItem value="">{t("servers.upstreamNone")}</MenuItem>
+                {upstreams.map((item) => (
+                  <MenuItem key={item.uuid} value={item.uuid}>
+                    {item.name}
+                  </MenuItem>
+                ))}
+                {upstreamId !== "" && !upstreams.some((item) => item.uuid === upstreamId) && (
+                  <MenuItem value={upstreamId}>{upstreamId}</MenuItem>
+                )}
+              </TextField>
+            </>
           }
           own={
             <>

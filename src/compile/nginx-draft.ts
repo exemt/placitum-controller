@@ -47,6 +47,7 @@ export interface DraftOverlay {
     waf?: Record<string, unknown>;
     server_names?: string[];
     enabled?: boolean;
+    upstream_id?: string | null;
     raw?: boolean;
     raw_nginx?: string;
     listens?: { port_id: string; default_server?: boolean }[];
@@ -151,6 +152,8 @@ function withServer(
     waf: parsed(d.waf, srv.server.waf, parseWaf),
     serverNames,
     enabled: pick(d.enabled, srv.server.enabled),
+    upstreamId:
+      d.upstream_id === undefined ? srv.server.upstreamId : (d.upstream_id ?? undefined),
     raw: pick(d.raw, srv.server.raw),
     rawNginx: pick(d.raw_nginx, srv.server.rawNginx),
   };

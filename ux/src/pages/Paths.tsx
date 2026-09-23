@@ -77,12 +77,38 @@ function denyRank(row: RouteLocation): number {
   return row.nginx?.role === "deny_page" ? 0 : 1;
 }
 
+/** Pool of a path: its own, or the server default when a proxy path names none. */
+function PoolCell({ row }: { row: RouteLocation }) {
+  const t = useT();
+  const upstreams = useAppSelector((s) => s.pages.paths.upstreams);
+  const servers = useAppSelector((s) => s.pages.paths.servers);
+  const serverPool =
+    row.upstream_id === null && row.handler === "proxy"
+      ? (servers.find((item) => item.uuid === row.server_id)?.upstream_id ?? null)
+      : null;
+  const id = row.upstream_id ?? serverPool;
+  if (id === null) {
+    return <>{t("common.none")}</>;
+  }
+  const name = upstreams.find((item) => item.uuid === id)?.name ?? id;
+  if (serverPool === null) {
+    return <>{name}</>;
+  }
+  return (
+    <Stack direction="row" spacing={0.5} sx={{ alignItems: "baseline", whiteSpace: "nowrap" }}>
+      <span>{name}</span>
+      <Typography variant="caption" color="text.secondary">
+        ({t("inherit.tag.server")})
+      </Typography>
+    </Stack>
+  );
+}
+
 export default function Paths() {
   const t = useT();
   const dispatch = useAppDispatch();
   const scope = useAppSelector((s) => s.session.scope);
   const servers = useAppSelector((s) => s.pages.paths.servers);
-  const upstreams = useAppSelector((s) => s.pages.paths.upstreams);
   const rows = useAppSelector((s) => s.pages.paths.rows);
   const serverId = useAppSelector((s) => s.pages.paths.serverId);
   const loading = useAppSelector((s) => s.pages.paths.loading);
@@ -425,9 +451,7 @@ export default function Paths() {
                 <Chip size="small" variant="outlined" label={row.handler} />
               </TableCell>
               <TableCell sx={{ fontFamily: "monospace" }}>
-                {upstreams.find((item) => item.uuid === row.upstream_id)?.name ??
-                  row.upstream_id ??
-                  t("common.none")}
+                <PoolCell row={row} />
               </TableCell>
               <TableCell>
                 <Chip
@@ -553,6 +577,11 @@ function LocationForm({
     id === null ? null : (s.pages.paths.rows.find((item) => item.uuid === id) ?? null),
   );
   const [serverId, setServerId] = useState(row?.server_id ?? filterId ?? servers[0]?.uuid ?? "");
+  const serverPool = servers.find((item) => item.uuid === serverId)?.upstream_id ?? null;
+  const serverPoolName =
+    serverPool === null
+      ? null
+      : (upstreams.find((item) => item.uuid === serverPool)?.name ?? serverPool);
   const [match, setMatch] = useState(row?.match ?? "prefix");
   const [path, setPath] = useState(row?.path ?? "/");
   const [enabled, setEnabled] = useState(row?.enabled ?? true);
@@ -785,8 +814,17 @@ function LocationForm({
                     value={upstreamId}
                     helperText={t("paths.upstreamHint")}
                     onChange={(e) => setUpstreamId(e.target.value)}
+                    slotProps={
+                      serverPoolName === null
+                        ? undefined
+                        : { inputLabel: { shrink: true }, select: { displayEmpty: true } }
+                    }
                   >
-                    <MenuItem value="">{t("paths.upstreamNone")}</MenuItem>
+                    <MenuItem value="">
+                      {serverPoolName === null
+                        ? t("paths.upstreamNone")
+                        : t("paths.upstreamInherit", { name: serverPoolName })}
+                    </MenuItem>
                     {upstreams.map((item) => (
                       <MenuItem key={item.uuid} value={item.uuid}>
                         {item.name}

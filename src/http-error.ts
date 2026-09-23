@@ -70,7 +70,10 @@ export function pgWriteReject(
     if (kind === "certificate" && constraint.includes("server_certificates")) {
       return { status: 409, error: "certificate_bound" };
     }
-    if (kind === "upstream" && constraint.includes("locations")) {
+    if (
+      kind === "upstream" &&
+      (constraint.includes("locations") || constraint.includes("servers"))
+    ) {
       return { status: 409, error: "upstream_bound" };
     }
     const error =
@@ -80,7 +83,7 @@ export function pgWriteReject(
           ? "unknown_file"
         : kind === "ipProfile" && constraint.includes("dataset")
           ? "unknown_list"
-          : kind === "location" && constraint.includes("upstream")
+          : (kind === "location" || kind === "server") && constraint.includes("upstream")
             ? "unknown_upstream"
             : kind === "location" && constraint.includes("server")
               ? "unknown_server"

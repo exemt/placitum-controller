@@ -30,6 +30,8 @@ export interface LocationCompileSource {
   location: Location;
   inspectors?: Inspector[];
   upstreams?: LocationUpstream[];
+  /** Default pool of the server: a proxy path without a pool of its own goes there. */
+  serverUpstreamId?: string;
   indent?: number;
   store?: StoreRefs;
   graph?: Record<string, InspectorDecl>;
@@ -53,9 +55,10 @@ export function compileLocation(source: LocationCompileSource): NginxCompileResu
     lines.push(`${pad}    waf_route_id ${loc.id};`);
   }
 
+  const poolId = loc.upstreamId ?? source.serverUpstreamId;
   const pool =
-    loc.handler === "proxy" && loc.upstreamId !== undefined
-      ? upstreams.find((u) => u.id === loc.upstreamId)
+    loc.handler === "proxy" && poolId !== undefined
+      ? upstreams.find((u) => u.id === poolId)
       : undefined;
 
   if (loc.raw) {
@@ -64,7 +67,7 @@ export function compileLocation(source: LocationCompileSource): NginxCompileResu
   } else {
     emitNginxLocation(lines, nginxFor(loc), loc.handler, indent + 1, pool);
     emitWafRoute(lines, wafFor(loc), inspectors, indent + 1, source.graph, "location");
-    emitLocationHandler(lines, loc, upstreams, indent + 1);
+    emitLocationHandler(lines, loc, poolId, pool, indent + 1);
   }
 
   lines.push(`${pad}}`);
@@ -216,15 +219,15 @@ function emitProxyHeaders(
 function emitLocationHandler(
   lines: string[],
   loc: Location,
-  upstreams: LocationUpstream[],
+  poolId: string | undefined,
+  pool: LocationUpstream | undefined,
   indent: number,
 ): void {
   const p = "    ".repeat(indent);
   switch (loc.handler) {
     case "proxy":
-      if (loc.upstreamId) {
-        const pool = upstreams.find((u) => u.id === loc.upstreamId);
-        const name = pool?.name ?? loc.upstreamId;
+      if (poolId) {
+        const name = pool?.name ?? poolId;
         const uri = loc.upstreamUri ?? "";
         const scheme = pool?.tls === true ? "https" : "http";
         lines.push(`${p}proxy_pass ${scheme}://${name}${uri};`);

@@ -54,6 +54,7 @@ export function previewBlock(source: NginxExport, node: PreviewNode | undefined)
       location: loc,
       inspectors: source.inspectors,
       upstreams: source.upstreams,
+      serverUpstreamId: srv.server.upstreamId,
       indent: 0,
       graph,
     }).text;

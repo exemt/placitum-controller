@@ -9,6 +9,7 @@ interface ServerRow {
   name: string;
   server_names: string[];
   enabled: boolean;
+  upstream_id: string | null;
   nginx: NginxServerSettings;
   waf: WafRouteSettings;
   raw: boolean;
@@ -16,7 +17,7 @@ interface ServerRow {
 }
 
 function ofServer(row: ServerRow): Server {
-  return {
+  const server: Server = {
     id: row.id,
     httpSpaceId: row.http_space_id,
     name: row.name,
@@ -27,15 +28,20 @@ function ofServer(row: ServerRow): Server {
     raw: row.raw,
     rawNginx: row.raw_nginx ?? "",
   };
+  if (row.upstream_id !== null && row.upstream_id !== undefined) {
+    server.upstreamId = row.upstream_id;
+  }
+  return server;
 }
 
-const COLS = `id, http_space_id, name, server_names, enabled, nginx, waf, raw, raw_nginx`;
+const COLS = `id, http_space_id, name, server_names, enabled, upstream_id, nginx, waf, raw, raw_nginx`;
 
 export interface ServerInsert {
   httpSpaceId: string;
   name: string;
   serverNames: string[];
   enabled: boolean;
+  upstreamId?: string;
   nginx: NginxServerSettings;
   waf: WafRouteSettings;
   raw: boolean;
@@ -46,6 +52,8 @@ export interface ServerPatch {
   name?: string;
   serverNames?: string[];
   enabled?: boolean;
+  /** null clears the pool; an absent field leaves it alone. */
+  upstreamId?: string | null;
   nginx?: NginxServerSettings;
   waf?: WafRouteSettings;
   raw?: boolean;
@@ -90,14 +98,15 @@ export class ServerRepo {
       await client.query("begin");
       const { rows } = await client.query<ServerRow>(
         `insert into servers
-           (http_space_id, name, server_names, enabled, nginx, waf, raw, raw_nginx)
-         values ($1, $2, $3, $4, $5, $6, $7, $8)
+           (http_space_id, name, server_names, enabled, upstream_id, nginx, waf, raw, raw_nginx)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          returning ${COLS}`,
         [
           input.httpSpaceId,
           input.name,
           input.serverNames,
           input.enabled,
+          input.upstreamId ?? null,
           input.nginx,
           input.waf,
           input.raw,
@@ -128,6 +137,7 @@ export class ServerRepo {
          name         = coalesce($2, name),
          server_names = coalesce($3, server_names),
          enabled      = coalesce($4, enabled),
+         upstream_id  = case when $9 then $10::uuid else upstream_id end,
          nginx        = coalesce($5, nginx),
          waf          = coalesce($6, waf),
          raw          = coalesce($7, raw),
@@ -143,6 +153,8 @@ export class ServerRepo {
         patch.waf ?? null,
         patch.raw ?? null,
         patch.rawNginx ?? null,
+        patch.upstreamId !== undefined,
+        patch.upstreamId ?? null,
       ],
     );
 

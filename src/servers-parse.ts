@@ -138,6 +138,10 @@ export function parseServerCreate(
   if (!raw.ok) {
     return raw;
   }
+  const upstreamId = parseOptUuid(body.upstream_id);
+  if (upstreamId === "bad") {
+    return fail("invalid_upstream_id");
+  }
   return {
     ok: true,
     value: {
@@ -145,6 +149,7 @@ export function parseServerCreate(
       name: name ?? serverNames[0],
       serverNames,
       enabled: enabled ?? true,
+      ...(upstreamId === undefined || upstreamId === null ? {} : { upstreamId }),
       nginx: nginx.value,
       waf: waf.value,
       raw: raw.value?.raw ?? false,
@@ -178,6 +183,13 @@ export function parseServerPatch(body: unknown): ParseResult<ServerPatch> {
   }
   if (enabled !== undefined) {
     patch.enabled = enabled;
+  }
+  const upstreamId = parseOptUuid(body.upstream_id);
+  if (upstreamId === "bad") {
+    return fail("invalid_upstream_id");
+  }
+  if (upstreamId !== undefined) {
+    patch.upstreamId = upstreamId;
   }
   if (body.nginx !== undefined) {
     const nginx = parseNginxServer(body.nginx);
