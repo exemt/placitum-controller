@@ -1906,6 +1906,7 @@ export function Chips({
       open={locked || table ? false : undefined}
       forcePopupIcon={false}
       freeSolo={allowFree}
+      autoSelect={allowFree}
       options={options === undefined ? [] : [...options]}
       value={display}
       filterSelectedOptions
