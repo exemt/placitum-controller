@@ -15,5 +15,5 @@ installation is done again.
 To change the schema, edit `01-schema.sql`; to change the shipped data, edit `02-seed.sql`. Data
 rows find the space by its name, `default`, not by uuid.
 
-Servers, routes, upstreams, certificates, address lists and inspector declarations are not
-shipped. A fresh installation listens on nothing; the operator creates the configuration.
+Servers, routes, upstreams, certificates, address lists and inspector declarations are not part of
+the seed: the operator creates them, and the installer creates the panel's own server.

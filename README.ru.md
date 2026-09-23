@@ -159,5 +159,5 @@ schema/         схема базы и начальные данные
 
 [Apache License 2.0](LICENSE), уведомление об авторстве — в [NOTICE](NOTICE). Репозиторий входит в
 открытое ядро Placitum. Инспекторы лицензируются отдельно: в репозитории каждого инспектора лежит
-Placitum License Agreement. Выпуски, сделанные до этой смены, выходили на условиях Placitum License
+Placitum License Agreement. Версии до 1.0.1 включительно выходили на условиях Placitum License
 Agreement 1.1.
